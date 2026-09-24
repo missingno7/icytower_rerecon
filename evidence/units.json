@@ -1,0 +1,142 @@
+{
+  "game-map": {
+    "source": "src/map.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\map.c",
+    "default": "-O2"
+  },
+  "game-scroller": {
+    "source": "src/scroller.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\scroller.c",
+    "default": "-O2"
+  },
+  "game-particle": {
+    "source": "src/particle.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\particle.c",
+    "default": "-O2"
+  },
+  "game-player": {
+    "source": "src/player.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\player.c",
+    "default": "-O2"
+  },
+  "game-stars": {
+    "source": "src/stars.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\stars.c",
+    "default": "-O2"
+  },
+  "game-main": {
+    "source": "src/main.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\main.c",
+    "default": "-O2"
+  },
+  "game-fld-adspot": {
+    "source": "src/fld_adspot.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\fld_adspot.c",
+    "default": "-O2",
+    "flags": [
+      "-fno-toplevel-reorder"
+    ]
+  },
+  "game-hisc": {
+    "source": "src/hisc.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\hisc.c",
+    "default": "-O2"
+  },
+  "game-menu": {
+    "source": "src/menu.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\menu.c",
+    "default": "-O2"
+  },
+  "game-options": {
+    "source": "src/options.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\options.c",
+    "default": "-O2"
+  },
+  "game-game-data": {
+    "source": "src/game_data.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\game_data.c",
+    "default": "-O2"
+  },
+  "game-replay": {
+    "source": "src/replay.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\replay.c",
+    "default": "-O2"
+  },
+  "game-profile": {
+    "source": "src/profile.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\profile.c",
+    "default": "-O2"
+  },
+  "game-directories": {
+    "source": "src/directories.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\directories.c",
+    "default": "-O2"
+  },
+  "game-custom": {
+    "source": "src/custom.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\custom.c",
+    "default": "-O2"
+  },
+  "game-csv": {
+    "source": "src/csv.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\csv.c",
+    "default": "-O2"
+  },
+  "game-httpget": {
+    "source": "src/httpget.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\httpget.c",
+    "default": "-O2"
+  },
+  "game-loadpng": {
+    "source": "src/loadpng.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\loadpng.c",
+    "default": "-O2",
+    "includes": [
+      "third_party/libpng-1.2.34",
+      "third_party/zlib-1.2.3"
+    ]
+  },
+  "game-savepng": {
+    "source": "src/savepng.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\savepng.c",
+    "default": "-O2",
+    "includes": [
+      "third_party/libpng-1.2.34",
+      "third_party/zlib-1.2.3"
+    ]
+  },
+  "game-regpng": {
+    "source": "src/regpng.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\regpng.c",
+    "default": "-O2",
+    "includes": [
+      "third_party/libpng-1.2.34",
+      "third_party/zlib-1.2.3"
+    ]
+  },
+  "game-strptime": {
+    "source": "src/strptime.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\strptime.c",
+    "default": "-O2"
+  },
+  "game-timecompat": {
+    "source": "src/timecompat.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\timecompat.c",
+    "default": "-O2"
+  },
+  "game-beta": {
+    "source": "src/beta.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\beta.c",
+    "default": "-O2"
+  },
+  "game-control": {
+    "source": "src/control.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\control.c",
+    "default": "-O2"
+  },
+  "game-timer": {
+    "source": "src/timer.c",
+    "historical_cu": "F:\\projects\\icytower\\trunk\\source\\timer.c",
+    "default": "-O2"
+  }
+}
