@@ -1,0 +1,10 @@
+{
+  "source": "src/profile.c",
+  "base_sha256": "7d2615503509ad1aba69233b7864e62e2e66252eac691195da6c24f7dc5b36d2",
+  "edits": [
+    {
+      "old": "    targetY = 15;\n    done = 0;\n    while (!closeButtonClicked && !done)",
+      "new": "    targetY = 15;\n    done = 0;\n    while (!done && !closeButtonClicked)"
+    }
+  ]
+}

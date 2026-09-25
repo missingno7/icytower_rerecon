@@ -403,19 +403,19 @@ char *profile_data_page_general(Tprofile_general *p, char *filler)
     days = p->seconds_spent_playing / 86400;
     strcpy(timeSpent, "none");
     if (seconds > 0)
-        sprintf(timeSpent, "%d second%s", seconds, seconds == 1 ? "" : "s");
+        sprintf(timeSpent, "%d second%s", seconds, seconds > 1 ? "s" : "");
     if (minutes > 0)
         sprintf(timeSpent, "%d minute%s, %d second%s", minutes,
-                minutes == 1 ? "" : "s", seconds,
+                minutes > 1 ? "s" : "", seconds,
                 seconds > 1 ? "s" : "");
     if (hours > 0)
         sprintf(timeSpent, "%d hour%s, %d minute%s, %d second%s", hours,
-                hours == 1 ? "" : "s", minutes,
+                hours > 1 ? "s" : "", minutes,
                 minutes > 1 ? "s" : "", seconds,
                 seconds > 1 ? "s" : "");
     if (days > 0)
         sprintf(timeSpent, "%d day%s, %d hour%s, %d minute%s, %d second%s",
-                days, days == 1 ? "" : "s", hours,
+                days, days > 1 ? "s" : "", hours,
                 hours > 1 ? "s" : "", minutes,
                 minutes > 1 ? "s" : "", seconds,
                 seconds > 1 ? "s" : "");
@@ -580,26 +580,21 @@ int draw_buffer(BITMAP *bmp, char *buffer, int x, int y)
     int pos;
     char tempBuf[256];
     int tempPos;
-    char c;
 
-    pos = y;
     tempPos = 0;
-    c = *buffer;
-    while (c) {
-        if (c == '\n') {
+    for (pos = 0; buffer[pos]; pos++) {
+        if (buffer[pos] == '\n') {
             tempBuf[tempPos] = 0;
-            textprintf_ex(bmp, data[53].dat, x, pos, makecol(30, 20, 10),
+            textprintf_ex(bmp, data[53].dat, x, y, makecol(30, 20, 10),
                           -1, "%s", tempBuf);
-            pos += 10;
+            y += 10;
             tempPos = 0;
         } else {
-            tempBuf[tempPos] = c;
+            tempBuf[tempPos] = buffer[pos];
             tempPos++;
         }
-        c = buffer[1];
-        buffer++;
     }
-    return pos;
+    return y;
 }
 
 int view_profile(Tprofile *profile)
@@ -609,15 +604,14 @@ int view_profile(Tprofile *profile)
     char *data_general;
     int pageY;
     int targetY;
-    void *bg;
-    void *bmp;
+    BITMAP *bg;
+    BITMAP *bmp;
     int y;
     int y1;
     int y2;
     char nextRankMessage[1024];
     char totalNextRankMessage[1024];
     int done;
-    int rank;
 
     clear_keybuf();
     while (is_any(get_controls()) || key[KEY_SPACE])
@@ -626,10 +620,9 @@ int view_profile(Tprofile *profile)
 
     bg = create_bitmap(640, 480);
     draw_sprite(bg, screen, 0, 0);
-    bmp = create_bitmap(((Tprofile_bitmap *)data[86].dat)->w + 50,
-                        ((Tprofile_bitmap *)data[86].dat)->h + 50);
+    bmp = create_bitmap(((BITMAP *)data[86].dat)->w + 50,
+                        ((BITMAP *)data[86].dat)->h + 50);
     clear_to_color(bmp, makecol(255, 0, 255));
-    draw_sprite(bmp, data[86].dat, 0, 50);
 
     data_general = profile_data_page_general((Tprofile_general *)profile,
                                              "");
@@ -638,6 +631,7 @@ int view_profile(Tprofile *profile)
             data_general);
     data_basic = profile_data_page_basic((Tprofile_basic *)profile);
     data_advanced = profile_data_page_advanced((Tprofile_advanced *)profile);
+    draw_sprite(bmp, data[86].dat, 50, 0);
 
     textprintf_ex(bmp, data[51].dat, 75, 10, -1, -1, "profile: %s",
                   (char *)profile + 6);
@@ -650,15 +644,14 @@ int view_profile(Tprofile *profile)
                 "-------------------------------------------------------------\n\n",
                 85, y2);
 
-    rank = get_rank_id((Tprofile_rank *)profile);
-    draw_sprite(bmp, data[74 + rank].dat, 35,
-                ((Tprofile_bitmap *)bmp)->h - 140);
+    draw_sprite(bmp, data[74 + get_rank_id((Tprofile_rank *)profile)].dat, 35,
+                ((BITMAP *)bmp)->h - 140);
     set_next_rank_message(nextRankMessage, (Tprofile_rank *)profile);
     if (strlen(nextRankMessage) > 1) {
         sprintf(totalNextRankMessage, "To reach next rank:%s\n",
                 nextRankMessage);
         draw_buffer(bmp, totalNextRankMessage, 150,
-                    ((Tprofile_bitmap *)bmp)->h - 120);
+                    ((BITMAP *)bmp)->h - 120);
     }
 
     pageY = 500;
@@ -674,14 +667,13 @@ int view_profile(Tprofile *profile)
                  SCREEN_H, makecol(0, 0, 0));
         solid_mode();
         draw_sprite(swap_screen, bmp, 70, pageY);
+        pageY += (targetY - pageY) * 0.2;
         blit_to_screen(swap_screen);
         poll_control(get_controls(), 0);
         done = is_fire(get_controls());
-        if (keypressed())
-            done = 1;
-        while (!cycle_count)
+        done = keypressed() || done;
+        while (cycle_count <= 0)
             rest(2);
-        pageY += (int)((targetY - pageY) * 0.2f);
     }
 
     targetY = 500;
@@ -695,9 +687,9 @@ int view_profile(Tprofile *profile)
                  SCREEN_H, makecol(0, 0, 0));
         solid_mode();
         draw_sprite(swap_screen, bmp, 70, pageY);
-        pageY += (int)((targetY - pageY) * 0.2f);
+        pageY += (targetY - pageY) * 0.2;
         blit_to_screen(swap_screen);
-        while (!cycle_count)
+        while (cycle_count <= 0)
             rest(2);
     }
 
@@ -707,6 +699,7 @@ int view_profile(Tprofile *profile)
     destroy_bitmap(bmp);
     destroy_bitmap(bg);
     clear_keybuf();
+    return 0;
 }
 
 void draw_profile_selector(BITMAP *bmp, Tprofile *current_profile, Tavailable_profile *profiles,
@@ -753,7 +746,7 @@ void draw_profile_selector(BITMAP *bmp, Tprofile *current_profile, Tavailable_pr
             rectfill(bmp,x+7,row_y-47,x+263,row_y+fh,fg);
             solid_mode();
         }
-        textprintf_ex(bmp,data[51].dat,x+8,row_y,fg,-1,"%c %c %s %s.",
+        textprintf_ex(bmp,data[51].dat,x+8,row_y,fg,-1,"%c %c %s %s",
                       profile_index==selection ? '>' : ' ',
                       profile_index<1 ? '~' : '{',profile_name,current);
     }
@@ -785,7 +778,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
     selectedProfile = 0;
     profileIndex = 0;
     offset = 0;
-    page_size = 17;
+    page_size = 16;
     ctrl_wait = 1000;
     pageY = 500;
     targetY = 50;
@@ -798,15 +791,17 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
         if (is_any(ctrl) && !ctrl_wait) {
             if (is_down(ctrl))
                 simulate_keypress(0x5500);
-            else if (is_up(ctrl))
+            if (is_up(ctrl))
                 simulate_keypress(0x5400);
-            else if (is_fire(ctrl))
+            if (is_fire(ctrl))
                 simulate_keypress(0x4300);
             ctrl_wait = 20;
         }
         if (is_any(ctrl)) {
             if (ctrl_wait > 0)
                 ctrl_wait--;
+        } else {
+            ctrl_wait = 0;
         }
 
         if (keypressed()) {
@@ -838,27 +833,23 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                 }
                 break;
             }
-            case 83: {
-                char *name = profiles[profileIndex].handle;
-                char buff[256];
-                if (stricmp(name, "guest") &&
-                    stricmp(name, current_profile->handle)) {
-                    sprintf(buff, "Really delete '%s'?", name);
+            case 77: {
+                if (stricmp(profiles[profileIndex].handle, "guest") &&
+                    stricmp(profiles[profileIndex].handle, current_profile->handle)) {
+                    char buff[256];
+                    sprintf(buff, "Really delete '%s'?", profiles[profileIndex].handle);
                     if (my_alert(buff, "WARNING: It will be gone forever.",
                                  1, 0)) {
-                        delete_profile(name);
+                        delete_profile(profiles[profileIndex].handle);
                         numProfiles = rebuild_profile_list(&profiles);
-                        if (profileIndex >= numProfiles)
-                            profileIndex = numProfiles - 1;
                     }
                 }
                 break;
             }
-            case 67: {
-                char *name = profiles[profileIndex].handle;
-                char new_name[32];
+            case 67:
+            case 75: {
                 play_menu_select();
-                if (!stricmp(name, "CREATE NEW PROFILE")) {
+                if (!stricmp("CREATE NEW PROFILE", profiles[profileIndex].handle)) {
                     set_trans_blender(0, 0, 0, 158);
                     drawing_mode(5, 0, 0, 0);
                     rectfill(swap_screen, 0, 0,
@@ -866,6 +857,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                              SCREEN_H,
                              makecol(0, 0, 0));
                     solid_mode();
+                    char new_name[32];
                     new_name[0] = 0;
                     draw_sprite(swap_screen, data[88].dat, 100, 140);
                     textout_ex(swap_screen, data[51].dat, "Enter profile name:",
@@ -889,7 +881,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                         }
                     }
                 } else {
-                    selectedProfile = load_profile(name);
+                    selectedProfile = load_profile(profiles[profileIndex].handle);
                     if (selectedProfile)
                         done = -1;
                     else
@@ -907,6 +899,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
             }
         }
 
+        pageY += (targetY - pageY) * 0.2;
         blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);
         set_trans_blender(0, 0, 0, (500 - pageY) / 3);
         drawing_mode(5, 0, 0, 0);
@@ -917,9 +910,8 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                               profiles, numProfiles, profileIndex, offset,
                               page_size, 16, pageY);
         blit_to_screen(swap_screen);
-        while (!cycle_count)
+        while (cycle_count <= 0)
             rest(2);
-        pageY += (int)((targetY - pageY) * 0.2f);
     }
 
     if (selectedProfile) {
@@ -931,7 +923,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
     targetY = 510;
     while (pageY <= 499) {
         cycle_count = 0;
-        pageY += (int)((targetY - pageY) * 0.2f);
+        pageY += (targetY - pageY) * 0.2;
         blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);
         set_trans_blender(0, 0, 0, (500 - pageY) / 3);
         drawing_mode(5, 0, 0, 0);
@@ -942,7 +934,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                               profiles, numProfiles, profileIndex, offset,
                               page_size, 16, pageY);
         blit_to_screen(swap_screen);
-        while (!cycle_count)
+        while (cycle_count <= 0)
             rest(2);
     }
     destroy_bitmap(bgbmp);

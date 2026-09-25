@@ -1,0 +1,90 @@
+{
+  "source": "src/profile.c",
+  "base_sha256": "eaa348d1ade5c6803f02648d1962a6820c0be42e7e08ad8f0d5066dd4dde1274",
+  "edits": [
+    {
+      "old": "    int pageY;\n    int targetY;\n    void *bg;\n    void *bmp;\n    int y;\n    int y1;\n",
+      "new": "    int pageY;\n    int targetY;\n    BITMAP *bg;\n    BITMAP *bmp;\n    int y;\n    int y1;\n"
+    },
+    {
+      "old": "    char totalNextRankMessage[1024];\n    int done;\n    int rank;\n\n    clear_keybuf();\n",
+      "new": "    char totalNextRankMessage[1024];\n    int done;\n\n    clear_keybuf();\n"
+    },
+    {
+      "old": "    bg = create_bitmap(640, 480);\n    draw_sprite(bg, screen, 0, 0);\n    bmp = create_bitmap(((Tprofile_bitmap *)data[86].dat)->w + 50,\n                        ((Tprofile_bitmap *)data[86].dat)->h + 50);\n    clear_to_color(bmp, makecol(255, 0, 255));\n    draw_sprite(bmp, data[86].dat, 0, 50);\n\n    data_general = profile_data_page_general((Tprofile_general *)profile,\n",
+      "new": "    bg = create_bitmap(640, 480);\n    draw_sprite(bg, screen, 0, 0);\n    bmp = create_bitmap(((BITMAP *)data[86].dat)->w + 50,\n                        ((BITMAP *)data[86].dat)->h + 50);\n    clear_to_color(bmp, makecol(255, 0, 255));\n\n    data_general = profile_data_page_general((Tprofile_general *)profile,\n"
+    },
+    {
+      "old": "    data_basic = profile_data_page_basic((Tprofile_basic *)profile);\n    data_advanced = profile_data_page_advanced((Tprofile_advanced *)profile);\n\n    textprintf_ex(bmp, data[51].dat, 75, 10, -1, -1, \"profile: %s\",\n",
+      "new": "    data_basic = profile_data_page_basic((Tprofile_basic *)profile);\n    data_advanced = profile_data_page_advanced((Tprofile_advanced *)profile);\n    draw_sprite(bmp, data[86].dat, 50, 0);\n\n    textprintf_ex(bmp, data[51].dat, 75, 10, -1, -1, \"profile: %s\",\n"
+    },
+    {
+      "old": "                85, y2);\n\n    rank = get_rank_id((Tprofile_rank *)profile);\n    draw_sprite(bmp, data[74 + rank].dat, 35,\n                ((Tprofile_bitmap *)bmp)->h - 140);\n    set_next_rank_message(nextRankMessage, (Tprofile_rank *)profile);\n    if (strlen(nextRankMessage) > 1) {\n",
+      "new": "                85, y2);\n\n    draw_sprite(bmp, data[74 + get_rank_id((Tprofile_rank *)profile)].dat, 35,\n                ((BITMAP *)bmp)->h - 140);\n    set_next_rank_message(nextRankMessage, (Tprofile_rank *)profile);\n    if (strlen(nextRankMessage) > 1) {\n"
+    },
+    {
+      "old": "                nextRankMessage);\n        draw_buffer(bmp, totalNextRankMessage, 150,\n                    ((Tprofile_bitmap *)bmp)->h - 120);\n    }\n\n",
+      "new": "                nextRankMessage);\n        draw_buffer(bmp, totalNextRankMessage, 150,\n                    ((BITMAP *)bmp)->h - 120);\n    }\n\n"
+    },
+    {
+      "old": "    targetY = 15;\n    done = 0;\n    while (!done && !closeButtonClicked) {\n        cycle_count = 0;\n        checkMenuFocus();\n",
+      "new": "    targetY = 15;\n    done = 0;\n    while (!closeButtonClicked && !done) {\n        cycle_count = 0;\n        checkMenuFocus();\n"
+    },
+    {
+      "old": "        solid_mode();\n        draw_sprite(swap_screen, bmp, 70, pageY);\n        blit_to_screen(swap_screen);\n        poll_control(get_controls(), 0);\n        done = is_fire(get_controls());\n        if (keypressed())\n            done = 1;\n        while (!cycle_count)\n            rest(2);\n        pageY += (int)((targetY - pageY) * 0.2f);\n    }\n\n",
+      "new": "        solid_mode();\n        draw_sprite(swap_screen, bmp, 70, pageY);\n        pageY += (targetY - pageY) * 0.2;\n        blit_to_screen(swap_screen);\n        poll_control(get_controls(), 0);\n        done = is_fire(get_controls());\n        done = keypressed() || done;\n        while (cycle_count <= 0)\n            rest(2);\n    }\n\n"
+    },
+    {
+      "old": "        solid_mode();\n        draw_sprite(swap_screen, bmp, 70, pageY);\n        pageY += (int)((targetY - pageY) * 0.2f);\n        blit_to_screen(swap_screen);\n        while (!cycle_count)\n            rest(2);\n    }\n",
+      "new": "        solid_mode();\n        draw_sprite(swap_screen, bmp, 70, pageY);\n        pageY += (targetY - pageY) * 0.2;\n        blit_to_screen(swap_screen);\n        while (cycle_count <= 0)\n            rest(2);\n    }\n"
+    },
+    {
+      "old": "    destroy_bitmap(bg);\n    clear_keybuf();\n}\n\n",
+      "new": "    destroy_bitmap(bg);\n    clear_keybuf();\n    return 0;\n}\n\n"
+    },
+    {
+      "old": "            solid_mode();\n        }\n        textprintf_ex(bmp,data[51].dat,x+8,row_y,fg,-1,\"%c %c %s %s.\",\n                      profile_index==selection ? '>' : ' ',\n                      profile_index<1 ? '~' : '{',profile_name,current);\n",
+      "new": "            solid_mode();\n        }\n        textprintf_ex(bmp,data[51].dat,x+8,row_y,fg,-1,\"%c %c %s %s\",\n                      profile_index==selection ? '>' : ' ',\n                      profile_index<1 ? '~' : '{',profile_name,current);\n"
+    },
+    {
+      "old": "    profileIndex = 0;\n    offset = 0;\n    page_size = 17;\n    ctrl_wait = 1000;\n    pageY = 500;\n",
+      "new": "    profileIndex = 0;\n    offset = 0;\n    page_size = 16;\n    ctrl_wait = 1000;\n    pageY = 500;\n"
+    },
+    {
+      "old": "            if (is_down(ctrl))\n                simulate_keypress(0x5500);\n            else if (is_up(ctrl))\n                simulate_keypress(0x5400);\n            else if (is_fire(ctrl))\n                simulate_keypress(0x4300);\n            ctrl_wait = 20;\n",
+      "new": "            if (is_down(ctrl))\n                simulate_keypress(0x5500);\n            if (is_up(ctrl))\n                simulate_keypress(0x5400);\n            if (is_fire(ctrl))\n                simulate_keypress(0x4300);\n            ctrl_wait = 20;\n"
+    },
+    {
+      "old": "            if (ctrl_wait > 0)\n                ctrl_wait--;\n        }\n\n",
+      "new": "            if (ctrl_wait > 0)\n                ctrl_wait--;\n        } else {\n            ctrl_wait = 0;\n        }\n\n"
+    },
+    {
+      "old": "                break;\n            }\n            case 83: {\n                char *name = profiles[profileIndex].handle;\n                char buff[256];\n                if (stricmp(name, \"guest\") &&\n                    stricmp(name, current_profile->handle)) {\n                    sprintf(buff, \"Really delete '%s'?\", name);\n                    if (my_alert(buff, \"WARNING: It will be gone forever.\",\n                                 1, 0)) {\n                        delete_profile(name);\n                        numProfiles = rebuild_profile_list(&profiles);\n                        if (profileIndex >= numProfiles)\n                            profileIndex = numProfiles - 1;\n                    }\n                }\n                break;\n            }\n            case 67: {\n                char *name = profiles[profileIndex].handle;\n                char new_name[32];\n                play_menu_select();\n                if (!stricmp(name, \"CREATE NEW PROFILE\")) {\n                    set_trans_blender(0, 0, 0, 158);\n                    drawing_mode(5, 0, 0, 0);\n",
+      "new": "                break;\n            }\n            case 77: {\n                if (stricmp(profiles[profileIndex].handle, \"guest\") &&\n                    stricmp(profiles[profileIndex].handle, current_profile->handle)) {\n                    char buff[256];\n                    sprintf(buff, \"Really delete '%s'?\", profiles[profileIndex].handle);\n                    if (my_alert(buff, \"WARNING: It will be gone forever.\",\n                                 1, 0)) {\n                        delete_profile(profiles[profileIndex].handle);\n                        numProfiles = rebuild_profile_list(&profiles);\n                    }\n                }\n                break;\n            }\n            case 67:\n            case 75: {\n                play_menu_select();\n                if (!stricmp(\"CREATE NEW PROFILE\", profiles[profileIndex].handle)) {\n                    set_trans_blender(0, 0, 0, 158);\n                    drawing_mode(5, 0, 0, 0);\n"
+    },
+    {
+      "old": "                             makecol(0, 0, 0));\n                    solid_mode();\n                    new_name[0] = 0;\n                    draw_sprite(swap_screen, data[88].dat, 100, 140);\n",
+      "new": "                             makecol(0, 0, 0));\n                    solid_mode();\n                    char new_name[32];\n                    new_name[0] = 0;\n                    draw_sprite(swap_screen, data[88].dat, 100, 140);\n"
+    },
+    {
+      "old": "                    }\n                } else {\n                    selectedProfile = load_profile(name);\n                    if (selectedProfile)\n                        done = -1;\n",
+      "new": "                    }\n                } else {\n                    selectedProfile = load_profile(profiles[profileIndex].handle);\n                    if (selectedProfile)\n                        done = -1;\n"
+    },
+    {
+      "old": "        }\n\n        blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);\n        set_trans_blender(0, 0, 0, (500 - pageY) / 3);\n",
+      "new": "        }\n\n        pageY += (targetY - pageY) * 0.2;\n        blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);\n        set_trans_blender(0, 0, 0, (500 - pageY) / 3);\n"
+    },
+    {
+      "old": "                              page_size, 16, pageY);\n        blit_to_screen(swap_screen);\n        while (!cycle_count)\n            rest(2);\n        pageY += (int)((targetY - pageY) * 0.2f);\n    }\n\n",
+      "new": "                              page_size, 16, pageY);\n        blit_to_screen(swap_screen);\n        while (cycle_count <= 0)\n            rest(2);\n    }\n\n"
+    },
+    {
+      "old": "    while (pageY <= 499) {\n        cycle_count = 0;\n        pageY += (int)((targetY - pageY) * 0.2f);\n        blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);\n        set_trans_blender(0, 0, 0, (500 - pageY) / 3);\n",
+      "new": "    while (pageY <= 499) {\n        cycle_count = 0;\n        pageY += (targetY - pageY) * 0.2;\n        blit(bgbmp, swap_screen, 0, 0, 0, 0, 640, 480);\n        set_trans_blender(0, 0, 0, (500 - pageY) / 3);\n"
+    },
+    {
+      "old": "                              page_size, 16, pageY);\n        blit_to_screen(swap_screen);\n        while (!cycle_count)\n            rest(2);\n    }\n",
+      "new": "                              page_size, 16, pageY);\n        blit_to_screen(swap_screen);\n        while (cycle_count <= 0)\n            rest(2);\n    }\n"
+    }
+  ]
+}

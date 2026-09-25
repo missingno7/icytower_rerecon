@@ -180,7 +180,7 @@ int calc_replay_checksum_131(Treplay *r)
     for (i = 0; i < 32; i++)
         sum += (r->date[i] + i) * (r->name[i] + i) * (i + 1) * 117;
     for (i = 0; i < r->size; i++)
-        sum += (r->data[i].key_flags * 5 + r->data[i].cycle_count * 3) * i;
+        sum += (i * r->data[i].cycle_count * 3 + i * r->data[i].key_flags * 5);
     return sum;
 }
 

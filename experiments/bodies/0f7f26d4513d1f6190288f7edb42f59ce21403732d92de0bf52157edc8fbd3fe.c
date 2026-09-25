@@ -1,0 +1,28 @@
+{
+    int i;
+    unsigned int sum;
+
+    sum = r->no_combo_top_floor * 127 + (r->biggest_lost_combo + 1) * 17;
+    sum += r->floor_size * 17 + r->floor_shrink * 102 + 3702;
+    sum += r->speed_increase * 23 + r->start_speed * 163;
+    sum += r->random_seed * 329 + r->gravity * 88;
+    sum += r->rejump * 13 + r->tc_posts * 127;
+    sum += r->score * 17 + 17;
+    sum += (r->combo + 1) * 649;
+    sum += (r->floor + 1) * 113;
+    for (i = 0; i < 5; i++)
+        sum += r->jc[i] * (27 + i * 3) + r->ccc[i] * (39 + i * 3);
+    for (i = 0; i < 100; i++) {
+        sum += r->tc_c_data[i] * ((i + 1) % 13);
+        sum += r->tc_q_data[i] * ((i + 6) % 17);
+        sum += r->tc_t_data[i] * ((i + 8) % 23);
+    }
+    for (i = 0; i < 32; i++)
+        sum += (r->date[i] + i) * (r->name[i] + i) * (17 + i * 17);
+    for (i = 0; i < 42; i++)
+        sum += (r->comment[i] + i) * (r->comment[i] + i) * (-3 + i * 3);
+    for (i = 0; i < r->size; i++)
+        sum += r->data[i].key_flags * 3 * (i % 193 + 1) +
+               r->data[i].cycle_count * 7 * (i % 167 + 1);
+    return hash(sum);
+}

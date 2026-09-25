@@ -181,7 +181,16 @@ class PipelineTests(unittest.TestCase):
                 candidate = Path(folder) / 'unit.o'
                 candidate.write_bytes(payload)
                 report = compare(candidate, cu, ORACLE, OBJDUMP)
-                self.assertNotIn('jcLabels', [o['name'] for o in report['object_ownership']['accepted']], mutation)
+                if mutation == 'literal':
+                    # The independently proved .rdata base can preserve pointer
+                    # ownership when its pointee changes. Full storage must reject it.
+                    from storage import protect_storage
+                    self.assertFalse(next(s for s in report['initialized_data_comparison']
+                                          if s['section'] == '.rdata')['content_equal'])
+                    with self.assertRaises(ValueError):
+                        protect_storage(base, report, path, candidate)
+                else:
+                    self.assertNotIn('jcLabels', [o['name'] for o in report['object_ownership']['accepted']], mutation)
 
     def test_changed_unproved_storage_is_refused(self):
         from storage import protect_storage
