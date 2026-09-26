@@ -706,51 +706,59 @@ void draw_profile_selector(BITMAP *bmp, Tprofile *current_profile, Tavailable_pr
                            int numProfiles, int selection, int offset,
                            int max_posts, int x, int y)
 {
-    int fh;
-    int fg;
-    double view_percentage;
-    double view_offset;
+    int fh = text_height(font);
     int i;
-    int profile_index;
-    int row_y;
-    char *profile_name;
-    char *current;
+    int fg = makecol(25, 25, 25);
 
-    fh=text_height(font);
-    fg=makecol(25,25,25);
-    view_percentage=(double)max_posts/numProfiles;
-    if (view_percentage>1.0)
-        view_percentage=1.0;
+    double view_percentage = MIN(1.0, (double)max_posts / numProfiles);
+    int width = 300;
+    int height = 300;
+    int scrollHeight = 328;
+    double view_offset;
 
-    draw_sprite(bmp,data[86].dat,x-15,y-15);
-    set_trans_blender(0,0,0,150);
-    drawing_mode(5,0,0,0);
-    rect(bmp,x+5,y+30,x+265,y+329,fg);
-    rect(bmp,x+255,y+30,x+265,y+329,fg);
-    view_offset=(1.0-view_percentage)*328/(numProfiles-max_posts)*offset;
-    rectfill(bmp,x+257,y+32+view_offset,x+263,y+view_percentage*328+view_offset,fg);
+
+
+    draw_sprite(swap_screen, (BITMAP *)data[86].dat, x - 15, y - 15);
+
+
+    set_trans_blender(0, 0, 0, 150);
+    drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+    rect(bmp, x + 5, y + 30, x + width - 35, y + 29 + height, fg);
+
+
+    rect(bmp, x + width - 45, y + 30, x + width - 35, y + 29 + height, fg);
+    view_offset = (1.0 - view_percentage) * scrollHeight / (numProfiles - max_posts) * offset; rectfill(bmp, x + width - 43, y + 32 + view_offset, x + width - 37, y + view_percentage * scrollHeight + view_offset, fg);
     solid_mode();
-    textout_ex(bmp,data[51].dat,x+10,y-12,-1,-1,"SELECT PROFILE");
-    draw_sprite(bmp,data[73].dat,x+270,y+24);
-    set_clip_rect(bmp,x+6,0,x+290,((int *)bmp)[1]-1);
 
-    row_y=y+fh+31;
-    for (i=1,profile_index=offset;
-         i<=max_posts && profile_index<numProfiles;
-         i++,profile_index++,row_y+=fh) {
-        profile_name=profiles[profile_index].handle;
-        current=stricmp(profile_name,current_profile->handle)==0 ? "(current)" : "";
-        if (profile_index==selection) {
-            drawing_mode(5,0,0,0);
-            set_trans_blender(0,0,0,50);
-            rectfill(bmp,x+7,row_y-47,x+263,row_y+fh,fg);
-            solid_mode();
+
+    textout_ex(bmp, (FONT *)data[51].dat, "SELECT PROFILE", x + 10, y - 12, -1, -1);
+
+    draw_sprite(bmp, (BITMAP *)data[73].dat, x + 270, y + 24);
+
+
+    set_clip_rect(bmp, x + 6, 0, x + 290, bmp->h - 1);
+    for (i = 0; i < max_posts; i++) {
+
+        if (i + offset >= numProfiles) break;
+
+        char icon;
+
+        icon = (i + offset) ? '{' : '~';
+
+
+
+        int selected = 0;
+        if (i + offset == selection) {
+            drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+            set_trans_blender(0, 0, 0, 50);
+            rectfill(bmp, x + 7, y + i * fh + 32, x + width - 47, y + 32 + (i + 1) * fh - 1, fg);
+            solid_mode(); selected = 1;
         }
-        textprintf_ex(bmp,data[51].dat,x+8,row_y,fg,-1,"%c %c %s %s",
-                      profile_index==selection ? '>' : ' ',
-                      profile_index<1 ? '~' : '{',profile_name,current);
+
+        textprintf_ex(bmp, font, x + 8, y + i * fh + 32, fg, -1, "%c %c %s %s", selected ? '>' : ' ', icon, profiles[i + offset].handle, !stricmp(profiles[i + offset].handle, current_profile->handle) ? "(current)" : "");
     }
-    set_clip_rect(bmp,0,0,((int *)bmp)[0]-1,((int *)bmp)[1]-1);
+    set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
+
 }
 
 /* Recovered from profile.c lines 705--867.  The selector owns neither the
@@ -758,17 +766,17 @@ void draw_profile_selector(BITMAP *bmp, Tprofile *current_profile, Tavailable_pr
 Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_profile *profiles,
                                 int numProfiles, Tprofile_control *ctrl)
 {
-    Tprofile_create *selectedProfile;
+    Tprofile *selectedProfile;
     int kp;
     int done;
-    void *old_font;
+    FONT *old_font;
     int profileIndex;
     int offset;
     int page_size;
     int ctrl_wait;
     int pageY;
     int targetY;
-    void *bgbmp;
+    BITMAP *bgbmp;
 
     old_font = font;
     font = data[54].dat;
@@ -797,16 +805,24 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                 simulate_keypress(0x4300);
             ctrl_wait = 20;
         }
-        if (is_any(ctrl)) {
-            if (ctrl_wait > 0)
-                ctrl_wait--;
-        } else {
-            ctrl_wait = 0;
-        }
+        if (!is_any(ctrl)) ctrl_wait = 0;
+        if (ctrl_wait > 0) ctrl_wait--;
 
         if (keypressed()) {
             kp = readkey() >> 8;
             switch (kp) {
+            case 84: {
+                if (profileIndex > 0) {
+                    profileIndex--;
+                    if (offset > profileIndex)
+                        offset--;
+                    play_menu_move();
+                } else {
+                    profileIndex = 0;
+                    offset = 0;
+                }
+                break;
+            }
             case 85: {
                 if (profileIndex < numProfiles - 1) {
                     profileIndex++;
@@ -821,16 +837,10 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                 }
                 break;
             }
-            case 84: {
-                if (profileIndex > 0) {
-                    profileIndex--;
-                    if (offset > profileIndex)
-                        offset--;
-                    play_menu_move();
-                } else {
-                    profileIndex = 0;
-                    offset = 0;
-                }
+            case 59: {
+                play_menu_select();
+                clear_keybuf();
+                done = -1;
                 break;
             }
             case 77: {
@@ -861,13 +871,13 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                     new_name[0] = 0;
                     draw_sprite(swap_screen, data[88].dat, 100, 140);
                     textout_ex(swap_screen, data[51].dat, "Enter profile name:",
-                               140, 140, -1, -1);
+                               140, 149, -1, -1);
                     textout_right_ex(swap_screen, data[54].dat,
                                      "...and press enter.", 480, 210, 0, -1);
-                    rect(swap_screen, 139, 191, 480, 210,
-                         makecol(255, 255, 255));
                     rectfill(swap_screen, 139, 191, 480, 210,
-                             makecol(80, 80, 80));
+                             makecol(255, 255, 255));
+                    rect(swap_screen, 139, 191, 480, 210,
+                         makecol(80, 80, 80));
                     if (get_string(swap_screen, new_name, 340, 32, data[54].dat,
                                    140, 191, makecol(0, 0, 0), -1) >= 0 &&
                         new_name[0]) {
@@ -890,12 +900,6 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                 }
                 break;
             }
-            case 59: {
-                play_menu_select();
-                clear_keybuf();
-                done = -1;
-                break;
-            }
             }
         }
 
@@ -908,7 +912,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
         solid_mode();
         draw_profile_selector(swap_screen, current_profile,
                               profiles, numProfiles, profileIndex, offset,
-                              page_size, 16, pageY);
+                              page_size, 140, pageY);
         blit_to_screen(swap_screen);
         while (cycle_count <= 0)
             rest(2);
@@ -932,7 +936,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
         solid_mode();
         draw_profile_selector(swap_screen, current_profile,
                               profiles, numProfiles, profileIndex, offset,
-                              page_size, 16, pageY);
+                              page_size, 140, pageY);
         blit_to_screen(swap_screen);
         while (cycle_count <= 0)
             rest(2);

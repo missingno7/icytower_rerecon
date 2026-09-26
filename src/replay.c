@@ -23,7 +23,7 @@
  * Historical function: add_itr_file @ 0x0041e740, 360 bytes
  */
 
-int sort_method;
+int sort_method = 1;
 extern BITMAP *swap_screen;
 extern volatile int cycle_count;
 
@@ -42,8 +42,9 @@ extern char *get_extension(const char *path);
 #endif
 
 Treplay_post itr_file_list[1024];
-int num_itr_files;
-static char replay_header[] = "ITR140";
+int num_itr_files = 0;
+extern int closeButtonClicked;
+static const char REPLAY_HEADER[6] = "ITR140";
 
 #include "recovered/Trecord.h"
 typedef Trecord Treplay_data;
@@ -125,7 +126,7 @@ Treplay *create_replay(int size)
     r = malloc(sizeof(Treplay));
     if (!r)
         return 0;
-    memcpy(r->header, replay_header, 6);
+    memcpy(r->header, REPLAY_HEADER, 6);
     r->comment[0] = 0;
     r->size = size;
     r->combo = 0;
@@ -186,33 +187,61 @@ int calc_replay_checksum_131(Treplay *r)
 
 int calc_replay_checksum(Treplay *r)
 {
+
     int i;
+
     unsigned int sum;
+
     sum = r->biggest_lost_combo * 17 + 17 + r->no_combo_top_floor * 127;
+
     sum += sum + r->floor_shrink * 102 + r->floor_size * 17 + 3702 + r->start_speed * 163 + r->speed_increase * 23 + r->gravity * 88;
+
     sum += r->score * 17 + 17 + r->tc_posts * 127 + r->random_seed * 329 + (r->combo + 1) * 73 + r->rejump * 13 + (r->floor + 1) * 113;
 
 
+
+
+
     for (i = 0; i < 5; i++)
+
         sum = sum + r->ccc[i] * (39 + i * 3) + r->jc[i] * (27 + i * 3);
 
 
 
+
+
+
+
     for (i = 0; i < 100; i++) {
+
         sum += r->tc_c_data[i] * ((i + 1) % 13);
+
         sum += r->tc_q_data[i] * ((i + 7) % 17);
+
         sum += r->tc_t_data[i] * ((i + 9) % 23);
+
     }
 
+
+
     for (i = 0; i < 32; i++)
+
         sum += (r->date[i] + i) * (r->name[i] + i) * (17 + i * 17);
 
+
+
     for (i = 0; i < 42; i++)
+
         sum += (r->comment[i] + i) * (r->comment[i] + i) * (-3 + i * 3);
 
+
+
     for (i = 0; i < r->size; i++)
+
         sum += r->data[i].cycle_count * 7 * (i % 167 + 1) + r->data[i].key_flags * 3 * (i % 193 + 1);
+
     return hash(sum);
+
 }
 
 int get_replay_property(const char *filename, int property)
@@ -231,7 +260,7 @@ int get_replay_property(const char *filename, int property)
     pack_fread(r_temp.header, 6, pf);
     pack_fread(&r_temp.size, 4, pf);
     pack_fclose(pf);
-    if (memcmp(r_temp.header, "ITR140", 3)) {
+    if (memcmp(r_temp.header, REPLAY_HEADER, 3)) {
         log2file("%s has wrong first 3 bytes of header", filename);
         return -1000;
     }
@@ -282,13 +311,13 @@ int get_replay_property(const char *filename, int property)
         retval = r->score;
         log2file("%s:score=%d", filename, retval);
         break;
-    case 3:
-        retval = r->combo;
-        log2file("%s:combo=%d", filename, retval);
-        break;
     case 4:
         retval = r->floor;
         log2file("%s:floor=%d", filename, retval);
+        break;
+    case 3:
+        retval = r->combo;
+        log2file("%s:combo=%d", filename, retval);
         break;
     }
     destroy_replay(r);
@@ -310,7 +339,7 @@ Treplay *load_replay(const char *filename)
     pack_fread(r_temp.header, 6, pf);
     pack_fread(&r_temp.size, 4, pf);
     pack_fclose(pf);
-    if (memcmp(r_temp.header, "ITR140", 6))
+    if (memcmp(r_temp.header, REPLAY_HEADER, 6))
         return 0;
     r = create_replay(r_temp.size);
     if (!r)
@@ -441,235 +470,306 @@ int save_replay(const char *path, const char *file, Treplay *r, int size, int ma
 void draw_replay_selector(BITMAP *bmp, Treplay *rep, Treplay_post *file_list,
                           int selection, int offset, int max_posts, int x, int y)
 {
+
     int w = 310;
+
     int h = 305;
-    /* 462 */
+
     int fh = text_height(font);
+
     int i;
-    /* 465 */
+
+    char *curr_filename = NULL;
+
     int fg = makecol(25, 25, 25);
-    /* 466 */
+
     int mg = makecol(85, 85, 85);
-    /* 467 */
-    float view_percentage = max_posts ? (float)num_itr_files / max_posts : 1.0f;
-    float view_offset = max_posts ? (float)offset / max_posts : 0.0f;
-    /* Original DWARF identifies curr_filename as char * at EBP-0x448.
-     * The selected-row path stores get_filename(post->full_path) there after
-     * rendering the row. */
-    char *curr_filename;
-    int is_dir;
+
+    double view_percentage;
+
+    double view_offset;
+
     int show_directory = 0;
+
     int selected_version = 0;
+
     int isCustom = 0;
 
-    /* 467 */
-    if (view_percentage > 1.0f)
-        view_percentage = 1.0f;
-    /* 473 */
-    if (data && data[86].dat)
-        stretch_sprite(bmp, data[86].dat, x - 15, y - 15, w + 30, h + 30);
-    else
-        rectfill(bmp, x - 15, y - 15, x + w + 15, y + h + 15, mg);
 
-    /* 476 */
+
+    i = num_itr_files;
+
+    view_percentage = (double)max_posts / i;
+
+    if (view_percentage > 1.0)
+
+        view_percentage = 1.0;
+
+
+
+    draw_sprite(bmp, data[86].dat, x - 15, y - 15);
+
     set_trans_blender(0, 0, 0, 150);
-    /* 477 */
+
     drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
-    /* 479 */
-    rect(bmp, x + 5, y + 30, x + w - 5, y + 305, fg);
-    /* 479 */
-    rect(bmp, x + 7, y + 32, x + w - 7, y + 303, fg);
-    /* 487 */
+
+    rect(bmp, x + 5, y + 30, x + 305, y + 300, fg);
+
+    rect(bmp, x + 295, y + 30, x + 305, y + 300, fg);
+
+    rectfill(bmp, x + 297, y + 32 + (1.0 - view_percentage) * 266.0 / (i - max_posts) * offset, x + 303, y + 32 + 266.0 * view_percentage + (1.0 - view_percentage) * 266.0 / (i - max_posts) * offset, fg);
+
+    w = 400;
+
+    h = 400;
+
+    rect(bmp, x + 5, y + 310, x + w - 6, y + h - 6, fg);
+
     solid_mode();
 
-    /* 490: textout_ex(bmp, data[51].dat, "SELECT REPLAY", x+10, y-12, -1, -1) --
-     * slots 0=bmp,4=data[51].dat (0x330/0x10=51),8=text,0xc=x+10,0x10=y-12,
-     * 0x14=-1,0x18=-1, all read directly off the movl/mov-before-call chain. */
+
+
     textout_ex(bmp, data[51].dat, "SELECT REPLAY", x + 10, y - 12, -1, -1);
 
-    draw_sprite(bmp, data[89].dat, x + 0x136, y + 0x22);
-    draw_sprite(bmp, data[112].dat, x + 0x137, y + 0x104);
+    draw_sprite(bmp, data[89].dat, x + 310, y + 34);
+
+    draw_sprite(bmp, data[112].dat, x + 311, y + 260);
+
     switch (sort_method) {
+
     case 1:
-        draw_sprite(bmp, data[115].dat, x + 0x112, y + 0x141);
+
+        draw_sprite(bmp, data[115].dat, x + 321, y + 274);
+
         break;
-    case 2:
-        draw_sprite(bmp, data[116].dat, x + 0x112, y + 0x163);
-        break;
-    case 3:
-        draw_sprite(bmp, data[113].dat, x + 0x11e, y + 0x163);
-        break;
+
     case 4:
-        draw_sprite(bmp, data[114].dat, x + 0x11e, y + 0x141);
+
+        draw_sprite(bmp, data[114].dat, x + 321, y + 286);
+
         break;
+
+    case 2:
+
+        draw_sprite(bmp, data[116].dat, x + 355, y + 274);
+
+        break;
+
+    case 3:
+
+        draw_sprite(bmp, data[113].dat, x + 355, y + 286);
+
+        break;
+
     }
 
-    /* 509: set_clip_rect(bmp,x+6,0,x+0x122,bmp->h-1) -- the current reconstruction's
-     * (x+10,y+35,x+185,y+300) does not match a single one of these four operands. */
+
+
     set_clip_rect(bmp, x + 6, 0, x + 290, bmp->h - 1);
-    for (i = offset; i < num_itr_files && i < offset + max_posts; i++) {
-        char name[1024];
-        /* 516: Treplay_post *post = &file_list[i]; cmpb $0,0x5(edx) tests offset 5,
-         * which is Treplay_post.parent (src/replay.c:30), not .directory (offset 4). */
-        Treplay_post *post = &file_list[i];
-        int row = y + 40 + (i - offset) * fh;
-        char marker;
 
-        if (post->parent) {
-            /* 517: rep movsb copying the literal ".. (parent directory)" (22 bytes)
-             * into the buffer later reused as name (same -0x418(%ebp) slot as the
-             * warning messages at 591/594/597 below). */
+    for (i = 0; i < max_posts; i++) {
+
+        char name[1024];
+
+        int is_dir;
+
+
+
+        if (i + offset >= num_itr_files)
+
+            break;
+
+
+
+        if (file_list[i + offset].parent)
+
             strcpy(name, ".. (parent directory)");
-        } else {
-            /* 519: strcpy(name, get_filename(post->full_path)) -- a real buffer,
-             * not a bare `char *name` as the current source has it. */
-            strcpy(name, get_filename(post->full_path));
-        }
-        /* 521: is_dir = post->directory (movsbl 0x4(%edx),%esi) -- the named-but-
-         * missing local; offset 4, confirmed against the Treplay_post typedef. */
-        is_dir = post->directory;
-        marker = is_dir ? '}' : '{';
-        if (i == selection) {
-            /* Original offsets 0x568..0x5ec: alpha-50 mode, the inlined
-             * rectfill(vtable+0x3c), solid mode, then selected text. */
+
+        else
+
+            strcpy(name, get_filename(file_list[i + offset].full_path));
+
+
+
+        is_dir = file_list[i + offset].directory;
+
+
+
+        if (i + offset != selection)
+
+            textprintf_ex(bmp, font, x + 8, y + 32 + i * fh, is_dir ? mg : fg, -1, "  %c %s", is_dir ? '}' : '{', name);
+
+        else {
+
             set_trans_blender(0, 0, 0, 50);
+
             drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
-            rectfill(bmp, x + 7, row, x + 0x125, row + fh - 9, fg);
+
+            rectfill(bmp, x + 7, y + 32 + i * fh, x + 293, y + 32 + (i + 1) * fh - 1, fg);
+
             solid_mode();
-            textprintf_ex(bmp, font, x + 8, row, mg, -1, "> %c %s", marker, name);
-        } else if (is_dir) {
-            /* 525 (predecessor A): color mg when is_dir. */
-            textprintf_ex(bmp, font, x + 8, row, mg, -1, "  %c %s", marker, name);
-        } else {
-            /* 525 (predecessor B): color fg when !is_dir. */
-            textprintf_ex(bmp, font, x + 8, row, fg, -1, "  %c %s", marker, name);
+
+            textprintf_ex(bmp, font, x + 8, y + 32 + i * fh, mg, -1, "> %c %s", is_dir ? '}' : '{', name);
+
+            curr_filename = get_filename(file_list[i + offset].full_path);
+
+            show_directory = is_dir;
+
+            selected_version = file_list[i + offset].version;
+
         }
-        if (i == selection) {
-            curr_filename = get_filename(post->full_path);
-            show_directory = post->directory;
-            selected_version = post->version;
-        }
+
     }
+
     set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
 
-    /* 486/487 (bar): unchanged from the existing reconstruction -- not
-     * re-verified against fresh instruction evidence this pass. */
-    if (num_itr_files > max_posts && max_posts > 0) {
-        int bar_top = y + 40 + (int)(view_offset * 260.0f);
-        int bar_height = (int)(view_percentage * 260.0f);
-        rectfill(bmp, x + 190, bar_top, x + 196, bar_top + bar_height, fg);
-    }
 
-    /* 546 */
-    if (rep) {
-        /* 547 */
+
+    if (rep)
+
         isCustom = is_custom_replay(rep);
-        /* 551: set_clip_rect(bmp,x+6,0,x+390-(isCustom?text_length(font,"CUSTOM GAME  "):0),bmp->h-1) --
-         * x+390 from x+0x190 (established for the scrollbar/table region) minus 10;
-         * two historical predecessors (one measuring the label, one using 0) merge
-         * into this one call. */
-        set_clip_rect(bmp, x + 6, 0,
-                      x + 390 - (isCustom ? text_length(font, "CUSTOM GAME  ") : 0),
-                      bmp->h - 1);
-        /* 552: rep->comment falls back to the literal "n/a" when falsy; fg,
-         * y+315, x+10. */
-        textprintf_ex(bmp, font, x + 10, y + 315, fg, -1, "%s",
-                      rep->comment[0] ? rep->comment : "n/a");
 
-        /* 562: a second, explicit `if (rep)` gates the results table below --
-         * confirmed by its own independent null test on the rep parameter. */
-        if (rep) {
-            /* 563: a narrow clip around the NAME column, x+9..x+133. */
-            set_clip_rect(bmp, x + 9, 0, x + 133, bmp->h - 1);
-            /* 564: textprintf_ex(bmp,font,x+10,y+350,fg,-1,"%s",rep->name) --
-             * rep+0xc is rep->name (offsetof(Treplay,name)==12, confirmed
-             * against include/recovered/Treplay.h). */
-            textprintf_ex(bmp, font, x + 10, y + 350, fg, -1, "%s", rep->name);
-            /* 565: full clip reset before the unclipped table. */
-            set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
-            /* 555..559: NAME/SCORE/FLOOR/COMBO/DATE column headers, all row y+335. */
-            textout_ex(bmp, font, "NAME", x + 10, y + 335, fg, -1);
-            textout_right_ex(bmp, font, "SCORE", x + 180, y + 335, fg, -1);
-            textout_right_ex(bmp, font, "FLOOR", x + 230, y + 335, fg, -1);
-            textout_right_ex(bmp, font, "COMBO", x + 280, y + 335, fg, -1);
-            textout_ex(bmp, font, "DATE ", x + 300, y + 335, fg, -1);
-            /* 566..569: the value row for `rep` itself, aligned under the headers
-             * above, row y+350 (offsets 0x50/0x54/0x58/0x2c confirmed against
-             * offsetof(Treplay,score/floor/combo/date) == 80/84/88/44). */
-            textprintf_right_ex(bmp, font, x + 180, y + 350, fg, -1, "%6d", rep->score);
-            textprintf_right_ex(bmp, font, x + 230, y + 350, fg, -1, "%4d", rep->floor);
-            textprintf_right_ex(bmp, font, x + 280, y + 350, fg, -1, "%3d", rep->combo);
-            textprintf_ex(bmp, font, x + 300, y + 350, fg, -1, "%s ", rep->date);
-            if (isCustom) {
-                /* 572/573: right-aligned "CUSTOM GAME" at the same narrowed clip
-                 * edge computed at 551, color mg, row y+315 (the comment row's y). */
-                textprintf_right_ex(bmp, font,
-                                    x + 390 - text_length(font, "CUSTOM GAME  "),
-                                    y + 315, mg, -1, "%s", "CUSTOM GAME");
+    set_clip_rect(bmp, x + 6, 0, x + w - 10 - (isCustom ? text_length(font, "CUSTOM GAME  ") : 0), bmp->h - 1);
+
+    textprintf_ex(bmp, font, x + 10, y + 315, mg, -1, "%s", curr_filename ? curr_filename : "n/a");
+
+    set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
+
+
+
+    textout_ex(bmp, font, "NAME", x + 10, y + 335, fg, -1);
+
+    textout_right_ex(bmp, font, "SCORE", x + 180, y + 335, fg, -1);
+
+    textout_right_ex(bmp, font, "FLOOR", x + 230, y + 335, fg, -1);
+
+    textout_right_ex(bmp, font, "COMBO", x + 280, y + 335, fg, -1);
+
+    textout_ex(bmp, font, "DATE ", x + 300, y + 335, fg, -1);
+
+
+
+    if (rep) {
+
+        set_clip_rect(bmp, x + 9, 0, x + 133, bmp->h - 1);
+
+        textprintf_ex(bmp, font, x + 10, y + 350, fg, -1, "%s", rep->name);
+
+        set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
+
+        textprintf_right_ex(bmp, font, x + 180, y + 350, fg, -1, "%6d", rep->score);
+
+        textprintf_right_ex(bmp, font, x + 230, y + 350, fg, -1, "%4d", rep->floor);
+
+        textprintf_right_ex(bmp, font, x + 280, y + 350, fg, -1, "%3d", rep->combo);
+
+        textprintf_ex(bmp, font, x + 300, y + 350, fg, -1, "%s ", rep->date);
+
+        if (isCustom)
+
+            textprintf_right_ex(bmp, font, x + w - 10, y + 315, mg, -1, "%s", "CUSTOM GAME");
+
+        if (rep->comment[0])
+
+            textprintf_ex(bmp, font, x + 10, y + 370, mg, -1, "%s", rep->comment);
+
+    }
+
+    else {
+
+        if (show_directory)
+
+            textout_ex(bmp, font, "This is a folder. Press ENTER to open it.", x + 10, y + 350, fg, -1);
+
+        else {
+
+            char rbuf[129];
+
+            switch (selected_version) {
+
+            case 1:
+
+                strcpy(rbuf, "You need Icy Tower 1.2 to view this replay.");
+
+                break;
+
+            case 0x82:
+
+                strcpy(rbuf, "You need Icy Tower 1.3 to view this replay.");
+
+                break;
+
+            default:
+
+                strcpy(rbuf, "Replay is broken.");
+
             }
-            if (rep->comment[0]) {
-                /* 576/577: a second comment display, distinct from 552's (mg not
-                 * fg, y+370 not y+315, no "n/a" fallback). */
-                textprintf_ex(bmp, font, x + 10, y + 370, mg, -1, "%s", rep->comment);
-            }
+
+            textout_ex(bmp, font, rbuf, x + 10, y + 350, makecol(80, 20, 20), -1);
+
         }
+
     }
 
-    /* 583: show_directory gates the folder hint; its own set-site inside the
-     * loop was not located this pass (flagged, not guessed). selected_version's
-     * set-site (presumably file_list[selection].version, matching the prior
-     * reconstruction's guess) was likewise not re-confirmed against fresh
-     * instruction evidence this pass -- flagged, not guessed. */
-    if (show_directory) {
-        /* 585 */
-        textout_ex(bmp, font, "This is a folder. Press ENTER to open it.",
-                  x + 10, y + 350, fg, -1);
-    } else {
-        char rbuf[129];
-        /* 589/591/594/597: selected_version selects one of three messages into
-         * rbuf (a third reuse of the same buffer as the loop rows and the
-         * ".. (parent directory)" copy), then 599 prints it in a shared call. */
-        if (selected_version == 1)
-            strcpy(rbuf, "You need Icy Tower 1.2 to view this replay.");
-        else if (selected_version == 0x82)
-            strcpy(rbuf, "You need Icy Tower 1.3 to view this replay.");
-        else
-            strcpy(rbuf, "Replay is broken.");
-        /* 599: makecol(0x50,0x14,0x14) = makecol(80,20,20), a color not used
-         * anywhere else in this function. */
-        textout_ex(bmp, font, rbuf, x + 10, y + 350, makecol(80, 20, 20), -1);
-    }
 }
 
 int add_itr_file(const char *filename, int attrib, void *param)
 {
+
     int length = strlen(filename) + 10;
+
     char *name = get_filename(filename);
+
     int res;
 
+
+
     if (!stricmp(name, "."))
+
         return 0;
+
     if (!(attrib & FA_DIREC) && stricmp(get_extension(filename), "itr"))
+
         return 0;
+
     itr_file_list[num_itr_files].full_path = malloc(length);
+
     if (attrib & FA_DIREC) {
+
             strcpy(itr_file_list[num_itr_files].full_path, filename);
+
             itr_file_list[num_itr_files].directory = 1;
+
             if (!strcmp(name, ".."))
+
                 itr_file_list[num_itr_files].parent = 1;
+
     }
+
     else {
+
             res = get_replay_property(filename, 0);
+
             if (res < 0) {
+
                 if (res == -1 || res == -1000)
+
                     return 0;
+
                 itr_file_list[num_itr_files].version = -1000 - res;
+
             }
+
             strcpy(itr_file_list[num_itr_files].full_path, filename);
+
             itr_file_list[num_itr_files].directory = 0;
+
     }
+
     num_itr_files++;
+
     return 0;
+
 }
 
 int my_strcmp(const void *c, const void *d)
@@ -719,74 +819,95 @@ void update_file_list(char *path)
  * and cleanup. */
 Treplay *replay_selector(Tcontrol *ctrl, char *path)
 {
-    FONT *old_font = font;
-    BITMAP *bg = create_bitmap(SCREEN_W, SCREEN_H);
     Treplay *rep = NULL;
     int curr_file_id = 0;
+    int kp;
     int done = 0;
+    int i;
     int ctrl_wait = 1000;
     int page_size;
     int offset = 0;
+    FONT *old_font = font;
     int need_to_update = 1;
-    int ok_to_rename = 0;
+    int ok_to_rename;
     int pageY = 500;
-    int targetY = 0;
-    char fname[512];
+    int targetY;
+    BITMAP *bg;
 
-    if (!bg)
-        return NULL;
+    bg = create_bitmap(SCREEN_W, SCREEN_H);
     blit(screen, bg, 0, 0, 0, 0, SCREEN_W, SCREEN_H);
-    if (data)
-        font = data[54].dat;
+    font = data[54].dat;
     page_size = 270 / text_height(font);
     clear_keybuf();
 
-    while (!done) {
-        int kp = 0;
+    while (!closeButtonClicked && !done) {
+        cycle_count = 0;
 
-        if (need_to_update) {
-            if (rep) {
-                destroy_replay(rep);
-                rep = NULL;
-            }
-            if (num_itr_files > 0 && curr_file_id >= 0 &&
-                curr_file_id < num_itr_files && !itr_file_list[curr_file_id].directory)
-                rep = load_replay(itr_file_list[curr_file_id].full_path);
-            need_to_update = 0;
+        checkMenuFocus();
+
+        if (need_to_update)
+            update_file_list(path);
+
+        need_to_update = 0;
+        if (curr_file_id > num_itr_files) {
+            need_to_update = 1;
+            offset = 0;
+            curr_file_id = 0;
         }
+
+        if (rep)
+            destroy_replay(rep);
+        if (num_itr_files > 0)
+            rep = load_replay(itr_file_list[curr_file_id].full_path);
 
         poll_control(ctrl, 1);
-        if (is_any(ctrl) && ctrl_wait == 0) {
-            if (is_down(ctrl))
-                simulate_keypress(KEY_DOWN << 8);
-            else if (is_up(ctrl))
-                simulate_keypress(KEY_UP << 8);
-            else if (is_fire(ctrl))
-                simulate_keypress(KEY_ENTER << 8);
-        }
-        if (ctrl_wait > 0)
-            ctrl_wait--;
-
-        if (keypressed())
-            kp = readkey() >> 8;
-        if (kp) {
+        if (is_any(ctrl) && !ctrl_wait) {
+            if (is_down(ctrl)) simulate_keypress(KEY_DOWN << 8);
+            if (is_up(ctrl)) simulate_keypress(KEY_UP << 8);
+            if (is_fire(ctrl)) simulate_keypress(KEY_ENTER << 8);
             ctrl_wait = 20;
-            switch (kp) {
-            case KEY_C:
-                set_sort_method(3);
-                need_to_update = 1;
-                break;
-            case KEY_F:
-                set_sort_method(4);
-                need_to_update = 1;
-                break;
+        }
+        if (!is_any(ctrl)) ctrl_wait = 0;
+        if (ctrl_wait > 0) ctrl_wait--;
+
+        if (keypressed()) {
+            kp = readkey();
+            switch (kp >> 8) {
             case KEY_N:
-                set_sort_method(1);
+                sort_method = 1;
                 need_to_update = 1;
                 break;
             case KEY_S:
-                set_sort_method(2);
+                sort_method = 2;
                 need_to_update = 1;
+                break;
+            case KEY_F:
+                sort_method = 4;
+                need_to_update = 1;
+                break;
+            case KEY_C:
+                sort_method = 3;
+                need_to_update = 1;
+                break;
+            case KEY_F1: {
+                char p[1024];
+                play_menu_select();
+                if (rep)
+                    destroy_replay(rep);
+                gui_bg_color = makecol(255, 255, 255);
+                gui_fg_color = makecol(0, 0, 0);
+                install_mouse();
+                file_select_ex("Select a new folder and press OK.", path, "itr", 1024, 400, 400);
+                remove_mouse();
+                replace_filename(p, path, "", sizeof(p));
+                strcpy(path, p);
+                need_to_update = 1;
+                offset = 0;
+                curr_file_id = 0;
+                rep = NULL;
+                break;
+            }
+            case KEY_F2:
                 break;
             case KEY_UP:
                 if (curr_file_id > 0) {
@@ -794,166 +915,96 @@ Treplay *replay_selector(Tcontrol *ctrl, char *path)
                     if (curr_file_id < offset)
                         offset--;
                     play_menu_move();
-                    need_to_update = 1;
+                }
+                else {
+                    curr_file_id = 0;
+                    offset = 0;
                 }
                 break;
             case KEY_DOWN:
-                if (curr_file_id + 1 < num_itr_files) {
+                if (curr_file_id < num_itr_files - 1) {
                     curr_file_id++;
                     if (curr_file_id >= offset + page_size)
                         offset++;
                     play_menu_move();
-                    need_to_update = 1;
                 }
-                break;
-            case KEY_ENTER:
-                if (curr_file_id >= 0 && curr_file_id < num_itr_files) {
-                    Treplay_post *post = &itr_file_list[curr_file_id];
-                    if (post->directory) {
-                        strcpy(path, post->full_path);
-                        canonicalize_filename(fname, path, sizeof(fname));
-                        strcpy(path, fname);
-                        update_file_list(path);
-                        curr_file_id = offset = 0;
-                        need_to_update = 1;
-                    } else if (rep) {
-                        play_menu_select();
-                        done = 1;
-                    }
-                }
-                break;
-            case KEY_DEL:
-                if (curr_file_id >= 0 && curr_file_id < num_itr_files &&
-                    !itr_file_list[curr_file_id].directory && rep &&
-                    my_alert("Really delete replay?", "WARNING: It will be gone forever.",
-                             1, 0)) {
-                    delete_file(itr_file_list[curr_file_id].full_path);
-                    need_to_update = 1;
+                else {
+                    curr_file_id = num_itr_files - 1;
+                    offset = num_itr_files - page_size;
+                    if (offset < 0) offset = 0;
                 }
                 break;
             case KEY_ESC:
+                if (rep)
+                    destroy_replay(rep);
                 play_menu_select();
-                destroy_replay(rep);
-                rep = NULL;
                 done = -1;
+                rep = NULL;
                 break;
-            case KEY_F1:
-                set_sort_method(1);
-                need_to_update = 1;
-                break;
-            case KEY_F2:
-                set_sort_method(2);
-                need_to_update = 1;
-                break;
-            case KEY_F3:
-                set_sort_method(3);
-                need_to_update = 1;
-                break;
-            case KEY_F4:
-                set_sort_method(4);
-                need_to_update = 1;
-                break;
-            case KEY_F5:
-                install_mouse();
-                file_select_ex("Select a new folder and press OK", path, "itr",
-                               sizeof(fname), 400, 400);
-                remove_mouse();
-                replace_filename(fname, path, "", sizeof(fname));
-                strcpy(path, fname);
-                update_file_list(path);
-                curr_file_id = offset = 0;
-                need_to_update = 1;
-                ok_to_rename = 1;
-                break;
-            default:
-                break;
-            }
-        }
-
-        if (need_to_update) {
-            update_file_list(path);
-            if (curr_file_id >= num_itr_files)
-                curr_file_id = num_itr_files - 1;
-            if (curr_file_id < 0)
-                curr_file_id = 0;
-            if (offset > curr_file_id)
-                offset = curr_file_id;
-        }
-
-        /* 889: pageY interpolates toward the literal 25 at a fixed 0.2 rate --
-         * NOT the existing `pageY -= (pageY - targetY) / 3 + 1;` formula this
-         * replaces. Evidenced directly (fldl 0.2; fimul; fiadd; fistp),
-         * unguarded by any `pageY > targetY` test in this fragment (the test
-         * that gated the old formula was not found in this instruction
-         * range and may not exist at all -- flagged, not confirmed absent). */
-        pageY = (int)(0.2 * (25 - pageY) + pageY);
-        /* 892: blit target is swap_screen, not screen -- confirmed by the
-         * 0x4dd194 operand at every call in this whole present sequence
-         * (blit, draw_replay_selector's bmp arg, blit_to_screen). */
-        blit(bg, swap_screen, 0, 0, 0, 0, SCREEN_W, SCREEN_H);           /* 892 */
-        set_trans_blender(0, 0, 0, (500 - pageY) / 3);                    /* 894 */
-        drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);                            /* 895 */
-        /* 896: rectfill's bottom-right corner is gfx_driver->w/->h (0x70/0x6c)
-         * when a driver is installed, not the SCREEN_W/SCREEN_H constants. */
-        rectfill(swap_screen, 0, 0, gfx_driver ? gfx_driver->w : 0,          /* 896 */
-                 gfx_driver ? gfx_driver->h : 0, makecol(0, 0, 0));
-        solid_mode();                                                        /* 897 */
-        /* 899: y is pageY itself, with no "+120" added at the call site --
-         * the existing reconstruction's `pageY + 120` does not match this
-         * call's own operand (a bare register carrying pageY's value). */
-        draw_replay_selector(swap_screen, rep, itr_file_list, curr_file_id,   /* 899 */
-                             offset, page_size, 120, pageY);
-        blit_to_screen(swap_screen);                                          /* 900 */
-        /* 902: a wait loop distinct from the plain checkMenuFocus()/rest(2)
-         * pair the current source has -- spins on cycle_count via rest(2),
-         * and snapshots curr_file_id into a second local (used as the
-         * *second* draw_replay_selector call's `selection` argument below)
-         * before the wait. */
-        if (cycle_count > 0) {
-            int frozen_selection = curr_file_id;                              /* 902 */
-
-            do {
-                rest(2);                                                        /* 902 */
-            } while (cycle_count <= 0);
-
-            /* 904: skip the second pass entirely when rep is NULL. */
-            if (rep) {
-                /* 906/907/908: pageY interpolates toward 510 (not targetY) at
-                 * a fixed 0.2 rate, only while pageY <= 499; cycle_count is
-                 * reset to 0 here (distinct from the reset already implicit
-                 * in the wait loop above). */
-                if (pageY <= 499) {
-                    cycle_count = 0;                                             /* 907 */
-                    pageY = (int)(0.2 * (510 - pageY) + pageY);                    /* 908 */
+            case KEY_ENTER:
+            case KEY_SPACE:
+                if (itr_file_list[curr_file_id].directory) {
+                    char p[1024];
+                    strcpy(path, itr_file_list[curr_file_id].full_path);
+                    canonicalize_filename(p, path, sizeof(p));
+                    strcpy(path, p);
+                    offset = 0;
+                    curr_file_id = 0;
                 }
-                /* 911..916: a second blit/blend/drawing_mode/rectfill/solid_mode
-                 * pass, identical in shape to 892..897 above. */
-                blit(bg, swap_screen, 0, 0, 0, 0, SCREEN_W, SCREEN_H);             /* 911 */
-                set_trans_blender(0, 0, 0, (500 - pageY) / 3);                      /* 913 */
-                drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);                             /* 914 */
-                rectfill(swap_screen, 0, 0, gfx_driver ? gfx_driver->w : 0,           /* 915 */
-                         gfx_driver ? gfx_driver->h : 0, makecol(0, 0, 0));
-                solid_mode();                                                        /* 916 */
-                /* 918: rep forced NULL and selection is the frozen snapshot,
-                 * not the live curr_file_id -- confirmed by comparing this
-                 * call's argument slots against 899's directly. */
-                draw_replay_selector(swap_screen, NULL, itr_file_list,               /* 918 */
-                                     frozen_selection, offset, page_size, 120, pageY);
-                blit_to_screen(swap_screen);                                          /* 919 */
+                else if (rep)
+                    done = 1;
+                play_menu_select();
+                need_to_update = 1;
+                break;
+            case KEY_DEL:
+                if (rep) {
+                    char fname[512];
+                    play_menu_select();
+                    strcpy(fname, "Really delete replay?");
+                    if (my_alert(fname, "WARNING: It will be gone forever.", 1, 0))
+                        delete_file(itr_file_list[curr_file_id].full_path);
+                    need_to_update = 1;
+                }
+                break;
             }
         }
-        checkMenuFocus();
-        rest(2);
-        (void)ok_to_rename;
+
+        pageY = (int)(0.2 * (25 - pageY) + pageY);
+        blit(bg, swap_screen, 0, 0, 0, 0, 640, 480);
+        set_trans_blender(0, 0, 0, (500 - pageY) / 3);
+        drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+        rectfill(swap_screen, 0, 0, SCREEN_W, SCREEN_H, makecol(0, 0, 0));
+        solid_mode();
+        draw_replay_selector(swap_screen, rep, itr_file_list, curr_file_id, offset, page_size, 120, pageY);
+        blit_to_screen(swap_screen);
+        while (cycle_count <= 0)
+            rest(2);
+    }
+
+    if (!rep) {
+        while (pageY <= 499) {
+            cycle_count = 0;
+            pageY = (int)(0.2 * (510 - pageY) + pageY);
+            blit(bg, swap_screen, 0, 0, 0, 0, 640, 480);
+            set_trans_blender(0, 0, 0, (500 - pageY) / 3);
+            drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+            rectfill(swap_screen, 0, 0, SCREEN_W, SCREEN_H, makecol(0, 0, 0));
+            solid_mode();
+            draw_replay_selector(swap_screen, NULL, itr_file_list, curr_file_id, offset, page_size, 120, pageY);
+            blit_to_screen(swap_screen);
+            while (cycle_count <= 0)
+                rest(2);
+        }
     }
 
     destroy_bitmap(bg);
-    font = old_font;
-    for (curr_file_id = 0; curr_file_id < num_itr_files; curr_file_id++) {
-        free(itr_file_list[curr_file_id].full_path);
-        itr_file_list[curr_file_id].parent = 0;
-        itr_file_list[curr_file_id].directory = 0;
+    for (i = 0; i < num_itr_files; i++) {
+        free(itr_file_list[i].full_path);
+        itr_file_list[i].parent = 0;
+        itr_file_list[i].directory = 0;
     }
     num_itr_files = 0;
+    font = old_font;
     return rep;
 }
+
