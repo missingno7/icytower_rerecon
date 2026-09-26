@@ -20,7 +20,7 @@ Triage buckets: 1 source/structure (unpaired content, CFG shape), 2 context/freq
 (same blocks and CFG, different placement or epilogue copying), 4 unexplained (most
 blocks unpaired).  A bucket routes hypotheses; it never grants or implies a match.
 """
-import argparse, bisect, collections, difflib, hashlib, re, subprocess
+import argparse, bisect, collections, difflib, hashlib, os, re, subprocess
 from pathlib import Path
 from common import ROOT, BUILD, ORACLE, ANALYSIS, TC, environment, read_json
 from build import targets, flags_for
@@ -47,9 +47,12 @@ def source_text(target, config, name, body=None, patch=None):
     return src.decode('cp1252')
 
 
+CC1_DIR = None   # --cc1: a diagnostic compiler-proper directory (causal experiments only, never candidates)
+
+
 def compile_tu(config, text, dumps=False):
     """Compile the whole TU with the locked flags; cached by content."""
-    extra = DUMP_FLAGS if dumps else ()
+    extra = (DUMP_FLAGS if dumps else ()) + (('-B', str(Path(CC1_DIR).resolve()) + os.sep) if CC1_DIR else ())
     key = hashlib.sha256(text.encode('cp1252') + repr((extra, config)).encode()).hexdigest()[:20]
     d = DIAG / key; d.mkdir(parents=True, exist_ok=True)
     obj = d / 'u.o'
@@ -528,7 +531,7 @@ def detail(b, c, kind, ob, cb, pairs):
         inv = {cc: o for o, (cc, _) in pairs.items()}
         print('    original : ' + desc(ob, b))
         print('    candidate: ' + desc(cb, c) + '  (as original ids: %s, fall %s)' % (
-            sorted((str(inv.get(x, '?%d' % x)) for x in succ(cb, c))),
+            sorted((str(inv.get(x, '?%s' % x)) for x in succ(cb, c))),
             inv.get(resolve(cb, c.fall), '?') if c.fall is not None else None))
         return
     A, B = [r['asm'] for r in b.rows], [r['asm'] for r in c.rows]
@@ -723,7 +726,10 @@ def main():
     ap.add_argument('--why', action='store_true', help='compile with GCC dumps and show evidence for the first divergence')
     ap.add_argument('--blocks', action='store_true', help='list every divergent block')
     ap.add_argument('--triage', action='store_true', help='table over DIFFER functions (or the given specs)')
+    ap.add_argument('--cc1', help='DIAGNOSTIC ONLY: directory with an alternative cc1.exe (causal probes)')
     a = ap.parse_args()
+    global CC1_DIR
+    CC1_DIR = a.cc1
     if a.triage:
         return triage(a.function)
     if len(a.function) != 1: ap.error('exactly one function expected')
