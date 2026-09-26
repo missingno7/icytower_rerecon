@@ -140,6 +140,17 @@ python tools/evidence.py --location 0x100
 python tools/evidence.py --range 0x100
 ```
 
+`tools/diag.py` is experimental search guidance, outside the proof context. It compiles
+the whole TU and classifies each divergent basic block as source/structure, allocation
+context, or layout tie. `--why` adds GCC dumps: branch predictions, IRA and bb-reorder
+traces. Its buckets route hypotheses only; exact verification remains the sole criterion.
+
+```powershell
+python tools/diag.py my_strcmp --body candidates\x.c --why
+python tools/diag.py --triage                 # every DIFFER function, canonical source
+python tools/diag_test.py
+```
+
 After intentional proof-code/configuration changes, run
 `python tools/verify.py --all --refresh`. It preserves every accepted exact function
 and link closure, and refuses unpromoted source changes. Context/search presentation
