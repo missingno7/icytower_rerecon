@@ -74,6 +74,33 @@ class DiagTests(unittest.TestCase):
         cand[0].update(reloc=['.rdata'], rpos=[4], len=8)
         self.assertEqual(summarize(classify(orig, cand, 'f'))['bucket'], 0)
 
+    def test_register_swap_is_not_cfg(self):
+        # two abs() fix-up blocks; the candidate swaps which variable lives in %edi vs %esi
+        orig = [(0x0, 'push   %ebp'), (0x1, 'test   %edi,%edi'), (0x3, 'js     20 <_f+0x20>'),
+                (0x5, 'test   %esi,%esi'), (0x7, 'js     28 <_f+0x28>'), (0x9, 'mov    %edi,0x8(%edx)'),
+                (0xc, 'mov    %esi,0xc(%edx)'), (0xf, 'ret'),
+                (0x20, 'neg    %edi'), (0x22, 'jmp    5 <_f+0x5>'), (0x28, 'neg    %esi'), (0x2a, 'jmp    9 <_f+0x9>')]
+        cand = [(o, a.replace('%edi', '%TMP').replace('%esi', '%edi').replace('%TMP', '%esi')) for o, a in orig]
+        s = summarize(classify(rows(orig, True), rows(cand, False), 'f'))
+        self.assertEqual(set(s['kinds']), {'registers'})
+
+    def test_spilled_variable_swap_is_allocation(self):
+        # original keeps x in %edi and spills y; the candidate spills x instead (shape of collision_old)
+        orig = [(0x0, 'push   %ebp'), (0x1, 'mov    %ecx,%edi'), (0x3, 'sub    %eax,%edi'), (0x5, 'js     20 <_f+0x20>'),
+                (0x7, 'fldl   0x8(%edx)'), (0xa, 'mov    %ebx,%esi'), (0xc, 'sub    %edx,%esi'),
+                (0xe, 'mov    %esi,-0x2c(%ebp)'), (0x11, 'js     28 <_f+0x28>'), (0x13, 'ret'),
+                (0x20, 'neg    %edi'), (0x22, 'jmp    7 <_f+0x7>'),
+                (0x28, 'neg    %esi'), (0x2a, 'mov    %esi,-0x2c(%ebp)'), (0x2d, 'jmp    13 <_f+0x13>')]
+        cand = [(0x0, 'push   %ebp'), (0x1, 'mov    %ecx,%esi'), (0x3, 'sub    %eax,%esi'),
+                (0x5, 'mov    %esi,-0x2c(%ebp)'), (0x8, 'js     20 <_f+0x20>'),
+                (0xa, 'fldl   0x8(%edx)'), (0xd, 'mov    %ebx,%edi'), (0xf, 'sub    %edx,%edi'),
+                (0x11, 'js     28 <_f+0x28>'), (0x13, 'ret'),
+                (0x20, 'neg    %esi'), (0x22, 'mov    %esi,-0x2c(%ebp)'), (0x25, 'jmp    a <_f+0xa>'),
+                (0x28, 'neg    %edi'), (0x2a, 'jmp    13 <_f+0x13>')]
+        s = summarize(classify(rows(orig, True), rows(cand, False), 'f'))
+        self.assertEqual(s['bucket'], 2)
+        self.assertTrue(set(s['kinds']) <= {'spills', 'registers', 'cfg-edges(alloc)', 'stack-slots'}, s['kinds'])
+
     def test_deterministic(self):
         first = [(k, x[0].id, n) for k, x, _, n in run(COPIED, SHARED)[1]['earliest']]
         for _ in range(3):

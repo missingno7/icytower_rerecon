@@ -274,14 +274,18 @@ def match(ob, cb):
 
 
 def refine(ob, cb, pairs):
-    """Identical-content blocks are ambiguous; swap partners while CFG agreement improves."""
+    """Blocks equal under full normalisation are ambiguous (a register swap makes `neg %edi` match the
+    other variable's block exactly); swap partners while CFG agreement improves, then re-derive tiers."""
     def agree(o):
         if o not in pairs: return 0
         c = cb[pairs[o][0]]
         want = {x if x == 'exit' else (pairs[x][0] if x in pairs else None) for x in succ(ob, ob[o])}
         return len(want & succ(cb, c))
+    def tier(o, c):
+        return next(t for t in range(4) if ob[o].key(t) == cb[c].key(t))
     groups = collections.defaultdict(list)
-    for o, (c, tier) in pairs.items(): groups[(tier, ob[o].key(tier))].append(o)
+    for o, (c, t) in sorted(pairs.items()):
+        if t < 4: groups[ob[o].key(3)].append(o)
     changed = True
     while changed:
         changed = False
@@ -289,11 +293,14 @@ def refine(ob, cb, pairs):
             for i in range(len(g)):
                 for j in range(i + 1, len(g)):
                     x, y = g[i], g[j]
+                    if cb[pairs[x][0]].key(3) != ob[y].key(3) or cb[pairs[y][0]].key(3) != ob[x].key(3): continue
                     near = {x, y} | {p for p, _ in ob[x].preds} | {p for p, _ in ob[y].preds}
                     before = sum(agree(o) for o in near)
                     pairs[x], pairs[y] = pairs[y], pairs[x]
                     if sum(agree(o) for o in near) > before: changed = True
                     else: pairs[x], pairs[y] = pairs[y], pairs[x]
+    for o, (c, t) in pairs.items():
+        if t < 4: pairs[o] = (c, tier(o, c))
 
 
 # ---------------------------------------------------------------- report
@@ -322,6 +329,23 @@ def epi_region(ob, b, pairs):
     return any(x == 'exit' or x in tails for x in succ(ob, b))
 
 
+def alloc_crossing(ob, cb, b, cand, pairs):
+    """The edges differ only because successor blocks swapped roles: each original successor's
+    positional counterpart is the same code up to registers, stack slots and spill/reload moves."""
+    so = sorted(x for x in succ(ob, b) if x != 'exit'); sc = sorted(x for x in succ(cb, cand) if x != 'exit')
+    if len(so) != len(sc) or not so: return False
+    order_o = [resolve(ob, b.fall)] if b.fall is not None else []
+    order_o = [x for x in so if x not in order_o] + order_o          # branch target first, fallthrough last
+    order_c = [resolve(cb, cand.fall)] if cand.fall is not None else []
+    order_c = [x for x in sc if x not in order_c] + order_c
+    if len(order_o) != len(order_c): return False
+    return all(core(ob[x]) == core(cb[y]) for x, y in zip(order_o, order_c))
+
+
+def core(x):
+    return [m for m in mnemonics(x) if m not in ('mov', 'movl')]
+
+
 def mnemonics(b):
     return [x.split(' ')[0] for x in b.key(3)]
 
@@ -331,7 +355,8 @@ def classify(orig_rows, cand_rows, fname):
     ob, cb = blocks(orig_rows, fname), blocks(cand_rows, fname)
     pairs, ofree, cfree = match(ob, cb)
     inv = {c: o for o, (c, _) in pairs.items()}
-    issues = []
+    issues, swapped = [], set()
+    tails_differ = sum(x.is_tail() for x in ob) != sum(x.is_tail() for x in cb)
     for b in ob:
         if not pairable(ob, b): continue
         if b.id not in pairs:
@@ -348,14 +373,21 @@ def classify(orig_rows, cand_rows, fname):
             issues.append((b, 'layout(epilogue-dup)', cand)); continue
         if tier == 4 and mnemonics(b) == mnemonics(cand):
             issues.append((b, 'operands', cand))   # same instructions, different constants/fields/operands
+        elif tier == 4 and core(b) == core(cand):
+            issues.append((b, 'spills', cand))     # differs only by moves: spill/reload/copy placement
         elif tier: issues.append((b, TIERS[tier], cand))
-        if not cfg_ok and epi_region(ob, b, pairs):
+        if not cfg_ok and tails_differ and epi_region(ob, b, pairs):
             issues.append((b, 'layout(epilogue-dup)', cand))
+        elif not cfg_ok and alloc_crossing(ob, cb, b, cand, pairs):
+            issues.append((b, 'cfg-edges(alloc)', cand)); swapped |= succ(ob, b)
         elif not cfg_ok:
             unpaired_o = {x for x in succ(ob, b) if x != 'exit' and x not in pairs}
             unpaired_c = {x for x in cs_ if x != 'exit' and x not in inv}
             issues.append((b, 'cfg-edges(consequence)' if (unpaired_o or unpaired_c) else 'cfg-edges', cand))
         elif not fall_ok: issues.append((b, 'layout', cand))
+    # blocks whose roles were swapped by an allocation crossing inherit that class
+    issues = [(b, 'cfg-edges(alloc)' if k == 'cfg-edges' and b.id in swapped
+               else k, c) for b, k, c in issues]
     return dict(ob=ob, cb=cb, pairs=pairs, ofree=ofree, cfree=cfree, issues=issues, ltab=[])
 
 
@@ -381,6 +413,9 @@ FAMILIES = {
     'order': ['bb-reorder trace keys (block frequency ties)', 'connect_traces tie order'],
     'registers': ['declaration order', 'local scope/lifetime', 'initializer placement', 'missing local',
                   'independent if vs else-if (reference frequency)', 'temporary vs direct expression'],
+    'spills': ['which variable is spilled (IRA frequency order)', 'declaration order', 'local scope/lifetime'],
+    'cfg-edges(alloc)': ['which variable is spilled (IRA frequency order)', 'declaration order',
+                         'independent if vs else-if (reference frequency)', 'temporary vs direct expression'],
     'stack-slots': ['declaration order', 'reference frequency of spilled locals', 'local scope/lifetime',
                     'missing local', 'dead store / extra test changing IRA frequency'],
     'operands': ['constant or field', 'wrong variable/global', 'argument value', 'expression operand'],
@@ -388,14 +423,14 @@ FAMILIES = {
     'near(late/local)': ['neighbouring function bodies (peephole2 state)', 'expression spelling',
                          'comparison form'],
 }
-ORDER = ['true', 'operands', 'cfg-edges', 'x87', 'near(late/local)', 'stack-slots', 'registers', 'layout', 'layout(epilogue-dup)',
+ORDER = ['true', 'operands', 'cfg-edges', 'x87', 'near(late/local)', 'stack-slots', 'spills', 'registers', 'cfg-edges(alloc)', 'layout', 'layout(epilogue-dup)',
          'cfg-edges(consequence)']
 # Causal precedence: content/structure first, then allocation, then pure placement.
-GROUPS = [('true', 'operands', 'cfg-edges', 'x87', 'near(late/local)'), ('stack-slots', 'registers'),
+GROUPS = [('true', 'operands', 'cfg-edges', 'x87', 'near(late/local)'), ('stack-slots', 'spills', 'registers', 'cfg-edges(alloc)'),
           ('layout', 'layout(epilogue-dup)', 'cfg-edges(consequence)')]
 # The four triage buckets: 1 source/structural, 2 compiler context/frequency, 3 late layout tie, 4 unexplained.
 BUCKET = {'true': 1, 'operands': 1, 'cfg-edges': 1, 'cfg-edges(consequence)': 1, 'x87': 2, 'near(late/local)': 2,
-          'stack-slots': 2, 'registers': 2, 'layout': 3, 'layout(epilogue-dup)': 3, 'order': 3}
+          'stack-slots': 2, 'registers': 2, 'cfg-edges(alloc)': 2, 'spills': 2, 'layout': 3, 'layout(epilogue-dup)': 3, 'order': 3}
 BUCKET_NAME = {0: 'exact', 1: 'source/structure', 2: 'context/frequency', 3: 'layout tie', 4: 'unexplained'}
 
 
