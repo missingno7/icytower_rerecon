@@ -1,0 +1,88 @@
+{
+    Tplayer *p;
+    double px, py;
+    int fy1;
+    int fx1, fx2;
+    int ilx, ily, irx, iry;
+    int solid1, solid2, left, right;
+    int col1, col2;
+    int plx1, ply1, plx2, ply2;
+    int prx1, pry1, prx2, pry2;
+
+    p = ply[player_id];
+    px = p->x;
+    py = p->y;
+    col1 = makecol(255, 0, 0);
+    col2 = makecol(255, 255, 0);
+    solid1 = is_solid(&map, (int)px - 11, (int)py);
+    solid2 = is_solid(&map, (int)px + 11, (int)py);
+    any11 = solid1;
+    any12 = solid2;
+    any23 = 0;
+    any22 = 0;
+    any21 = 0;
+    if (solid1 || solid2) {
+        if (p->status == 1 || p->status == 2)
+            return;
+        if (p->status)
+            play_sound(sounds[8], 1, 1);
+        p->status = 0;
+        p->sy = 0;
+        if (solid1) {
+            p->y -= solid1 - 9999;
+            p->rotate = 0;
+            p->edge = solid1 == solid2 ? 0 : 1;
+            return;
+        }
+        p->y -= solid2 - 9999;
+        p->rotate = 0;
+        p->edge = 2;
+        return;
+    }
+
+    if (p->status == 2 || p->status == 0)
+        p->status = 3;
+    fy1 = -12345678;
+    getFloorData(&map, (int)py, &fy1, &fx1, &fx2);
+    if (fy1 == -12345678) {
+        getFloorData(&map, lastY, &fy1, &fx1, &fx2);
+        if (fy1 == -12345678) {
+            fy1 = 0;
+            fx1 = 0;
+            fx2 = 0;
+        }
+    }
+    plx1 = (int)px - 11;
+    ply1 = (int)py + 1;
+    plx2 = lastX - 11;
+    ply2 = lastY;
+    prx1 = (int)px + 11;
+    pry1 = (int)py + 1;
+    prx2 = lastX + 11;
+    pry2 = lastY;
+    if (debug) {
+        if (key[KEY_F2]) {
+            line(screen, fx1, fy1, fx2, fy1, col1);
+            line(screen, plx1, ply1, plx2, ply2, col2);
+            line(screen, prx1, pry1, prx2, pry2, col2);
+        }
+    }
+    left = line_intersect(fx1, fy1, fx2, fy1,
+        plx1, ply1, plx2, ply2, &ilx, &ily);
+    right = line_intersect(fx1, fy1, fx2, fy1,
+        prx1, pry1, prx2, pry2, &irx, &iry);
+    if (!left && !right) {
+        p->edge = 0;
+        return;
+    }
+    p->edge = left == right ? 0 : (left ? 1 : 2);
+    if (p->status != 2 && p->status != 3)
+        return;
+
+    play_sound(sounds[8], 1, 1);
+    p->status = 0;
+    p->sy = 0;
+    p->y = fy1 - 1;
+    p->x = left ? ilx + 11 : irx - 11;
+    p->rotate = 0;
+}

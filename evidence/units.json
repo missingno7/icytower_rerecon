@@ -117,7 +117,8 @@
   "game-strptime": {
     "source": "src/strptime.c",
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\strptime.c",
-    "default": "-O2"
+    "default": "-O2",
+    "flags": ["-fno-inline-small-functions"]
   },
   "game-timecompat": {
     "source": "src/timecompat.c",

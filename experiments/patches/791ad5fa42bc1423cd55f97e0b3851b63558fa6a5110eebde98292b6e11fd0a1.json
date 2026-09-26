@@ -1,0 +1,22 @@
+{
+  "source": "src/replay.c",
+  "base_sha256": "ef08cac2b6cc853f139f94ec85a17c2473c1f1d13ea502e566910607b805895c",
+  "edits": [
+    {
+      "old": "static char replay_header[] = \"ITR140\";",
+      "new": "static const char REPLAY_HEADER[] = \"ITR140\";"
+    },
+    {
+      "old": "memcpy(r->header, replay_header, 6);",
+      "new": "memcpy(r->header, REPLAY_HEADER, 6);"
+    },
+    {
+      "old": "memcmp(r_temp.header, \"ITR140\", 3)",
+      "new": "memcmp(r_temp.header, REPLAY_HEADER, 3)"
+    },
+    {
+      "old": "memcmp(r_temp.header, \"ITR140\", 6)",
+      "new": "memcmp(r_temp.header, REPLAY_HEADER, 6)"
+    }
+  ]
+}

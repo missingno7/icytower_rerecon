@@ -1,0 +1,14 @@
+{
+ "source": "src/main.c",
+ "base_sha256": "7db536a358bfd5a14b0841a7ac42fdf75b2c0419633c37ebefb3546d4d919dc5",
+ "edits": [
+  {
+   "old": "static int face;\nstatic int count;\n",
+   "new": ""
+  },
+  {
+   "old": "    int old_msc;\n    const int scroller_step = -1;\n",
+   "new": "    const int scroller_step = -1;\n    static int face;\n    static int count;\n    int old_msc;\n"
+  }
+ ]
+}

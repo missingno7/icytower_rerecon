@@ -223,6 +223,10 @@ def compare(obj_path,cu_path,exe_path,analysis_objdump):
             return None,'section base not independently established'
         matches=orig_symbols.get(sym['name'],[])
         own=[s for s in matches if s['file']==cu_file]
+        if not own and sym['section']==0 and sym['storage_class']==2:
+            # An undefined external reference can only bind to an external definition;
+            # a same-named static in another unit (e.g. Allegro gui.c) is not a candidate.
+            matches=[s for s in matches if s['storage_class']==2]
         matches=own or matches
         addresses={s['va'] for s in matches}
         if len(addresses)!=1: return None,'missing or ambiguous symbol'

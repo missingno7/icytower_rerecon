@@ -203,6 +203,8 @@ const FLDAdSpot *fldads_get_random_ad(void)
     return pAd;
 }
 
+static const char fldads_cached_status[] = "Cached ads are up to date";
+
 void *fldads_threadmain(void *data)
 {
     int shouldDownloadAds;
@@ -212,6 +214,9 @@ void *fldads_threadmain(void *data)
     shouldDownloadAds = stat(fldads_get_local_cache_name("ads.csv"), &statCsv);
     if (!shouldDownloadAds && statCsv.st_mtime + 259200 < time(NULL)) {
         shouldDownloadAds = 1;
+    }
+    if (!shouldDownloadAds) {
+        log2file(fldads_cached_status);
     }
     if (shouldDownloadAds) {
         HTTPResponse *pResponse;
@@ -224,8 +229,6 @@ void *fldads_threadmain(void *data)
                      pResponse ? pResponse->iStatusCode : 0);
         }
         destroyHTTPResponse(pResponse);
-    } else {
-        log2file("Cached ads are up to date");
     }
     log2file("There are %d available ad spots.", giAdCacheSize);
     return NULL;

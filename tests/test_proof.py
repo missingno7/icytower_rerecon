@@ -156,7 +156,18 @@ class PipelineTests(unittest.TestCase):
                 candidate.write_bytes(payload)
                 report = compare(candidate, cu, ORACLE, OBJDUMP)
                 changed = next((r for r in report['functions'] if r['name'] == 'startGameMusic'))
-                self.assertNotEqual(changed['status'], 'FUNCTION_MATCH', change)
+                if change == 'operand':
+                    self.assertNotEqual(changed['status'], 'FUNCTION_MATCH', change)
+                else:
+                    # A changed initializer loses its independent owner and the complete
+                    # .data proof. The operand may still resolve through a section base
+                    # proven by the other owners; storage protection refuses the change.
+                    from storage import protect_storage
+                    self.assertNotIn('gameMusicVoiceID', [o['name'] for o in report['object_ownership']['accepted']])
+                    self.assertFalse(next(s for s in report['initialized_data_comparison']
+                                          if s['section'] == '.data')['content_equal'])
+                    with self.assertRaises(ValueError):
+                        protect_storage(base, report, path, candidate)
 
     def test_pointer_initializer_owner_is_independent_and_strict(self):
         path = ROOT / 'build/test-objects/game-profile/unit.o'
@@ -193,13 +204,23 @@ class PipelineTests(unittest.TestCase):
                     self.assertNotIn('jcLabels', [o['name'] for o in report['object_ownership']['accepted']], mutation)
 
     def test_changed_unproved_storage_is_refused(self):
+        import copy
         from storage import protect_storage
         path=ROOT/'build/test-objects/game-main/unit.o'
         report=compare(path,'F:\\projects\\icytower\\trunk\\source\\main.c',ORACLE,ANALYSIS)
         section=next(s for s in Binary(path).sections if s['name']=='.rdata')
         with tempfile.TemporaryDirectory(dir=ROOT/'build') as folder:
             changed=Path(folder)/'unit.o';data=bytearray(path.read_bytes());data[section['raw_pointer']]^=1;changed.write_bytes(data)
-            with self.assertRaises(ValueError):protect_storage(report,report,path,changed)
+            # Independent of the current project state: when the candidate report does not
+            # prove the .rdata contribution, any change to its fingerprint is refused.
+            unproved=copy.deepcopy(report)
+            for s in unproved['initialized_data_comparison']:
+                if s['section']=='.rdata':s['content_equal']=False
+            with self.assertRaises(ValueError):protect_storage(unproved,unproved,path,changed)
+            # A really changed .rdata byte cannot be content-equal either.
+            after=compare(changed,'F:\\projects\\icytower\\trunk\\source\\main.c',ORACLE,ANALYSIS)
+            self.assertFalse(next(s for s in after['initialized_data_comparison'] if s['section']=='.rdata')['content_equal'])
+            with self.assertRaises(ValueError):protect_storage(report,after,path,changed)
 
     def test_locked_modified_logg_still_matches(self):
         from common import read_json

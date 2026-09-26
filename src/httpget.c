@@ -74,15 +74,20 @@ static inline int extractLine(const unsigned char *pBuffer, int iDataLeft, char 
     unsigned char last = 0;
 
     pOutBuffer[0] = 0;
-    while (iDataLeft - bytesRead > 0) {
-        unsigned char c = pBuffer[bytesRead++];
+    while (iDataLeft > 0) {
+        unsigned char c = *pBuffer++;
+        iDataLeft--;
+        bytesRead++;
 
-        if (c == '\n' && last == '\r')
+        if (c == '\n' && last == '\r') {
+            *pOutBuffer = 0;
             break;
-        if (c != '\r') {
+        }
+        if (c != '\r' && c != '\n') {
             *pOutBuffer++ = c;
             *pOutBuffer = 0;
-            if (--iOutSize == 1)
+            iOutSize--;
+            if (iOutSize == 1)
                 break;
         }
         last = c;
@@ -100,30 +105,7 @@ HTTPResponse *__attribute__((regparm(2))) extractHTTPResponse(const unsigned cha
     HTTPResponse *pResponse = malloc(sizeof(HTTPResponse));
 
     memset(pResponse, 0, sizeof(HTTPResponse));
-    {
-        char *pOut = linebuf;
-        int iOutSize = sizeof(linebuf);
-        unsigned char last = 0;
-
-        i = 0;
-        pOut[0] = 0;
-        if (iResponseBytesCount > 0) {
-            do {
-                unsigned char c = pHTTPData[i++];
-
-                if (c == '\n' && last == '\r')
-                    break;
-                if (c != '\r') {
-                    *pOut++ = c;
-                    *pOut = 0;
-                    if (--iOutSize == 1)
-                        break;
-                }
-                last = c;
-            } while (iResponseBytesCount - i > 0);
-        }
-        pOut[--iOutSize] = 0;
-    }
+    i = extractLine(pHTTPData, iResponseBytesCount, linebuf, sizeof(linebuf));
     if (sscanf(linebuf, "HTTP/%s %d", slaskbuf, &pResponse->iStatusCode) != 2) {
         log2file("Malformed HTTP response:\n%s", pHTTPData);
         destroyHTTPResponse(pResponse);
@@ -143,20 +125,17 @@ HTTPResponse *__attribute__((regparm(2))) extractHTTPResponse(const unsigned cha
         pResponse->pHeaders = realloc(pResponse->pHeaders,
                                       pResponse->iNumHeaders * sizeof(HTTPHeader));
         header = &pResponse->pHeaders[pResponse->iNumHeaders - 1];
-        if (linebuf[0] == ':') {
-            j = 0;
-        } else {
-            for (j = 1; j < bytesRead; j++) {
-                if (linebuf[j] == ':')
-                    break;
+        for (j = 0; j < bytesRead; j++) {
+            if (linebuf[j] == ':') {
+                header->pHeader = malloc(j + 1);
+                memcpy(header->pHeader, linebuf, j);
+                header->pHeader[j] = 0;
+                header->pValue = malloc(bytesRead - j - 1);
+                memcpy(header->pValue, linebuf + j + 2, bytesRead - j - 2);
+                header->pValue[bytesRead - j - 2] = 0;
+                break;
             }
         }
-        header->pHeader = malloc(j + 1);
-        memcpy(header->pHeader, linebuf, j);
-        header->pHeader[j] = 0;
-        header->pValue = malloc(bytesRead - j - 1);
-        memcpy(header->pValue, linebuf + j + 2, bytesRead - j - 2);
-        header->pValue[bytesRead - j - 2] = 0;
     }
 
     pResponse->iPayloadSize = iResponseBytesCount - i;

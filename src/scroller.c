@@ -39,6 +39,8 @@ int draw_scroller(Tscroller *sc, BITMAP *bmp, int x, int y, int color)
             return 0;
         set_clip_rect(bmp, x, y, x + sc->width, y + sc->height);
         textout_ex(bmp, sc->fnt, sc->text, x + sc->offset, y, color, -1);
+        set_clip_rect(bmp, 0, 0, bmp->w - 1, bmp->h - 1);
+        return -1;
     }
     else
     {

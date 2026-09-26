@@ -1,0 +1,1 @@
+{"round":7,"family":"week-switch-layout","description":"Place %W handler before %V while preserving both handler bodies and all other source text","prediction":"A local jump-table layout change may reduce week-handler register pressure and remove the two extra stack spill slots.","falsifier":"The candidate keeps the 0x6c frame and no strict byte match emerges."}

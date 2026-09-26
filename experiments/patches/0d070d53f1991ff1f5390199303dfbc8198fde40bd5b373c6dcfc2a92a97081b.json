@@ -1,0 +1,114 @@
+{
+ "source": "src/main.c",
+ "base_sha256": "3d69dace6e21a847cf561edbb4b72833026d4661fba681294897e05b09f039c0",
+ "edits": [
+  {
+   "old": "            log2file(\" %s (%s): %s\", name, filename,\n                !characters[count].bmp ? \"error\" : \"ok\");\n",
+   "new": "            log2file(\" %s (%s): %s\", name, buf,\n                characters[count].bmp ? \"ok\" : \"error\");\n"
+  },
+  {
+   "old": "    return 0;\n}\r\n\r\nvoid set_current_avatar(void)\n",
+   "new": "    return 0;\n}\r\n\n\r\nvoid set_current_avatar(void)\n"
+  },
+  {
+   "old": "    char title[64];\n    WSADATA wsaData;\n    unsigned short wVersionRequested;\n    char cfgfilename[256];\n    char profiles_dir[1024];\n    char tmpHandle[32];\n    char *replay_path;\n    PACKFILE *cfg;\n    DATAFILE *loader;\n    DATAFILE *sfx;\n    BITMAP *fldLogo;\n    Tgamepad *pad;\n    int whiteColor;\n    int i;\n",
+   "new": "    PACKFILE *fp;\n    RGB black;\n    int i;\n    char title[64];\n    char tmpHandle[32];\n    WSADATA wsaData;\n    WORD wVersionRequested;\n    char cfgfilename[256];\n"
+  },
+  {
+   "old": "        char *checkFile;\n        int check;\n        replay_path=NULL;\n        check=0;\n        i=1;\n        do {\n            checkFile=argv[i]; /* 1494 */\n            if (checkFile[0]!='-')\n                replay_path=checkFile;\n            if (!stricmp(checkFile,\"-check\")) check=1; /* 1497 */\n            else if (!stricmp(checkFile,\"-jumps\")) cmdline.jumps=1; /* 1500 */\n            else if (!stricmp(checkFile,\"-combos\")) cmdline.combos=1; /* 1503 */\n            else if (!stricmp(checkFile,\"-sd\")) cmdline.sd=1; /* 1506 */\n            else if (!stricmp(checkFile,\"-keys\")) cmdline.keys=1; /* 1509 */\n            else if (!stricmp(checkFile,\"-all\")) { /* 1512 */\n                cmdline.jumps=1; /* 1513 */\n                cmdline.combos=1; /* 1514 */\n                cmdline.sd=1; /* 1515 */\n                cmdline.keys=1; /* 1516 */\n            }\n            else if (!stricmp(checkFile,\"-tiny\")) cmdline.tiny=1; /* 1518 */\n            i++; /* 1493 */\n        } while (i<argc); /* 1493 */\n        if (check) { /* 1524 */\n            log2file(\"Loading %s\",replay_path); /* 1525 */\n            demo=load_replay(replay_path); /* 1526 */\n            if (!demo) { /* 1527 */\n                set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1528 */\n                printf(\"<itrcheck_results status=\\\"error\\\">%s</itrcheck_results>\\n\",\n                       get_filename(replay_path)); /* 1529 */\n",
+   "new": "        int check;\n        char *checkFile;\n        checkFile=NULL;\n        check=0;\n        for (i=1;i<argc;i++) { /* 1493 */\n            if (argv[i][0]!='-') checkFile=argv[i]; /* 1494 */\n            if (!stricmp(argv[i],\"-check\")) check=1; /* 1497 */\n            if (!stricmp(argv[i],\"-jumps\")) cmdline.jumps=1; /* 1500 */\n            if (!stricmp(argv[i],\"-combos\")) cmdline.combos=1; /* 1503 */\n            if (!stricmp(argv[i],\"-sd\")) cmdline.sd=1; /* 1506 */\n            if (!stricmp(argv[i],\"-keys\")) cmdline.keys=1; /* 1509 */\n            if (!stricmp(argv[i],\"-all\")) { /* 1512 */\n                cmdline.keys=1; /* 1513 */\n                cmdline.jumps=1; /* 1514 */\n                cmdline.combos=1; /* 1515 */\n                cmdline.sd=1; /* 1516 */\n            }\n            if (!stricmp(argv[i],\"-tiny\")) cmdline.tiny=1; /* 1518 */\n        }\n        if (check) { /* 1524 */\n            log2file(\"Loading %s\",argv[2]); /* 1525 */\n            demo=load_replay(checkFile); /* 1526 */\n            if (!demo) { /* 1527 */\n                set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1528 */\n                printf(\"<itrcheck_results status=\\\"error\\\">%s</itrcheck_results>\\n\",\n                       get_filename(checkFile)); /* 1529 */\n"
+  },
+  {
+   "old": "        log2file(\"ITRCHECK activated, checking <%s>\",replay_path); /* 1545 */\n",
+   "new": "        log2file(\"ITRCHECK activated, checking <%s>\",checkFile); /* 1545 */\n"
+  },
+  {
+   "old": "            get_extension(tmpHandle)[-1]=0; /* 1556 */\n",
+   "new": "            {\n                char *ext;\n                ext=get_extension(tmpHandle); /* 1556 */\n                ext[-1]=0; /* 1557 */\n            }\n"
+  },
+  {
+   "old": "        reset_hisc_table(hisc_tables[i],\"Harold\",1000,0); /* 1586 */\n    }\n",
+   "new": "    }\n    for (i=0;i<15;i++) /* 1585 */\n        reset_hisc_table(hisc_tables[i],\"Harold\",1000,0); /* 1586 */\n"
+  },
+  {
+   "old": "    cfg=pack_fopen(cfgfilename,\"rp\"); /* 1598 */\n    if (cfg) { /* 1599 */\n        load_options(&options,cfg); /* 1600 */\n        for (i=0;i<15;i++) /* 1601 */\n            if (!load_hisc_table(hisc_tables[i],cfg)) /* 1602 */\n                reset_hisc_table(hisc_tables[i],\"FLD\",1000,0); /* 1603 */\n        pack_fclose(cfg); /* 1606 */\n",
+   "new": "    fp=pack_fopen(cfgfilename,\"rp\"); /* 1598 */\n    if (fp) { /* 1599 */\n        load_options(&options,fp); /* 1600 */\n        for (i=0;i<15;i++) /* 1601 */\n            if (!load_hisc_table(hisc_tables[i],fp)) /* 1602 */\n                reset_hisc_table(hisc_tables[i],\"FLD\",1000,0); /* 1603 */\n        pack_fclose(fp); /* 1606 */\n"
+  },
+  {
+   "old": "    }\n\n    allegro_init(); /* 1623 */\n    set_color_depth(32); /* 1624 */\n    if (!options.full_screen) { /* 1627 */\n        log2file(\"Setting windowed mode 640x480\"); /* 1628 */\n        if (set_gfx_mode(GFX_AUTODETECT_WINDOWED,640,480,0,0)!=0) { /* 1629 */\n",
+   "new": "\n    set_color_depth(desktop_color_depth()); /* 1624 */\n    if (!options.full_screen) { /* 1627 */\n        log2file(\"Setting windowed mode 640x480\"); /* 1628 */\n        if (set_gfx_mode(GFX_AUTODETECT_WINDOWED,640,480,0,0)<0) { /* 1629 */\n"
+  },
+  {
+   "old": "        if (set_gfx_mode(GFX_AUTODETECT_FULLSCREEN,640,480,0,0)!=0) { /* 1639 */\n",
+   "new": "        if (set_gfx_mode(GFX_AUTODETECT_FULLSCREEN,640,480,0,0)<0) { /* 1639 */\n"
+  },
+  {
+   "old": "    log2file(\"Graphics mode set. (screen = %d)\",screen); /* 1668 */\n",
+   "new": ""
+  },
+  {
+   "old": "        show_mouse(screen); /* 1664 */\n\n    textprintf_centre_ex(screen,font,320,220,makecol(180,180,180),-1,\n",
+   "new": "        show_mouse(screen); /* 1664 */\n    log2file(\"Graphics mode set. (screen = %d)\",screen); /* 1668 */\n\n    {\n    DATAFILE *loader;\n    BITMAP *fldLogo;\n    int whiteColor;\n    textprintf_centre_ex(screen,font,320,220,makecol(180,180,180),-1,\n"
+  },
+  {
+   "old": "\n    log2file(\"Setting focus modes\"); /* 1721 */\n",
+   "new": "\n    }\n    log2file(\"Setting focus modes\"); /* 1721 */\n"
+  },
+  {
+   "old": "            log2file(\" getting values from gamepad.txt\"); /* 1766 */\n            set_config_file(\"gamepad.txt\"); /* 1767 */\n            pad=get_gamepad(); /* 1765 */\n            pad->up=get_gamepad_value(\"up\"); /* 1768 */\n            pad->left=get_gamepad_value(\"left\"); /* 1769 */\n            pad->right=get_gamepad_value(\"right\"); /* 1770 */\n            pad->down=get_gamepad_value(\"down\"); /* 1771 */\n            for (i=1;i<=32;i++) { /* 1772 */\n                sprintf(cfgfilename,\"b%d\",i); /* 1774 */\n                pad->b[i-1]=get_gamepad_value(cfgfilename); /* 1775 */\n            }\n        } else {\n            log2file(\" gamepad.txt is missing, setting defaults\"); /* 1780 */\n            pad=get_gamepad(); /* 1779 */\n            pad->up=4; /* 1781 */\n            pad->left=1; /* 1782 */\n            pad->right=2; /* 1783 */\n            pad->down=8; /* 1784 */\n            for (i=0;i<32;i++) /* 1785 */\n                pad->b[i]=16; /* 1786 */\n",
+   "new": "            int i;\n            Tgamepad *gp;\n            gp=get_gamepad(); /* 1765 */\n            log2file(\" getting values from gamepad.txt\"); /* 1766 */\n            set_config_file(\"gamepad.txt\"); /* 1767 */\n            gp->up=get_gamepad_value(\"up\"); /* 1768 */\n            gp->left=get_gamepad_value(\"left\"); /* 1769 */\n            gp->right=get_gamepad_value(\"right\"); /* 1770 */\n            gp->down=get_gamepad_value(\"down\"); /* 1771 */\n            for (i=0;i<32;i++) { /* 1772 */\n                char buf[8];\n                sprintf(buf,\"b%d\",i+1); /* 1774 */\n                gp->b[i]=get_gamepad_value(buf); /* 1775 */\n            }\n        } else {\n            Tgamepad *gp;\n            gp=get_gamepad(); /* 1779 */\n            log2file(\" gamepad.txt is missing, setting defaults\"); /* 1780 */\n            gp->up=4; /* 1781 */\n            gp->left=1; /* 1782 */\n            gp->right=2; /* 1783 */\n            gp->down=8; /* 1784 */\n            for (i=0;i<32;i++) /* 1785 */\n                gp->b[i]=16; /* 1786 */\n"
+  },
+  {
+   "old": "    swap_screen=create_bitmap(SCREEN_W,SCREEN_H); /* 1797 */\n",
+   "new": "    swap_screen=create_bitmap(640,480); /* 1797 */\n"
+  },
+  {
+   "old": "    set_color_conversion(0x00ffffff); /* 1820 */\n    draw_progress_bar(); /* 1821 */\n    pwd_garble_string(init_string,50); /* 1806 */\n    log2file(\"Loading data\"); /* 1818 */\n",
+   "new": "    pwd_garble_string(init_string,50); /* 1806 */\n    log2file(\"Loading data\"); /* 1818 */\n    set_color_conversion(0x00ffffff); /* 1820 */\n    draw_progress_bar(); /* 1821 */\n"
+  },
+  {
+   "old": "    draw_progress_bar(); /* 1836 */\n    log2file(\"Initiating player\"); /* 1835 */\n",
+   "new": "    }\n    log2file(\"Initiating player\"); /* 1835 */\n    draw_progress_bar(); /* 1836 */\n"
+  },
+  {
+   "old": "        ((RGB *)data[0].dat)[0].r=0; /* 1849 */\n        ((RGB *)data[0].dat)[0].g=0;\n        ((RGB *)data[0].dat)[0].b=0;\n        gameover_bmp=data[55].dat; /* 1850 */\n        log2file(\"Checking profile directory\"); /* 1855 */\n        get_profiles_dir(profiles_dir,sizeof(profiles_dir)); /* 1858 */\n        if (!file_exists(profiles_dir,FA_DIREC,0)) { /* 1860 */\n            log2file(\"  does not exist, trying to create\"); /* 1861 */\n            mkdir(profiles_dir); /* 1863 */\n        }\n        if (!file_exists(profiles_dir,FA_DIREC,0)) { /* 1867 */\n            log2file(\"  *** failed!\"); /* 1868 */\n            set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1869 */\n            allegro_message(\"Failed to create profile directory %s\",profiles_dir); /* 1870 */\n            return 0; /* 1871 */\n",
+   "new": "        char profiledir[1024];\n        int last_cc;\n        ((RGB *)data[0].dat)[0].r=((RGB *)data[0].dat)[0].g=((RGB *)data[0].dat)[0].b=0; /* 1849 */\n        gameover_bmp=data[55].dat; /* 1850 */\n        log2file(\"Checking profile directory\"); /* 1855 */\n        get_profiles_dir(profiledir,sizeof(profiledir)); /* 1858 */\n        if (!file_exists(profiledir,FA_ALL,0)) { /* 1860 */\n            log2file(\"  does not exist, trying to create\"); /* 1861 */\n            mkdir(profiledir); /* 1863 */\n            if (!file_exists(profiledir,FA_ALL,0)) { /* 1867 */\n                log2file(\"  *** failed!\"); /* 1868 */\n                set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1869 */\n                allegro_message(\"Failed to create profile directory %s\",profiledir); /* 1870 */\n                return 0; /* 1871 */\n            }\n"
+  },
+  {
+   "old": "        packfile_password(init_string); /* 1927 */\n        log2file(\" loading sounds\"); /* 1926 */\n",
+   "new": "        log2file(\" loading sounds\"); /* 1926 */\n        packfile_password(init_string); /* 1927 */\n"
+  },
+  {
+   "old": "        floors.value=profile->start_floor; /* 1987 */\n        if (floors.value>floors.max)\n            floors.value=floors.max;\n    }\n    log2file(\"Cleaning up\"); /* 2063 */\n    draw_progress_bar(); /* 2064 */\n    log2file(\"Welcome to Icy Tower\"); /* 2069 */\n    draw_progress_bar(); /* 2070 */\n    i=0; /* 2072 */\n    while (!keypressed() && cycle_count<=149) { /* 2072 */\n        if (!(cycle_count%10) && i!=cycle_count) { /* 2073 */\n            draw_progress_bar(); /* 2075 */\n            i=cycle_count; /* 2076 */\n        }\n        rest(2); /* 2078 */\n    }\n    seed=rand()%2367; /* 2082 */\n    fadeOut(16); /* 2083 */\n    clear_bitmap(screen); /* 2084 */\n    vsync(); /* 2085 */\n    clear_keybuf(); /* 2086 */\n",
+   "new": "        floors.value=profile->start_floor>floors.max ? floors.max : profile->start_floor; /* 1987 */\n        log2file(\"Cleaning up\"); /* 2063 */\n        draw_progress_bar(); /* 2064 */\n        log2file(\"Welcome to Icy Tower\"); /* 2069 */\n        draw_progress_bar(); /* 2070 */\n        last_cc=0; /* 2072 */\n        while (!keypressed() && cycle_count<=149) { /* 2072 */\n            if (!(cycle_count%10) && cycle_count!=last_cc) { /* 2073 */\n                last_cc=cycle_count; /* 2074 */\n                draw_progress_bar(); /* 2075 */\n                last_cc=cycle_count; /* 2076 */\n            }\n            rest(2); /* 2078 */\n        }\n        seed=rand()%2367; /* 2082 */\n        fadeOut(16); /* 2083 */\n        clear_bitmap(screen); /* 2084 */\n        vsync(); /* 2085 */\n        clear_keybuf(); /* 2086 */\n    }\n"
+  },
+  {
+   "old": "    if (new_rand() % 198 == 1) {                                     /* 5143 */\n        face++;                                                      /* 5144 */\n        if (face == 3)\n            face = 0;\n    }\n\n    if (key[KEY_F1]) {                                               /* 5147 */\n        take_screenshot(swap_screen);                                /* 5148 */\n        while (key[KEY_F1])                                          /* 5149 */\n            rest(2);                                                 /* 5161 */\n",
+   "new": "    if (new_rand() % 198 == 1) face++;                               /* 5143 */\n    if (face == 3) face = 0;                                         /* 5144 */\n\n    if (key[KEY_F1]) {                                               /* 5147 */\n        take_screenshot(swap_screen);                                /* 5148 */\n        while (key[KEY_F1]);                                         /* 5149 */\n"
+  },
+  {
+   "old": "        mouseInAd = mouse_x < pFLDAdBitmap->w && gfx_driver &&        /* 5158 */\n                    mouse_y > gfx_driver->h - pFLDAdBitmap->h;\n\n        if (key[KEY_F5]) {                                           /* 5160 */\n            while (key[KEY_F5])\n                rest(2);\n",
+   "new": "        mouseInAd = mouse_x < pFLDAdBitmap->w && mouse_y > SCREEN_H - pFLDAdBitmap->h; /* 5158 */\n        if (key[KEY_F5] || (mouseInAd && (mouse_b & 1) && !(lastMouseB & 1))) { /* 5160 */\n            while (key[KEY_F5]) rest(2);                             /* 5161 */\n"
+  },
+  {
+   "old": "        } else if (mouseInAd) {\n            if ((mouse_b & 1) && !(lastMouseB & 1)) {\n                testWindowResolution();\n                open_web_browser((char *)pFLDAd->pVisitURL);\n                my_alert(\"Go online!\", \"Your browser has been opened.\", 0, 1);\n            }\n        }\n        lastMouseB = mouse_b;                                        /* 5172 */\n        if (mouseInAd)\n            _win_hcursor = LoadCursorA(NULL, IDC_HAND);\n        else\n            _win_hcursor = LoadCursorA(NULL, IDC_ARROW);\n    } else {\n        lastMouseB = mouse_b;\n    }\n\n    if (data && data[126].dat)                                       /* 5187 */\n        blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);\n    if (data && data[71].dat)                                        /* 5193 */\n        draw_sprite(swap_screen, data[71].dat, 330, 280);\n",
+   "new": "        }\n        lastMouseB = mouse_b;                                        /* 5172 */\n        if (mouseInAd)                                               /* 5176 */\n            _win_hcursor = LoadCursorA(NULL, IDC_HAND);              /* 5177 */\n        else\n            _win_hcursor = LoadCursorA(NULL, IDC_ARROW);             /* 5179 */\n    }\n\n    blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);          /* 5187 */\n    draw_sprite(swap_screen, data[71].dat, 330, 280);                /* 5193 */\n    draw_sprite(swap_screen, data[125].dat, 0, 0);                   /* 5197 */\n"
+  },
+  {
+   "old": "    rectfill(swap_screen, 0, 0, 639, 20, makecol(0, 0, 0));           /* 5223 */\n    rectfill(swap_screen, 0, 0, 639, 18, makecol(0, 0, 0));           /* 5224 */\n    rectfill(swap_screen, 0, 0, 639, 16, makecol(0, 0, 0));           /* 5225 */\n    solid_mode();                                                     /* 5226 */\n    draw_scroller(&greeting_scroller, swap_screen, 1, 0, makecol(150, 150, 150)); /* 5227 */\n    if (!draw_scroller(&greeting_scroller, swap_screen, 0, 0,        /* 5228 */\n",
+   "new": "    rectfill(swap_screen, 0, 462, 639, 479, makecol(0, 0, 0));           /* 5223 */\n    rectfill(swap_screen, 0, 463, 639, 479, makecol(0, 0, 0));           /* 5224 */\n    rectfill(swap_screen, 0, 464, 639, 479, makecol(0, 0, 0));           /* 5225 */\n    solid_mode();                                                     /* 5226 */\n    draw_scroller(&greeting_scroller, swap_screen, 1, 462, makecol(150, 150, 150)); /* 5227 */\n    if (!draw_scroller(&greeting_scroller, swap_screen, 0, 462,      /* 5228 */\n"
+  },
+  {
+   "old": "                get_rank_id(profile) ? \"Your rank is %s.\" : \"\");\n",
+   "new": "                get_rank_id(profile) == 0 ? \"\" : \"Your rank is %s.\");\n"
+  },
+  {
+   "old": "    }\n    play_char.bmp = characters[play_char.value].bmp;                  /* 5266 */\n    curr_char = play_char.value;                                      /* 5267 */\n    strcpy(profile->last_avatar, characters[play_char.value].name);   /* 5268 */\n",
+   "new": "        play_char.bmp = characters[play_char.value].bmp;              /* 5266 */\n        curr_char = play_char.value;                                  /* 5267 */\n        strcpy(profile->last_avatar, characters[play_char.value].name); /* 5268 */\n    }\n"
+  },
+  {
+   "old": "    options.floor_shrink = floors.value;\n    options.start_speed = get_selection_value(&scroll_speed_selection); /* 5285 */\n    options.floor_size = get_selection_value(&floor_size_selection);  /* 5284 */\n    options.gravity = get_selection_value(&gravity_selection);        /* 5283 */\n",
+   "new": "    options.gravity = get_selection_value(&gravity_selection);        /* 5283 */\n    options.floor_size = get_selection_value(&floor_size_selection);  /* 5284 */\n    options.start_speed = get_selection_value(&scroll_speed_selection); /* 5285 */\n"
+  }
+ ]
+}

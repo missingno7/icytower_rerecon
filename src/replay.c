@@ -188,29 +188,30 @@ int calc_replay_checksum(Treplay *r)
 {
     int i;
     unsigned int sum;
+    sum = r->biggest_lost_combo * 17 + 17 + r->no_combo_top_floor * 127;
+    sum += sum + r->floor_shrink * 102 + r->floor_size * 17 + 3702 + r->start_speed * 163 + r->speed_increase * 23 + r->gravity * 88;
+    sum += r->score * 17 + 17 + r->tc_posts * 127 + r->random_seed * 329 + (r->combo + 1) * 73 + r->rejump * 13 + (r->floor + 1) * 113;
 
-    sum = (r->biggest_lost_combo * 17 + r->no_combo_top_floor * 127 + 17) * 2;
-    sum += r->floor_shrink * 102 + r->floor_size * 17 + 3702;
-    sum += r->start_speed * 163 + r->speed_increase * 23;
-    sum += r->gravity * 88 + r->random_seed * 329;
-    sum += r->tc_posts * 127 + r->rejump * 13;
-    sum += r->score * 17 + 17;
-    sum += (r->combo + 1) * 649;
-    sum += (r->floor + 1) * 113;
+
     for (i = 0; i < 5; i++)
-        sum += r->ccc[i] * (39 + i * 3) + r->jc[i] * (27 + i * 3);
+        sum = sum + r->ccc[i] * (39 + i * 3) + r->jc[i] * (27 + i * 3);
+
+
+
     for (i = 0; i < 100; i++) {
         sum += r->tc_c_data[i] * ((i + 1) % 13);
-        sum += r->tc_q_data[i] * ((i + 6) % 17);
-        sum += r->tc_t_data[i] * ((i + 8) % 23);
+        sum += r->tc_q_data[i] * ((i + 7) % 17);
+        sum += r->tc_t_data[i] * ((i + 9) % 23);
     }
+
     for (i = 0; i < 32; i++)
         sum += (r->date[i] + i) * (r->name[i] + i) * (17 + i * 17);
+
     for (i = 0; i < 42; i++)
         sum += (r->comment[i] + i) * (r->comment[i] + i) * (-3 + i * 3);
+
     for (i = 0; i < r->size; i++)
-        sum += r->data[i].key_flags * 3 * (i % 193 + 1) +
-               r->data[i].cycle_count * 7 * (i % 167 + 1);
+        sum += r->data[i].cycle_count * 7 * (i % 167 + 1) + r->data[i].key_flags * 3 * (i % 193 + 1);
     return hash(sum);
 }
 
@@ -642,43 +643,33 @@ void draw_replay_selector(BITMAP *bmp, Treplay *rep, Treplay_post *file_list,
 
 int add_itr_file(const char *filename, int attrib, void *param)
 {
-    int length;
-    char *name;
+    int length = strlen(filename) + 10;
+    char *name = get_filename(filename);
     int res;
 
-    length = strlen(filename) + 10;
-    name = get_filename(filename);
     if (!stricmp(name, "."))
-        goto done;
-    if (!(attrib & FA_DIREC))
-        goto replay_file;
-    goto directory;
-replay_file:
-    if (stricmp(get_extension(filename), "itr"))
-        goto done;
+        return 0;
+    if (!(attrib & FA_DIREC) && stricmp(get_extension(filename), "itr"))
+        return 0;
     itr_file_list[num_itr_files].full_path = malloc(length);
-    res = get_replay_property(filename, 0);
-    if (res < 0)
-        goto bad_replay;
-copy_replay:
-    strcpy(itr_file_list[num_itr_files].full_path, filename);
-    itr_file_list[num_itr_files].directory = 0;
+    if (attrib & FA_DIREC) {
+            strcpy(itr_file_list[num_itr_files].full_path, filename);
+            itr_file_list[num_itr_files].directory = 1;
+            if (!strcmp(name, ".."))
+                itr_file_list[num_itr_files].parent = 1;
+    }
+    else {
+            res = get_replay_property(filename, 0);
+            if (res < 0) {
+                if (res == -1 || res == -1000)
+                    return 0;
+                itr_file_list[num_itr_files].version = -1000 - res;
+            }
+            strcpy(itr_file_list[num_itr_files].full_path, filename);
+            itr_file_list[num_itr_files].directory = 0;
+    }
     num_itr_files++;
-done:
     return 0;
-directory:
-    itr_file_list[num_itr_files].full_path = malloc(length);
-    strcpy(itr_file_list[num_itr_files].full_path, filename);
-    itr_file_list[num_itr_files].directory = 1;
-    if (!strncmp(name, "..", 3))
-        itr_file_list[num_itr_files].parent = 1;
-    num_itr_files++;
-    goto done;
-bad_replay:
-    if (res == -1 || res == -1000)
-        goto done;
-    itr_file_list[num_itr_files].version = -1000 - res;
-    goto copy_replay;
 }
 
 int my_strcmp(const void *c, const void *d)

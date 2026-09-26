@@ -1,0 +1,8 @@
+{
+  "round": 3,
+  "parent": "7907fd6afb441304b50a7c2631746b0fd9b4e9b57639a722dfd93c46b7aca581",
+  "family": "historical-selector-switch-with-header-owner",
+  "description": "Combine the evidence-backed historical replay selector switch layout with the source-declared six-byte REPLAY_HEADER owner while leaving save_replay and its automatic months initializer unchanged.",
+  "prediction": "The const header owner will anchor the anonymous month-table relocation at 0x4d7da0 while the corrected selector string layout keeps all exact peers.",
+  "falsifier": "Month relocation remains unresolved or any exact peer regresses; a layout shift producing new differences also falsifies the hypothesis."
+}

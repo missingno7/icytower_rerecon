@@ -44,11 +44,11 @@ char working_directory[1024];
 typedef Tcommandline Tcmdline;
 Tcmdline cmdline;
 double seed;
-int hasFocus;
+int hasFocus = 1;
+int lastFocus = 1;
 int closeButtonClicked;
 int lastMouseB;
-int window;
-int lastFocus;
+int window = -1;
 int in_replay_menu;
 char sfx_file[512];
 int collision_type;
@@ -59,7 +59,6 @@ int gdLastJumpDiff;
 int gdComboStart;
 int last_stripe_y;
 int new_personal_best[15];
-char *hints[45];
 Tbeta *testers;
 Tbeta *the_tester;
 
@@ -118,9 +117,68 @@ typedef struct Tavatar_profile {
 #include "recovered/Tgd_jump_sequence.h"
 typedef Tgd_jump_sequence Tjump_sequence;
 
+char *hisc_names[15] = {
+    "Best Scores", "Best Combos", "Highest Floors", "Biggest Lost Combos",
+    "Top Floors, No Combos", "Clock Challenge 1", "Clock Challenge 2",
+    "Clock Challenge 3", "Clock Challenge 4", "Clock Challenge 5",
+    "Single Jump Sequence", "Double Jump Sequence", "Triple Jump Sequence",
+    "Quadruple Jump Sequence", "Quintuple Jump Sequence"
+};
+char *category_names[15] = {
+    "Score", "Best Combo", "Floor", "Lost Combo", "Top Floor, No Combos",
+    "Clock Challenge 1", "Clock Challenge 2", "Clock Challenge 3",
+    "Clock Challenge 4", "Clock Challenge 5", "Single Jump Sequence",
+    "Double Jump Sequence", "Triple Jump Sequence", "Quadruple Jump Sequence",
+    "Quintuple Jump Sequence"
+};
+char *hints[45] = {
+    "How much is left to reach the next rank?",
+    "Check out your profile to see what you need to do to reach the next rank!",
+    "In your profile you can see all your records! Check it out!",
+    "How many times did you jump? Check out your profile!",
+    "Tell your friends about Icy Tower. The more the merrier!",
+    "Is that really your best?",
+    "Was that really your best?",
+    "You can do better than that!",
+    "You can do better! One more time!",
+    "Just one more time! Please?",
+    "Make combo jumps for lots of score!",
+    "Bounce on the walls to maintain your speed!",
+    "AGAIN!",
+    "Play again!",
+    "Didn't you see that coming?",
+    "Awww... Try again!",
+    "That was close! You'll make it next time!",
+    "Did you beat your high score yet?",
+    "Calm down, it's not as hard as it seems.",
+    "Come on, concentrate!",
+    "Come on, focus!",
+    "Better luck next time!",
+    "Harold the Homeboy really likes cheese!",
+    "There is always room for improvement! Once more!",
+    "Icy Tower is also available for iPhone and iPod Touch! That's so exciting!",
+    "Icy Tower is available on mobile phones! Have you tried it yet?",
+    "Don't miss Icy Tower for iPhone and iPod Touch! Available now, yay!",
+    "Now you can play Icy Tower on your iPhone phone as well, check it out now!",
+    "Wanna play Icy Tower anywhere? Check out Icy Tower for mobile phones!",
+    "Everyone is talking about Icy Tower for iPhone, you should get it too!",
+    "Get Icy Tower for your phone and play anywhere, anytime!",
+    "Awesome news: Icy Tower for mobile phones is out now!",
+    "Challenge your friends in Icy Tower on Facebook!",
+    "Now you can play anytime you want to! Icy Tower on your iPhone!",
+    "Maybe you should try playing with a different character?",
+    "Did you try playing with a different character?",
+    "Icy Tower is a game from Free Lunch Design. More awesome gamea on our website!",
+    "You are playing Icy Tower, the game that everyone loves!",
+    "Everybody loves Icy Tower, you too!",
+    "Play Icy Tower on Facebook! Compete with your friends!",
+    "Have you tried Icy Tower on Facebook yet?",
+    "Icy Tower is also available on Facebook. Try it out!",
+    "Play Icy Tower on Facebook!",
+    "Play Icy Tower with your friends on Facebook!",
+    "Join all the Icy Tower fans on Facebook!"
+};
 Toptions options;
-int start_speeds[6] = { 5, 4, 3, 2, 1, 0 };
-char *version_str = "1.5.1";
 Tprofile *profile;
 Tavailable_profile *profiles;
 int numProfiles;
@@ -150,12 +208,14 @@ int any23;
 int is_playing_custom_game;
 Tmap map;
 Tgame_data *gameData;
-int checkMusicVoiceID;
+int checkMusicVoiceID = -1;
 int rejump;
 Tjump_sequence jumpSequence;
 int fast_forward;
 int fast_fast_forward;
 int gameMusicVoiceID = -1;
+int start_speeds[6] = { 5, 4, 3, 2, 1, 0 };
+char *version_str = "1.5.1";
 SAMPLE *bg_beat;
 Tmenu_slider snd_volume_slider = { 0, 0, 250, 25 };
 Tmenu_slider msc_volume_slider = { 0, 0, 250, 25 };
@@ -177,41 +237,8 @@ int fall_count;
 int clock_angle;
 int cycle_loops;
 void *hisc_tables[15];
-char *hisc_names[15] = {
-    "Best Scores", "Best Combos", "Highest Floors", "Biggest Lost Combos",
-    "Top Floors, No Combos", "Clock Challenge 1", "Clock Challenge 2",
-    "Clock Challenge 3", "Clock Challenge 4", "Clock Challenge 5",
-    "Single Jump Sequence", "Double Jump Sequence", "Triple Jump Sequence",
-    "Quadruple Jump Sequence", "Quintuple Jump Sequence"
-};
-char *category_names[15] = {
-    "Score", "Best Combo", "Floor", "Lost Combo", "Top Floor, No Combos",
-    "Clock Challenge 1", "Clock Challenge 2", "Clock Challenge 3",
-    "Clock Challenge 4", "Clock Challenge 5", "Single Jump Sequence",
-    "Double Jump Sequence", "Triple Jump Sequence", "Quadruple Jump Sequence",
-    "Quintuple Jump Sequence"
-};
 static int face;
 static int count;
-char scroller_greetings[156] = {
-    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-    0x57, 0x65, 0x6c, 0x63, 0x6f, 0x6d, 0x65, 0x20, 0x74, 0x6f, 0x20,
-    0x49, 0x63, 0x79, 0x20, 0x54, 0x6f, 0x77, 0x65, 0x72, 0x21,
-    0x20, 0x20, 0x20, 0x20, 0x20,
-    0x48, 0x65, 0x6c, 0x70, 0x20, 0x48, 0x61, 0x72, 0x6f, 0x6c, 0x64,
-    0x20, 0x74, 0x68, 0x65, 0x20, 0x48, 0x6f, 0x6d, 0x65, 0x62, 0x6f,
-    0x79, 0x20, 0x74, 0x6f, 0x20, 0x63, 0x6c, 0x69, 0x6d, 0x62, 0x20,
-    0x61, 0x73, 0x20, 0x68, 0x69, 0x67, 0x68, 0x20, 0x61, 0x73, 0x20,
-    0x70, 0x6f, 0x73, 0x73, 0x69, 0x62, 0x6c, 0x65, 0x21,
-    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-    0x55, 0x73, 0x65, 0x20, 0x61, 0x72, 0x72, 0x6f, 0x77, 0x20, 0x6b,
-    0x65, 0x79, 0x73, 0x20, 0x74, 0x6f, 0x20, 0x6d, 0x6f, 0x76, 0x65,
-    0x20, 0x61, 0x6e, 0x64, 0x20, 0x73, 0x70, 0x61, 0x63, 0x65, 0x62,
-    0x61, 0x72, 0x20, 0x74, 0x6f, 0x20, 0x6a, 0x75, 0x6d, 0x70, 0x2e,
-    0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-    0x47, 0x6f, 0x6f, 0x64, 0x20, 0x6c, 0x75, 0x63, 0x6b, 0x21, 0x00
-};
-char init_string[7] = { 0x71, 0x79, 0x75, 0x6a, 0x7d, 0x68, 0x00 };
 Tscroller greeting_scroller;
 char summary_scroller_message[5120];
 Tscroller summary_scroller;
@@ -290,6 +317,26 @@ Tmenu replay_menu[5] = {
     { "View Profile",  0x83, 0, 0, 0,  NULL },
     { "Main Menu",     'l', 0, 0, 0x80, NULL }
 };
+
+char scroller_greetings[156] = {
+    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+    0x57, 0x65, 0x6c, 0x63, 0x6f, 0x6d, 0x65, 0x20, 0x74, 0x6f, 0x20,
+    0x49, 0x63, 0x79, 0x20, 0x54, 0x6f, 0x77, 0x65, 0x72, 0x21,
+    0x20, 0x20, 0x20, 0x20, 0x20,
+    0x48, 0x65, 0x6c, 0x70, 0x20, 0x48, 0x61, 0x72, 0x6f, 0x6c, 0x64,
+    0x20, 0x74, 0x68, 0x65, 0x20, 0x48, 0x6f, 0x6d, 0x65, 0x62, 0x6f,
+    0x79, 0x20, 0x74, 0x6f, 0x20, 0x63, 0x6c, 0x69, 0x6d, 0x62, 0x20,
+    0x61, 0x73, 0x20, 0x68, 0x69, 0x67, 0x68, 0x20, 0x61, 0x73, 0x20,
+    0x70, 0x6f, 0x73, 0x73, 0x69, 0x62, 0x6c, 0x65, 0x21,
+    0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+    0x55, 0x73, 0x65, 0x20, 0x61, 0x72, 0x72, 0x6f, 0x77, 0x20, 0x6b,
+    0x65, 0x79, 0x73, 0x20, 0x74, 0x6f, 0x20, 0x6d, 0x6f, 0x76, 0x65,
+    0x20, 0x61, 0x6e, 0x64, 0x20, 0x73, 0x70, 0x61, 0x63, 0x65, 0x62,
+    0x61, 0x72, 0x20, 0x74, 0x6f, 0x20, 0x6a, 0x75, 0x6d, 0x70, 0x2e,
+    0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+    0x47, 0x6f, 0x6f, 0x64, 0x20, 0x6c, 0x75, 0x63, 0x6b, 0x21, 0x00
+};
+char init_string[7] = { 0x71, 0x79, 0x75, 0x6a, 0x7d, 0x68, 0x00 };
 
 extern void save_options(Toptions *o, PACKFILE *fp);
 extern void load_options(Toptions *o, PACKFILE *fp);
@@ -1784,8 +1831,11 @@ int my_alert(char *func, char *txt, int choice, int enter_hint)
     int done;
     int w;
 
-    w = MAX(text_length(data[51].dat, func ? func : " "),      /* 467 */
-            text_length(data[51].dat, txt ? txt : " "));
+    if (text_length(data[51].dat, func ? func : " ") >
+        text_length(data[51].dat, txt ? txt : " "))
+        w = text_length(data[51].dat, func ? func : " ");
+    else
+        w = text_length(data[51].dat, txt ? txt : " ");
     gui_fg_color = makecol(0, 0, 0);                           /* 470 */
     gui_bg_color = makecol(255, 255, 255);                     /* 471 */
     set_trans_blender(0, 0, 0, 158);                           /* 473 */
@@ -1802,13 +1852,16 @@ int my_alert(char *func, char *txt, int choice, int enter_hint)
     if (enter_hint)                                            /* 488 */
         textout_right_ex(screen, data[54].dat, "(enter to continue)", 520, 200,
                          makecol(80, 80, 80), -1);              /* 489 */
-    while (is_any(&ctrl) || is_any(menu_ctrl) || key[KEY_ESC]) { /* 493 */
+    release_screen();
+    poll_control(&ctrl, 0);                                    /* 493 */
+    poll_control(menu_ctrl, 0);                                 /* 494 */
+    while (is_any(&ctrl) || is_any(menu_ctrl) || key[KEY_ESC]) { /* 495 */
         poll_control(&ctrl, 0); poll_control(menu_ctrl, 0); rest(2);
     }
     clear_keybuf();                                            /* 500 */
     done = 0;
     status = 0;
-    while (!done && !closeButtonClicked) {                     /* 502 */
+    while (!closeButtonClicked && !done) {                     /* 502 */
         cycle_count = 0;                                       /* 503 */
         poll_control(&ctrl, 0); poll_control(menu_ctrl, 0);     /* 504 */
         if (is_left(&ctrl) || is_left(menu_ctrl)) status = -1;  /* 507 */
@@ -1820,11 +1873,13 @@ int my_alert(char *func, char *txt, int choice, int enter_hint)
         if (is_fire(&ctrl) || is_fire(menu_ctrl) || is_enter(menu_ctrl)) done = -1; /* 519 */
         if (choice) {                                          /* 523 */
             vsync();                                           /* 525 */
-            draw_sprite(screen, data[status == -1 ? 11 : 10].dat, 240, 220); /* 527 */
-            draw_sprite(screen, data[status == -1 ? 8 : 7].dat, 365, 220);   /* 529 */
+            draw_sprite(screen, data[status ? 11 : 10].dat, 240, 220); /* 527 */
+            draw_sprite(screen, data[status ? 7 : 8].dat, 365, 220);   /* 529 */
         }
-        if (!cycle_count) rest(2);                             /* 532 */
+        while (!cycle_count) rest(2);                         /* 532 */
     }
+    poll_control(&ctrl, 0);                                    /* 535 */
+    poll_control(menu_ctrl, 0);                                 /* 536 */
     while (is_any(&ctrl) || is_any(menu_ctrl) || key[KEY_ESC] || key[KEY_ENTER]) { /* 537 */
         poll_control(&ctrl, 0); poll_control(menu_ctrl, 0); rest(2); /* 538 */
     }
@@ -1989,8 +2044,8 @@ int load_character(const char *filename, int attrib, void *param)
         if (exists(buf)) {
             characters[count].bmp = load_character_bmp(name,
                 &characters[count].uses_datafile, characters[count].pal);
-            log2file(" %s (%s): %s", name, filename,
-                characters[count].bmp ? "ok" : "error");
+            log2file(" %s (%s): %s", name, buf,
+                !characters[count].bmp ? "error" : "ok");
             if (!characters[count].bmp) {
                 num_chars--;
                 *allegro_errno = 0;
@@ -2291,20 +2346,14 @@ void open_web_browser(const char *pURL)
  * subsystems before it exposes the datafile-backed game globals. */
 int init_game(int argc, char **argv)
 {
-    char title[64];
-    WSADATA wsaData;
-    unsigned short wVersionRequested;
-    char cfgfilename[256];
-    char profiles_dir[1024];
-    char tmpHandle[32];
-    char *replay_path;
-    PACKFILE *cfg;
-    DATAFILE *loader;
-    DATAFILE *sfx;
-    BITMAP *fldLogo;
-    Tgamepad *pad;
-    int whiteColor;
+    PACKFILE *fp;
+    RGB black;
     int i;
+    char title[64];
+    char tmpHandle[32];
+    WSADATA wsaData;
+    WORD wVersionRequested;
+    char cfgfilename[256];
 
     tmpHandle[0]=0; /* 1382 */
     init_ok=0; /* 1385 */
@@ -2349,54 +2398,56 @@ int init_game(int argc, char **argv)
     gravity_selection.caption[2]=strdup("Heavy"); /* 1444 */
     fldads_start(); /* 1448 */
     if (argc>2) { /* 1489 */
-        char *checkFile;
         int check;
-        replay_path=NULL;
+        char *checkFile;
+        checkFile=NULL;
         check=0;
-        i=1;
-        do {
-            checkFile=argv[i]; /* 1494 */
-            if (checkFile[0]!='-')
-                replay_path=checkFile;
-            if (!stricmp(checkFile,"-check")) check=1; /* 1497 */
-            else if (!stricmp(checkFile,"-jumps")) cmdline.jumps=1; /* 1500 */
-            else if (!stricmp(checkFile,"-combos")) cmdline.combos=1; /* 1503 */
-            else if (!stricmp(checkFile,"-sd")) cmdline.sd=1; /* 1506 */
-            else if (!stricmp(checkFile,"-keys")) cmdline.keys=1; /* 1509 */
-            else if (!stricmp(checkFile,"-all")) { /* 1512 */
-                cmdline.jumps=1; /* 1513 */
-                cmdline.combos=1; /* 1514 */
-                cmdline.sd=1; /* 1515 */
-                cmdline.keys=1; /* 1516 */
+        for (i=1;i<argc;i++) { /* 1493 */
+            if (argv[i][0]!='-') checkFile=argv[i]; /* 1494 */
+            if (!stricmp(argv[i],"-check")) check=1; /* 1497 */
+            if (!stricmp(argv[i],"-jumps")) cmdline.jumps=1; /* 1500 */
+            if (!stricmp(argv[i],"-combos")) cmdline.combos=1; /* 1503 */
+            if (!stricmp(argv[i],"-sd")) cmdline.sd=1; /* 1506 */
+            if (!stricmp(argv[i],"-keys")) cmdline.keys=1; /* 1509 */
+            if (!stricmp(argv[i],"-all")) { /* 1512 */
+                cmdline.keys=1; /* 1513 */
+                cmdline.jumps=1; /* 1514 */
+                cmdline.combos=1; /* 1515 */
+                cmdline.sd=1; /* 1516 */
             }
-            else if (!stricmp(checkFile,"-tiny")) cmdline.tiny=1; /* 1518 */
-            i++; /* 1493 */
-        } while (i<argc); /* 1493 */
-        if (!check) { /* 1524 */
+            if (!stricmp(argv[i],"-tiny")) cmdline.tiny=1; /* 1518 */
+        }
+        if (check) { /* 1524 */
+            log2file("Loading %s",argv[2]); /* 1525 */
+            demo=load_replay(checkFile); /* 1526 */
+            if (!demo) { /* 1527 */
+                set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1528 */
+                printf("<itrcheck_results status=\"error\">%s</itrcheck_results>\n",
+                       get_filename(checkFile)); /* 1529 */
+                log2file("*** Failed!"); /* 1530 */
+                dropped_file_is_not_a_replay=1; /* 1531 */
+                return 0; /* 1532 */
+            }
+        }
+        else {
             set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1536 */
             allegro_message("<%s>\nis not a vaild option.",argv[1]); /* 1537 */
             log2file("*** Erroneous option (%s)",argv[1]); /* 1538 */
             dropped_file_is_not_a_replay=1; /* 1539 */
             return 0;
         }
-        log2file("Loading %s",replay_path); /* 1525 */
-        demo=load_replay(replay_path); /* 1526 */
-        if (!demo) { /* 1527 */
-            set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1528 */
-            printf("<itrcheck_results status=\"error\">%s</itrcheck_results>\n",
-                   get_filename(replay_path)); /* 1529 */
-            log2file("*** Failed!"); /* 1530 */
-            dropped_file_is_not_a_replay=1; /* 1531 */
-            return 0; /* 1532 */
-        }
         itrcheck=1; /* 1544 */
-        log2file("ITRCHECK activated, checking <%s>",replay_path); /* 1545 */
+        log2file("ITRCHECK activated, checking <%s>",checkFile); /* 1545 */
     } else if (argc==2) { /* 1550 */
         log2file("Loading %s",argv[1]); /* 1551 */
         demo=load_replay(argv[1]); /* 1552 */
         if (!demo) { /* 1553 */
             strcpy(tmpHandle,get_filename(argv[1])); /* 1555 */
-            get_extension(tmpHandle)[-1]=0; /* 1556 */
+            {
+                char *ext;
+                ext=get_extension(tmpHandle); /* 1556 */
+                ext[-1]=0; /* 1557 */
+            }
             profile=load_profile(tmpHandle); /* 1558 */
             if (!profile) { /* 1559 */
                 tmpHandle[0]=0; /* 1560 */
@@ -2411,31 +2462,32 @@ int init_game(int argc, char **argv)
             profile=NULL; /* 1568 */
         }
     }
-    log2file("Creating hiscore tables."); /* 1575 */
+    log2file("Creating hiscore tables"); /* 1575 */
     for (i=0;i<15;i++) { /* 1576 */
         hisc_tables[i]=make_hisc_table(hisc_names[i]); /* 1577 */
         if (!hisc_tables[i]) { /* 1578 */
-            log2file("*** failed."); /* 1579 */
+            log2file(" *** failed"); /* 1579 */
             set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1580 */
             allegro_message("Failed reserve memory for highscore table."); /* 1581 */
             return 0;
         }
-        reset_hisc_table(hisc_tables[i],"Harold",1000,0); /* 1586 */
     }
+    for (i=0;i<15;i++) /* 1585 */
+        reset_hisc_table(hisc_tables[i],"Harold",1000,0); /* 1586 */
     log2file("Initiating controls"); /* 1590 */
     init_control(&ctrl); /* 1591 */
     get_configfile_path(cfgfilename,sizeof(cfgfilename)); /* 1595 */
     log2file("Loading config file"); /* 1597 */
-    cfg=pack_fopen(cfgfilename,"rp"); /* 1598 */
-    if (cfg) { /* 1599 */
-        load_options(&options,cfg); /* 1600 */
+    fp=pack_fopen(cfgfilename,"rp"); /* 1598 */
+    if (fp) { /* 1599 */
+        load_options(&options,fp); /* 1600 */
         for (i=0;i<15;i++) /* 1601 */
-            if (!load_hisc_table(hisc_tables[i],cfg)) /* 1602 */
-                reset_hisc_table(hisc_tables[i],"Harold",1000,0); /* 1603 */
-        pack_fclose(cfg); /* 1606 */
+            if (!load_hisc_table(hisc_tables[i],fp)) /* 1602 */
+                reset_hisc_table(hisc_tables[i],"FLD",1000,0); /* 1603 */
+        pack_fclose(fp); /* 1606 */
     } else
     {
-        log2file("*** failed."); /* 1609 */
+        log2file(" *** failed"); /* 1609 */
         log2file("Resetting to default config"); /* 1610 */
         reset_options(&options); /* 1611 */
     }
@@ -2446,22 +2498,20 @@ int init_game(int argc, char **argv)
     if (!itrcheck) { /* 1619 */
         options.timesStarted++; /* 1620 */
         log2file("Game started %d times",options.timesStarted); /* 1621 */
-    }
 
-    allegro_init(); /* 1623 */
-    set_color_depth(32); /* 1624 */
+    set_color_depth(desktop_color_depth()); /* 1624 */
     if (!options.full_screen) { /* 1627 */
         log2file("Setting windowed mode 640x480"); /* 1628 */
-        if (set_gfx_mode(GFX_AUTODETECT_WINDOWED,640,480,0,0)!=0) { /* 1629 */
-            log2file("*** failed."); /* 1633 */
+        if (set_gfx_mode(GFX_AUTODETECT_WINDOWED,640,480,0,0)<0) { /* 1629 */
+            log2file(" *** failed"); /* 1633 */
             options.full_screen=-1; /* 1634 */
         } else
             window=1; /* 1630 */
     }
     if (options.full_screen) {
         log2file("Setting fullscreen mode 640x480"); /* 1638 */
-        if (set_gfx_mode(GFX_AUTODETECT_FULLSCREEN,640,480,0,0)!=0) { /* 1639 */
-            log2file("*** failed."); /* 1643 */
+        if (set_gfx_mode(GFX_AUTODETECT_FULLSCREEN,640,480,0,0)<0) { /* 1639 */
+            log2file(" *** failed"); /* 1643 */
             set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1644 */
             allegro_message("Failed to set graphics mode."); /* 1645 */
             return 0; /* 1646 */
@@ -2474,19 +2524,23 @@ int init_game(int argc, char **argv)
         allegro_message("For some reason, the game failed to go into\ngraphics mode. Try starting the game again.\n\nIf this problem persists,\nplease visit www.freelunchdesign.com."); /* 1654 */
         return 0; /* 1655 */
     }
-    log2file("Graphics mode set. (screen = %d)",screen); /* 1668 */
     install_mouse(); /* 1659 */
     enable_hardware_cursor(); /* 1660 */
     select_mouse_cursor(2); /* 1661 */
     if (!options.full_screen) /* 1663 */
         show_mouse(screen); /* 1664 */
+    log2file("Graphics mode set. (screen = %d)",screen); /* 1668 */
 
+    {
+    DATAFILE *loader;
+    BITMAP *fldLogo;
+    int whiteColor;
     textprintf_centre_ex(screen,font,320,220,makecol(180,180,180),-1,
                          "please wait"); /* 1671 */
     set_color_conversion(COLORCONV_NONE); /* 1674 */
     packfile_password("(c) Free Lunch Design"); /* 1675 */
     loader=load_datafile("data/loading.dat"); /* 1676 */
-    log2file("Loading loader."); /* 1677 */
+    log2file("Loading loader"); /* 1677 */
     if (!loader) { /* 1678 */
         log2file(" *** failed"); /* 1679 */
         set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1680 */
@@ -2502,6 +2556,7 @@ int init_game(int argc, char **argv)
     draw_sprite(screen,fldLogo,320-fldLogo->w/2,200-fldLogo->h/2); /* 1711 */
     unload_datafile(loader); /* 1715 */
 
+    }
     log2file("Setting focus modes"); /* 1721 */
     if (options.full_screen)
         set_display_switch_mode(SWITCH_BACKAMNESIA); /* 1723 */
@@ -2529,79 +2584,84 @@ int init_game(int argc, char **argv)
         ctrl.use_joy=1; /* 1760 */
         log2file(" gamepad has %d buttons",joy[0].num_buttons); /* 1761 */
         if (exists("gamepad.txt")) { /* 1763 */
+            int i;
+            Tgamepad *gp;
+            gp=get_gamepad(); /* 1765 */
             log2file(" getting values from gamepad.txt"); /* 1766 */
             set_config_file("gamepad.txt"); /* 1767 */
-            pad=get_gamepad(); /* 1765 */
-            pad->up=get_gamepad_value("up"); /* 1768 */
-            pad->left=get_gamepad_value("left"); /* 1769 */
-            pad->right=get_gamepad_value("right"); /* 1770 */
-            pad->down=get_gamepad_value("down"); /* 1771 */
-            for (i=1;i<=32;i++) { /* 1772 */
-                sprintf(cfgfilename,"b%d",i); /* 1774 */
-                pad->b[i-1]=get_gamepad_value(cfgfilename); /* 1775 */
+            gp->up=get_gamepad_value("up"); /* 1768 */
+            gp->left=get_gamepad_value("left"); /* 1769 */
+            gp->right=get_gamepad_value("right"); /* 1770 */
+            gp->down=get_gamepad_value("down"); /* 1771 */
+            for (i=0;i<32;i++) { /* 1772 */
+                char buf[8];
+                sprintf(buf,"b%d",i+1); /* 1774 */
+                gp->b[i]=get_gamepad_value(buf); /* 1775 */
             }
         } else {
+            Tgamepad *gp;
+            gp=get_gamepad(); /* 1779 */
             log2file(" gamepad.txt is missing, setting defaults"); /* 1780 */
-            pad=get_gamepad(); /* 1779 */
-            pad->up=4; /* 1781 */
-            pad->left=1; /* 1782 */
-            pad->right=2; /* 1783 */
-            pad->down=8; /* 1784 */
+            gp->up=4; /* 1781 */
+            gp->left=1; /* 1782 */
+            gp->right=2; /* 1783 */
+            gp->down=8; /* 1784 */
             for (i=0;i<32;i++) /* 1785 */
-                pad->b[i]=16; /* 1786 */
+                gp->b[i]=16; /* 1786 */
         }
     } else
         log2file(" no gamepad or joystick found, play with keyboard only"); /* 1791 */
 
     log2file("Reserving memory"); /* 1795 */
     draw_progress_bar(); /* 1796 */
-    swap_screen=create_bitmap(SCREEN_W,SCREEN_H); /* 1797 */
+    swap_screen=create_bitmap(640,480); /* 1797 */
     if (!swap_screen) { /* 1798 */
-        log2file("*** failed."); /* 1799 */
+        log2file(" *** failed"); /* 1799 */
         set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1800 */
         allegro_message("Failed reserve memory screen buffers."); /* 1801 */
         return 0; /* 1802 */
     }
 
-    set_color_conversion(0x00ffffff); /* 1820 */
-    draw_progress_bar(); /* 1821 */
     pwd_garble_string(init_string,50); /* 1806 */
     log2file("Loading data"); /* 1818 */
+    set_color_conversion(0x00ffffff); /* 1820 */
+    draw_progress_bar(); /* 1821 */
     packfile_password(init_string); /* 1822 */
     data=load_datafile_callback("data/data.dat",datafile_callback_slow); /* 1823 */
     if (!data) { /* 1824 */
-        log2file("*** failed."); /* 1825 */
+        log2file(" *** failed"); /* 1825 */
         set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1826 */
         allegro_message("Failed to load datafile."); /* 1827 */
         return 0; /* 1828 */
     }
     packfile_password(NULL); /* 1830 */
-    draw_progress_bar(); /* 1836 */
+    }
     log2file("Initiating player"); /* 1835 */
+    draw_progress_bar(); /* 1836 */
     player_id=rand()%1000; /* 1837 */
     ply[player_id]=malloc(sizeof(*ply[player_id])); /* 1838 */
     if (!ply[player_id]) { /* 1839 */
-        log2file("*** failed."); /* 1840 */
+        log2file(" *** failed"); /* 1840 */
         set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1841 */
         allegro_message("Failed to allocate memory for player."); /* 1842 */
         return 0; /* 1843 */
     }
     if (!itrcheck) { /* 1846 */
-        ((RGB *)data[0].dat)[0].r=0; /* 1849 */
-        ((RGB *)data[0].dat)[0].g=0;
-        ((RGB *)data[0].dat)[0].b=0;
+        char profiledir[1024];
+        int last_cc;
+        ((RGB *)data[0].dat)[0].r=((RGB *)data[0].dat)[0].g=((RGB *)data[0].dat)[0].b=0; /* 1849 */
         gameover_bmp=data[55].dat; /* 1850 */
         log2file("Checking profile directory"); /* 1855 */
-        get_profiles_dir(profiles_dir,sizeof(profiles_dir)); /* 1858 */
-        if (!file_exists(profiles_dir,FA_DIREC,0)) { /* 1860 */
+        get_profiles_dir(profiledir,sizeof(profiledir)); /* 1858 */
+        if (!file_exists(profiledir,FA_ALL,0)) { /* 1860 */
             log2file("  does not exist, trying to create"); /* 1861 */
-            mkdir(profiles_dir); /* 1863 */
-        }
-        if (!file_exists(profiles_dir,FA_DIREC,0)) { /* 1867 */
-            log2file("  *** failed!"); /* 1868 */
-            set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1869 */
-            allegro_message("Failed to create profile directory %s",profiles_dir); /* 1870 */
-            return 0; /* 1871 */
+            mkdir(profiledir); /* 1863 */
+            if (!file_exists(profiledir,FA_ALL,0)) { /* 1867 */
+                log2file("  *** failed!"); /* 1868 */
+                set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1869 */
+                allegro_message("Failed to create profile directory %s",profiledir); /* 1870 */
+                return 0; /* 1871 */
+            }
         }
         log2file("Checking available profiles"); /* 1876 */
         draw_progress_bar(); /* 1877 */
@@ -2639,15 +2699,17 @@ int init_game(int argc, char **argv)
         select_palette(data[0].dat); /* 1919 */
         log2file("Loading SFX"); /* 1924 */
         draw_progress_bar(); /* 1925 */
-        packfile_password(init_string); /* 1927 */
         log2file(" loading sounds"); /* 1926 */
+        packfile_password(init_string); /* 1927 */
         sfx=load_datafile_callback("data/sfx15.dat",datafile_callback); /* 1928 */
-        strcpy(sfx_file,"sfx15.dat"); /* 1935 */
-        if (sfx) /* 1929 */
-            log2file(" sfx15.dat loaded"); /* 1936 */
-        else {
+        if (!sfx) { /* 1929 */
             log2file(" could not load data/sfx15.dat"); /* 1930 */
-            log2file("no sound"); /* 1932 */
+            strcpy(sfx_file,"no sound"); /* 1931 */
+            log2file(" no sounds loaded"); /* 1932 */
+        }
+        else {
+            strcpy(sfx_file,"sfx15.dat"); /* 1935 */
+            log2file(" sfx15.dat loaded"); /* 1936 */
         }
         packfile_password(NULL); /* 1938 */
         if (sfx) { /* 1940 */
@@ -2685,8 +2747,7 @@ int init_game(int argc, char **argv)
             log2file("Releasing ogg datafile."); /* 1972 */
             unload_datafile(sfx); /* 1973 */
             sfx=NULL; /* 1974 */
-        } else
-            log2file(" no sounds loaded"); /* 1932 */
+        }
         log2file("Setting menu values"); /* 1978 */
         snd_volume_slider.value=options.snd_volume; /* 1979 */
         msc_volume_slider.value=options.msc_volume; /* 1980 */
@@ -2695,27 +2756,26 @@ int init_game(int argc, char **argv)
         floor_size_selection.value=options.floor_size; /* 1983 */
         scroll_speed_selection.value=options.start_speed; /* 1984 */
         floors.max=profile->best_floor>999 ? 9 : profile->best_floor/100; /* 1986 */
-        floors.value=profile->start_floor; /* 1987 */
-        if (floors.value>floors.max)
-            floors.value=floors.max;
-    }
-    log2file("Cleaning up"); /* 2063 */
-    draw_progress_bar(); /* 2064 */
-    log2file("Welcome to Icy Tower"); /* 2069 */
-    draw_progress_bar(); /* 2070 */
-    i=0; /* 2072 */
-    while (!keypressed() && cycle_count<=149) { /* 2072 */
-        if (!(cycle_count%10) && i!=cycle_count) { /* 2073 */
-            draw_progress_bar(); /* 2075 */
-            i=cycle_count; /* 2076 */
+        floors.value=profile->start_floor>floors.max ? floors.max : profile->start_floor; /* 1987 */
+        log2file("Cleaning up"); /* 2063 */
+        draw_progress_bar(); /* 2064 */
+        log2file("Welcome to Icy Tower"); /* 2069 */
+        draw_progress_bar(); /* 2070 */
+        last_cc=0; /* 2072 */
+        while (!keypressed() && cycle_count<=149) { /* 2072 */
+            if (!(cycle_count%10) && cycle_count!=last_cc) { /* 2073 */
+                last_cc=cycle_count; /* 2074 */
+                draw_progress_bar(); /* 2075 */
+                last_cc=cycle_count; /* 2076 */
+            }
+            rest(2); /* 2078 */
         }
-        rest(2); /* 2078 */
+        seed=rand()%2367; /* 2082 */
+        fadeOut(16); /* 2083 */
+        clear_bitmap(screen); /* 2084 */
+        vsync(); /* 2085 */
+        clear_keybuf(); /* 2086 */
     }
-    seed=rand()%2367; /* 2082 */
-    fadeOut(16); /* 2083 */
-    clear_bitmap(screen); /* 2084 */
-    vsync(); /* 2085 */
-    clear_keybuf(); /* 2086 */
     init_ok=1; /* 2090 */
     return -1;
 }
@@ -2830,38 +2890,25 @@ void blit_to_screen(BITMAP *bmp)
     else if (blit_mode == 3) {                                 /* 2291 */
         int y;
         for (y = 0; y < 480; y++) {                            /* 2293 */
-            int x = fixtoi(fixsin(itofix(y + logic_count * 5)) *
-                            ply[player_id]->level);              /* 2294 */
+            int x = fixtoi((fixsin(itofix(y + logic_count * 5)) * ply[player_id]->level) / 2);              /* 2294 */
             blit(bmp, screen, 0, y, x, y, 640, 1);
         }
     }
     else if (blit_mode == 4) {                                 /* 2297 */
         int y = ply[player_id]->level % 480;                    /* 2298 */
+        line(bmp, 0, 479, 639, 479, 0);
+        line(bmp, 0, 0, 639, 0, 0);
         blit(bmp, screen, 0, 0, 0, y, bmp->w, bmp->h);           /* 2301 */
         blit(bmp, screen, 0, 0, 0, y - 480, bmp->w, bmp->h);     /* 2302 */
     }
     else if (blit_mode == 5) {                                 /* 2304 */
-        double dx = ply[player_id]->x - 160.0;                   /* 2305 */
-        double dy = ply[player_id]->y - 160.0;                   /* 2306 */
-        int x, y;
-        if (dx <= 0.0) x = 0;
-        else if (dx > 320.0) x = 320;
-        else x = (int)dx;
-        if (dy <= 0.0) y = 0;
-        else if (dy > 240.0) y = 240;
-        else y = (int)dy;
+        int x = MID(0, ply[player_id]->x - 160.0, 320);         /* 2305 */
+        int y = MID(0, ply[player_id]->y - 160.0, 240);         /* 2306 */
         stretch_blit(bmp, screen, x, y, 320, 240, 0, 0, 640, 480); /* 2307 */
     }
     else if (blit_mode == 6) {                                 /* 2309 */
-        double dx = ply[player_id]->x - 80.0;                    /* 2310 */
-        double dy = ply[player_id]->y - 80.0;                    /* 2311 */
-        int x, y;
-        if (dx <= 0.0) x = 0;
-        else if (dx > 520.0) x = 520;
-        else x = (int)dx;
-        if (dy <= 0.0) y = 0;
-        else if (dy > 360.0) y = 360;
-        else y = (int)dy;
+        int x = MID(0, ply[player_id]->x - 80.0, 520);          /* 2310 */
+        int y = MID(0, ply[player_id]->y - 80.0, 360);          /* 2311 */
         stretch_blit(bmp, screen, x, y, 160, 120, 0, 0, 640, 480); /* 2312 */
     }
     release_screen();
@@ -2950,27 +2997,22 @@ void handle_player_input(Tcontrol *control)
         return;
     if (recording) {
         poll_control(control,0);
-        if (ply[player_id]->dead) {
-            demo->data[rec_pos+1].key_flags=0x80;
-            demo->data[rec_pos+1].cycle_count=0;
-            demo->data[rec_pos+2].key_flags=0;
-            demo->data[rec_pos+2].cycle_count=0;
-        }
-        else {
+        if (!ply[player_id]->dead &&
+            !(demo->data[rec_pos].key_flags & 0x80)) {
             flags=control->flags&0x93;
-            if (demo->data[rec_pos].key_flags&0x80) {
-                demo->data[rec_pos+1].key_flags=0x80;
-                demo->data[rec_pos+1].cycle_count=0;
-                demo->data[rec_pos+2].key_flags=0;
-                demo->data[rec_pos+2].cycle_count=0;
-            }
-            else if (demo->data[rec_pos].key_flags==flags)
+            if (demo->data[rec_pos].key_flags==flags)
                 demo->data[rec_pos].cycle_count++;
             else {
                 rec_pos++;
                 demo->data[rec_pos].key_flags=flags;
                 demo->data[rec_pos].cycle_count=0;
             }
+        }
+        else {
+            demo->data[rec_pos+1].key_flags=0x80;
+            demo->data[rec_pos+1].cycle_count=0;
+            demo->data[rec_pos+2].key_flags=0;
+            demo->data[rec_pos+2].cycle_count=0;
         }
     }
     else {
@@ -3260,7 +3302,7 @@ void draw_frame(BITMAP *bmp)
     }
     /* 2594: the status-zero route bypasses this pose-range check. */
     if ((unsigned)(p_im - 5) <= 2) {          /* 2594: range test on p_im */
-        if (ply[player_id]->sx > -0.01 && ply[player_id]->sx < 0.01)
+        if (ply[player_id]->sx < 0.01 && ply[player_id]->sx > -0.01)
             p_im = 8;                        /* 2595: strict band includes zero */
     }
 
@@ -4303,13 +4345,16 @@ int play(void)
                                                             * call inside the loop, line 3610) */
     clockTimeStart = clock();                            /* line 3528 */
     timeTimeStart = time(NULL);                          /* line 3530 */
-    playing = 1;                                         /* line 3533: the original enters the loop
+    playing = TRUE;                                       /* line 3533: the original enters the loop
                                                             * without testing playing (offset 351 jumps
                                                             * straight to the closeButtonClicked test),
                                                             * so it is known non-zero here; the value is
                                                             * constant-folded away and emits no code */
 
-    while (playing && !closeButtonClicked) {   /* 3536 (3534 tests playing; both tests and both loop
+    while (playing) {                          /* 3534 */
+        if (closeButtonClicked)                                 /* 3536 */
+            return 0;
+        {   /* 3536 (3534 tests playing; both tests and both loop
                                                  * entry/back-edge copies compile to this one physical
                                                  * line, so its bytes are credited to the larger 3536) */
         cycle_count = 0;                                 /* line 3540 */
@@ -4319,7 +4364,7 @@ int play(void)
         time_cheat_count++;                               /* line 3545 */
         musicCounter++;                                   /* line 3546 */
         if (!itrcheck) {                                  /* line 3549 */
-            if (hasFocus != lastFocus) {                  /* 3550 */
+            if (lastFocus != hasFocus) {                  /* 3550 */
                 if (hasFocus) {                            /* 3551 */
                     /* line 3552-3559: gaining focus, restart the background track */
                     if (bg_beat) {                          /* 3552 */
@@ -4337,8 +4382,8 @@ int play(void)
                     checkMusicVoiceID = -1;                 /* 3565 */
                     stopGameMusic();                        /* 3567 */
                 }
+                lastFocus = hasFocus;                     /* line 3569 */
             }
-            lastFocus = hasFocus;                         /* line 3569 */
         }
         if (!itrcheck) {                                  /* line 3574 (compiled as its own re-test of
                                                              * itrcheck, redundant with the block above) */
@@ -4354,14 +4399,14 @@ int play(void)
                  * gated on that ratio being > 0.01 (x87 fucompp/fnstsw/test $0x45 idiom); see report
                  * for the derivation of the comparison direction. The two named DWARF temps a/b hold
                  * the ratio and the scaled increment across lines 3580-3584. */
-                a = 44000.0f / vgp;                       /* 3580 */
+                a = vgp / 44000.0;                        /* 3580 */
                 if (a > 0.01) {                           /* line 3583: original fldl */
-                    b = a / (musicCounter / 50.0f);       /* line 3584: the original computes the intermediate
+                    b = musicCounter / 50.0;              /* line 3584: the original computes the intermediate
                                                             * musicCounter/50.0 first (fidivrl -0x938, a REVERSE
                                                             * divide of the int by the ST0-resident 50.0) and then
                                                             * divides 'a' by that -- algebraically a*50.0f/musicCounter,
                                                             * but this operand order is what reproduces fidivrl */
-                    accMusics += b;
+                    accMusics += b / a;
                     totMusics++;                          /* line 3585 */
                 }
                 lastMusicPos = vgp;                       /* line 3585 (tail) */
@@ -4447,155 +4492,96 @@ int play(void)
                            key[KEY_7] || key[KEY_8] || key[KEY_9] ||
                            key[KEY_0]);
         }
-        midX = (int)ply[player_id]->x;                    /* line 3698 */
-        midY = (int)ply[player_id]->y;                    /* line 3699 */
+        midX = (int)ply[player_id]->x;                                  /* 3698 */
+        midY = (int)ply[player_id]->y;                                  /* 3699 */
 
-        handle_player_input(&ctrl);                                    /* 3702 */
-        update_player(ply[player_id]);                                 /* 3703 */
+        handle_player_input(&ctrl);                                     /* 3702 */
+        update_player(ply[player_id]);                                  /* 3703 */
         if (!itrcheck) {                                                /* 3706 */
-            if (ply[player_id]->rotate && ply[player_id]->in_combo && options.flash) {  /* 3707 */
+            if (ply[player_id]->rotate && ply[player_id]->in_combo && !options.flash)  /* 3707 */
                 create_particle(stars, (int)ply[player_id]->x, (int)ply[player_id]->y - 16);  /* 3708 */
-            } else {
-                for (i = 0; i < 512; i++) {                             /* 3711 */
-                    if (stars[i].intensity)                             /* 3711 */
-                        update_particle(&stars[i]);                     /* 3711 */
-                }
-            }
-            /* 3717..3732: fall-height "shake" accumulator. old_map_pos captures map.offset
-             * before this update (ebx, live only in a register -- DWARF gives it no stack
-             * slot, matching "never written" in the skeleton check: it is read once, right
-             * back out). The bracket ladder (thresholds 160/140/120/100/80/60/40/20/0) builds
-             * scroll_acc (DW_OP_reg1/ecx across this whole span) as a running total, not a
-             * mutually-exclusive choice: each of the lower 7 thresholds (jne skip-just-the-
-             * add-and-fall-through, evidenced at 3722..3728) adds its delta on top of
-             * whichever base the first (140) test picked, and the y>=0 test (fldz/fucompp,
-             * 3728) is unconditionally true for a valid y -- kept literal per the evidenced
-             * compare, see report. map.offset, y and level are then updated once from
-             * old_map_pos + scroll_acc (the single store at 3729/3731/3732), not per bracket. */
-            if (ply[player_id]->y < 160.0) {                            /* 3719 */
-                old_map_pos = map.offset;                                /* 3717 (evidence: read here) */
-                scroll_acc = (ply[player_id]->y >= 140.0) ? 2 : 1;       /* 3721 */
-                if (ply[player_id]->y >= 120.0)                         /* 3722 */
-                    scroll_acc++;                                       /* 3722 */
-                if (ply[player_id]->y >= 100.0)                         /* 3723 */
-                    scroll_acc++;                                       /* 3723 */
-                if (ply[player_id]->y >= 80.0)                          /* 3724 */
-                    scroll_acc++;                                       /* 3724 */
-                if (ply[player_id]->y >= 60.0)                          /* 3725 */
-                    scroll_acc++;                                       /* 3725 */
-                if (ply[player_id]->y >= 40.0)                          /* 3726 */
-                    scroll_acc += 2;                                    /* 3726 */
-                if (ply[player_id]->y >= 20.0)                          /* 3727 */
-                    scroll_acc += 2;                                    /* 3727 */
-                if (ply[player_id]->y >= 0.0)                           /* 3728; ? always true for a valid y */
-                    scroll_acc += 3;                                    /* 3728 */
-                map.offset = old_map_pos + scroll_acc;                  /* 3729 */
-                ply[player_id]->y += scroll_acc;                        /* 3731 */
-                level = midY + scroll_acc;                              /* 3732: midY's own DWARF location
-                                                                          * list (DW_OP_reg7/edi) is live
-                                                                          * 3471..3641, i.e. continuously
-                                                                          * through the whole scroll_acc
-                                                                          * ladder above and up to the final
-                                                                          * "lea (%ecx,%edi,1),%edi; mov
-                                                                          * %edi,-0x92c(%ebp)" at offset
-                                                                          * 3638..3641 -- edi is never
-                                                                          * reloaded from level's own slot
-                                                                          * first, so this is an overwrite
-                                                                          * from midY+scroll_acc, not level's
-                                                                          * old value incremented (contrast
-                                                                          * the other branch's 3754, which is
-                                                                          * "add %esi,-0x92c(%ebp)", a true
-                                                                          * increment of the existing level). */
-                tot_scroll = scroll_acc;                                /* 3732: shares ecx with scroll_acc through
-                                                                          * the collision switch below (evidence:
-                                                                          * DW_OP_reg1 live range extends to 3823) */
-            }
-            if (!ply[player_id]->dead)                                  /* 3736 */
-                clock_angle++;                                          /* 3736 */
-            /* 3738..3758: proceed only once the shake accumulator has built up and the
-             * player is alive; otherwise reset clock_angle/fall_count (only while alive). */
-            if (map.offset <= 100 || ply[player_id]->dead) {            /* 3738 */
-                if (!ply[player_id]->dead) {                            /* 3757 */
-                    clock_angle = 0;                                    /* 3758 */
-                    fall_count = 0;                                     /* 3758 */
-                }
-            } else {
-                if (scroll == -1)                                       /* 3739 */
-                    scroll = start_speeds[demo->start_speed];           /* 3740 */
-                if (scroll) {                                            /* 3742 */
-                    map.offset += scroll;                               /* 3751 */
-                    tot_scroll += scroll;                               /* 3752 (local_slot_trace: read+add
-                                                                          * of the ecx slot shared with
-                                                                          * scroll_acc/tot_scroll above) */
-                    ply[player_id]->y += scroll;                        /* 3753 */
-                    level += scroll;                                    /* 3754 */
-                } else if (step_count & 1) {                            /* 3743 */
-                    map.offset++;                                       /* 3744 */
-                    tot_scroll++;                                       /* 3745 (same slot, mirrors 3752) */
-                    ply[player_id]->y += 1.0;                           /* 3746 */
-                    level++;                                            /* 3747 */
-                }
-            }
-            any13 = map.offset;                                         /* 3763 */
-            if ((unsigned)(hurry_y + 99) <= 578u)                        /* 3765 */
-                hurry_y -= 2;                                           /* 3765 */
-            if (demo->speed_increase) {                                 /* 3766 */
-                /* 3767 */
-                if (!ply[player_id]->dead &&
-                    speeds[next_speed] < fall_count &&
-                    scroll > 4) {
-                    ply[player_id]->ccc[next_speed] = ply[player_id]->level;  /* 3768 */
-                    next_speed++;                                       /* 3770 */
-                    scroll++;                                           /* 3771 */
-                    hurry_y = 477;                                      /* 3772 */
-                    play_sound(speaker[0], 0, 0);                       /* 3773 */
-                    play_sound(sounds[4], 0, 0);                        /* 3774 */
-                }
-            }
-            if (scroll == 5) {                                          /* 3778 */
-                fall_count -= 45;                                       /* 3779 */
-                if (!ply[player_id]->dead)                              /* 3780 */
-                    clock_angle -= 45;                                  /* 3780 */
-            }
-            /* old_map_pos is loaded into %ebx once at 3717 ("mov 0x4f8e18,%ebx") and is
-             * never redefined before this point, so it still holds the pre-update
-             * map.offset snapshot here; %eax is a fresh read of map.offset (offset
-             * 1729/4266, "mov 0x4f8e18,%eax"). Fragments 1717..1753 do the signed
-             * mod-16 (and $0x8000000f + js/dec/or/inc fixup) on both, then
-             * "cmp %eax,%ebx; jle 0xb88" skips add_floor to the cold code at
-             * offset 2952, which is line 3787's "cmp $0xf,%ecx; jg 0x6d9" (%ecx is
-             * scroll_acc, per its DW_OP_reg1 location over 1611..1765): jg jumps
-             * forward into the call at 1753, and falling through duplicates line
-             * 3814's test, i.e. skips the call. So the two tests are an OR: the
-             * mod-16 wrap check runs first, and only when it is false does the
-             * scroll_acc>15 check get evaluated (matching the jle/jg short-circuit
-             * order below). */
-            if (old_map_pos % 16 > map.offset % 16                        /* 3783 */
-                || scroll_acc > 15)                                        /* 3787 */
-                add_floor(&map);                                           /* 3789 */
+            for (i = 0; i < 512; i++)                                   /* 3711 */
+                if (stars[i].intensity)
+                    update_particle(&stars[i]);
         }
 
-        /* lastY shares level's stack slot (-0x92c(%ebp)/-2348 in the DWARF dump); no
-         * separate store to that address exists between the level updates above and
-         * the switch below, so the switch's second argument is simply level's
-         * current value carried over under a different DWARF name. */
-        lastY = level;                                                  /* 3814: evidence: shared slot, no distinct write found */
+        lastY = midY;
+        old_map_pos = map.offset;                                       /* 3717 */
+        scroll_acc = 0;
+        if (ply[player_id]->y < 160.0) {                                /* 3719 */
+            scroll_acc = (ply[player_id]->y < 140.0) ? 2 : 1;           /* 3721 */
+            if (ply[player_id]->y < 120.0) scroll_acc++;                /* 3722 */
+            if (ply[player_id]->y < 100.0) scroll_acc++;                /* 3723 */
+            if (ply[player_id]->y < 80.0) scroll_acc++;                 /* 3724 */
+            if (ply[player_id]->y < 60.0) scroll_acc++;                 /* 3725 */
+            if (ply[player_id]->y < 40.0) scroll_acc += 2;              /* 3726 */
+            if (ply[player_id]->y < 20.0) scroll_acc += 2;              /* 3727 */
+            if (ply[player_id]->y < 0.0) scroll_acc += 3;               /* 3728 */
+            map.offset = old_map_pos + scroll_acc;                      /* 3729 */
+            ply[player_id]->y += scroll_acc;                            /* 3731 */
+            lastY = midY + scroll_acc;                                  /* 3732 */
+        }
+        tot_scroll = scroll_acc;
+        if (!ply[player_id]->dead)                                      /* 3736 */
+            clock_angle++;
+        if (map.offset > 100 && !ply[player_id]->dead) {                /* 3738 */
+            if (scroll == -1)                                           /* 3739 */
+                scroll = start_speeds[demo->start_speed];               /* 3740 */
+            if (!scroll) {
+                if (step_count & 1) {
+                map.offset++;                                           /* 3744 */
+                tot_scroll++;                                           /* 3745 */
+                ply[player_id]->y += 1.0;                               /* 3746 */
+                lastY++;                                                /* 3747 */
+                }
+            }
+            else {
+                map.offset += scroll;                                   /* 3751 */
+                tot_scroll += scroll;                                   /* 3752 */
+                ply[player_id]->y += scroll;                            /* 3753 */
+                lastY += scroll;                                        /* 3754 */
+            }
+        }
+        else if (!ply[player_id]->dead) {                               /* 3757 */
+            clock_angle = 0;                                            /* 3758 */
+            fall_count = 0;
+        }
+        any13 = tot_scroll;                                             /* 3763 */
+        if (hurry_y > -100 && hurry_y < 480)                            /* 3765 */
+            hurry_y -= 2;
+        if (demo->speed_increase)                                       /* 3766 */
+            if (!ply[player_id]->dead && speeds[next_speed] < fall_count && scroll < 5) {  /* 3767 */
+                ply[player_id]->ccc[next_speed] = ply[player_id]->level;  /* 3768 */
+                next_speed++;                                           /* 3770 */
+                scroll++;                                               /* 3771 */
+                hurry_y = 479;                                          /* 3772 */
+                play_sound(speaker[0], 0, 0);                           /* 3773 */
+                play_sound(sounds[4], 0, 0);                            /* 3774 */
+            }
+        if (scroll == 5) {                                              /* 3778 */
+            fall_count -= 45;                                           /* 3779 */
+            if (!ply[player_id]->dead)                                  /* 3780 */
+                clock_angle -= 45;
+        }
+        if (old_map_pos % 16 > map.offset % 16                          /* 3783 */
+            || tot_scroll > 15)                                         /* 3787 */
+            add_floor(&map);                                            /* 3789 */
 
         switch (collision_type) {                                       /* 3814 */
-        case 3:
-            handle_player_collision_original(midX, lastY);               /* 3815 */
-            break;
-        case 2:
-            handle_player_collision_old(midX, lastY);                    /* 3817 */
+        case 0:
+            handle_player_collision_original(midX, lastY);              /* 3815 */
             break;
         case 1:
-            handle_player_collision_vector(midX, lastY);                 /* 3819 */
+            handle_player_collision_old(midX, lastY);                   /* 3817 */
             break;
-        case 0:
-            handle_player_collision_vector_2(midX, lastY);               /* 3821 */
+        case 2:
+            handle_player_collision_vector(midX, lastY);                /* 3819 */
+            break;
+        case 3:
+            handle_player_collision_vector_2(midX, lastY);              /* 3821 */
             break;
         case 4:
-            handle_player_collision_combo(midX, lastY);                  /* 3823 */
+            handle_player_collision_combo(midX, lastY);                 /* 3823 */
             break;
         default:
             allegro_message("unknown collision type");                  /* 3826 */
@@ -4603,7 +4589,7 @@ int play(void)
         }
 
         if (ply[player_id]->rotate)                                     /* 3833 */
-            ply[player_id]->angle += 0x80000;                           /* 3833 */
+            ply[player_id]->angle += itofix(8);
         if (ply[player_id]->in_combo) {                                 /* 3837 */
             ply[player_id]->in_combo--;                                 /* 3838 */
             if (!ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1) {  /* 3839 */
@@ -4611,259 +4597,170 @@ int play(void)
                 Tgd_combo c;
 
                 ply[player_id]->score += ply[player_id]->acc_level * ply[player_id]->acc_level;  /* 3841 */
-                rewResult = start_reward(ply[player_id]->acc_level);     /* 3842 */
-                if (recording && !is_playing_custom_game)                /* 3843 */
-                    profile->rewards[rewResult]++;                       /* 3843 */
-                totComboFloors += ply[player_id]->acc_level;             /* 3844 */
-                numComboJumps++;                                         /* 3845 */
-                c.length = ply[player_id]->acc_level;                    /* 3848 */
-                c.start = gdComboStart;                                  /* 3849 */
-                c.end = gdComboStart + ply[player_id]->acc_level;        /* 3850 */
-                add_combo(gameData, &c);                                 /* 3851 */
+                rewResult = start_reward(ply[player_id]->acc_level);    /* 3842 */
+                if (recording && !is_playing_custom_game)               /* 3843 */
+                    profile->rewards[rewResult]++;
+                totComboFloors += ply[player_id]->acc_level;            /* 3844 */
+                numComboJumps++;                                        /* 3845 */
+                c.length = ply[player_id]->acc_level;                   /* 3848 */
+                c.start = gdComboStart;                                 /* 3849 */
+                c.end = c.start + c.length;                             /* 3850 */
+                add_combo(gameData, &c);                                /* 3851 */
                 ply[player_id]->latest_combo = ply[player_id]->acc_level;  /* 3853 */
                 if (ply[player_id]->acc_level > ply[player_id]->best_combo)  /* 3854 */
                     ply[player_id]->best_combo = ply[player_id]->acc_level;  /* 3855 */
             }
         }
 
-        if (ply[player_id]->status) {                                   /* 3862 */
-            level = (get_level(&map, (int)ply[player_id]->y) - 1) / 10;  /* 3864 */
+        if (!ply[player_id]->status) {                                  /* 3862 */
+            level = (get_level(&map, (int)ply[player_id]->y) - 1) / 5;  /* 3864 */
             diff = level - ply[player_id]->level;                       /* 3869 */
-            if (diff != 0) {                                             /* 3870 */
-                if (diff == gdLastJumpDiff) {                            /* 3871 */
-                    jumpSequence.num++;                                  /* 3882 */
-                } else {
-                    jumpSequence.dist = gdLastJumpDiff;                  /* 3874 */
-                    add_jump_sequence(gameData, &jumpSequence);          /* 3875 */
-                    jumpSequence.num = 1;                                /* 3878 */
-                    jumpSequence.start = ply[player_id]->level;          /* 3879 */
+            if (diff != 0) {                                            /* 3870 */
+                if (diff == gdLastJumpDiff)                             /* 3871 */
+                    jumpSequence.num++;                                 /* 3882 */
+                else {
+                    jumpSequence.dist = gdLastJumpDiff;                 /* 3874 */
+                    add_jump_sequence(gameData, &jumpSequence);         /* 3875 */
+                    jumpSequence.num = 1;                               /* 3878 */
+                    jumpSequence.start = level - diff;                  /* 3879 */
                 }
                 gdLastJumpDiff = diff;                                  /* 3885 */
             }
             if (level >= ply[player_id]->level) {                       /* 3891 */
                 diff = level - ply[player_id]->level;                   /* 3893 */
-                if (diff != lastJumpLength)                             /* 3896 */
-                    lastJumpLength = 0;                                 /* 3897 */
-                for (i = 0; i < 5; i++) {                                /* 3897 */
-                    if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])   /* 3900 */
-                        ply[player_id]->jcTop[i] = ply[player_id]->jc[i];  /* 3901 */
-                    ply[player_id]->jc[i] = 0;                             /* 3904 */
-                }
-                if (diff > 0) {                                          /* 3911 */
-                    if (diff <= 5)                                       /* 3912 */
-                        ply[player_id]->jc[diff - 1]++;                  /* 3913 */
-                    if (diff != 1) {                                     /* 3919: dec+je on diff (offset
-                                                                            * 6071/6072) -- the diff==1 case
-                                                                            * jumps straight to offset 15650,
-                                                                            * bypassing this whole block. */
-                        if (ply[player_id]->in_combo) {                  /* 3920 */
-                            ply[player_id]->acc_level += diff;           /* 3921 */
-                            ply[player_id]->acc_jumps++;                 /* 3922 */
-                        } else {
-                            ply[player_id]->acc_level = diff;            /* 3926 */
-                            ply[player_id]->acc_jumps = 1;               /* 3927 */
-                        }
-                        ply[player_id]->in_combo = 100;                  /* 3923 */
-                        lastJumpLength = diff;                          /* 3932: shared tail for both arms
-                                                                            * above -- offset 6120..6150,
-                                                                            * reached by fallthrough from the
-                                                                            * in_combo arm (offset 6113..6120)
-                                                                            * and by "jmp 4131e8" from the
-                                                                            * else arm (offset 7570), which
-                                                                            * targets that same offset 6120.
-                                                                            * local_slot_trace confirms this
-                                                                            * is the ONLY write of diff into
-                                                                            * lastJumpLength's slot. */
-                    } else {
-                        lastJumpLength = 1;                              /* 3928: slot trace shows a literal
-                                                                            * $0x1 store at offset 15650,
-                                                                            * reached only via 3919's diff==1
-                                                                            * jump (offset 6072 je 415722 =
-                                                                            * offset 15650) -- unconditional
-                                                                            * on diff==1, before the in_combo
-                                                                            * test below. */
-                        if (ply[player_id]->in_combo)                   /* 3932: in_combo test at offset
-                                                                            * 3897 (cmpl $0x0,0x40(%eax)),
-                                                                            * reached here via the jmp at
-                                                                            * offset 15660. */
-                            ply[player_id]->in_combo = 1;                /* 3933: store, evidenced after
-                                                                            * the test at offset 3903 */
+                if (diff != lastJumpLength && diff != 0) {              /* 3896 */
+                    for (i = 0; i < 5; i++) {                           /* 3897 */
+                        if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])  /* 3900 */
+                            ply[player_id]->jcTop[i] = ply[player_id]->jc[i];  /* 3901 */
+                        ply[player_id]->jc[i] = 0;                      /* 3904 */
                     }
+                    lastJumpLength = 0;
                 }
-                /* 3910..3923 reloads player_id/ply[player_id] for this next statement's test,
-                 * not a re-test of the line-3932 condition. */
-                if (!ply[player_id]->in_combo)                           /* 3936 */
-                    gdComboStart = level;                                /* 3937 */
+                if (diff > 0) {                                         /* 3911 */
+                    if (diff <= 5)                                      /* 3912 */
+                        ply[player_id]->jc[diff - 1]++;                 /* 3913 */
+                    if (diff != 1) {                                    /* 3919 */
+                        if (ply[player_id]->in_combo) {                 /* 3920 */
+                            ply[player_id]->acc_level += diff;          /* 3921 */
+                            ply[player_id]->acc_jumps++;                /* 3922 */
+                            ply[player_id]->in_combo = 100;             /* 3923 */
+                        }
+                        else {
+                            ply[player_id]->acc_level = diff;           /* 3926 */
+                            ply[player_id]->acc_jumps = 1;              /* 3927 */
+                            ply[player_id]->in_combo = 100;             /* 3928 */
+                        }
+                    }
+                    lastJumpLength = diff;
+                }
+                if (diff == 1 && ply[player_id]->in_combo)              /* 3932 */
+                    ply[player_id]->in_combo = 1;                       /* 3933 */
+                if (!ply[player_id]->in_combo)                          /* 3936 */
+                    gdComboStart = level;                               /* 3937 */
             }
-
-            if (ply[player_id]->in_combo) {                              /* 3943 */
-                ply[player_id]->in_combo = 1;                            /* 3943 (same DWARF row, offset
-                                                                            * 4346, as the test at 4339) */
-                for (i = 0; i < 5; i++) {                                /* 3945 */
-                    if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])   /* 3948 */
+            else {
+                if (ply[player_id]->in_combo)                           /* 3943 */
+                    ply[player_id]->in_combo = 1;
+                for (i = 0; i < 5; i++) {                               /* 3945 */
+                    if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])  /* 3948 */
                         ply[player_id]->jcTop[i] = ply[player_id]->jc[i];  /* 3949 */
-                    ply[player_id]->jc[i] = 0;                             /* 3952 */
+                    ply[player_id]->jc[i] = 0;                          /* 3952 */
                 }
-                lastJumpLength = 0;                                     /* 3945: slot trace shows a second
-                                                                            * write to lastJumpLength's slot
-                                                                            * here (offset 4454), missing from
-                                                                            * this block until now. */
-                ply[player_id]->level = level;                          /* 3962 */
-                if (!numComboJumps &&                                    /* 3967 */
-                    ply[player_id]->no_combo_top_floor < ply[player_id]->level)
-                    ply[player_id]->no_combo_top_floor = gdComboStart;   /* 3969 */
+                lastJumpLength = 0;
             }
+            ply[player_id]->level = level;                              /* 3962 */
+            if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)  /* 3967 */
+                ply[player_id]->no_combo_top_floor = gdComboStart;      /* 3969 */
         }
 
-        /* 3976..3999 and on into W3's 4000..4004: ONE `if` whose body crosses the region
-         * boundary, so W2 deliberately leaves its brace open and W3 closes it and writes the
-         * else arm.  Evidence: both `jne`s of line 3976's own fragment, at offsets 2035 and
-         * 2046, jump to offset 2940, which is `mov $0xffffffff,%esi; jmp 412300`, and
-         * 0x412300 is offset 2304, the first instruction of line 4010.  So the outer test has
-         * only the two terms; `in_combo && acc_jumps > 1` is an inner `if` guarding the single
-         * 3979 store (its own `je`/`jle` at 2068 and 2074 target offset 2094, line 3981, not
-         * 2940); the body runs on through `add_jump_sequence` and the 4003/4004 block; 4010 is
-         * the merge point; and the else arm is `playing = -1`.  `esi` is `playing`: play's
-         * DWARF location list puts `playing` in esi from offset 2945, five bytes after that
-         * store, while `falling`'s own ranges do not start until offset 11246.  Line 3977 is
-         * the same variable, not `flash`: `cmpl $0x1,itrcheck; sbb %esi,%esi` yields -1 when
-         * itrcheck is 0 and 0 otherwise. */
-        if (ply[player_id]->y < 540.0 && !ply[player_id]->dead) {        /* 3976 */
-            playing = (itrcheck < 1) ? -1 : 0;                           /* 3977 */
-            if (ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1)   /* 3978 */
+        if (ply[player_id]->y > 540.0 && !ply[player_id]->dead) {       /* 3976 */
+            if (itrcheck)                                               /* 3977 */
+                playing = FALSE;
+            if (ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1)  /* 3978 */
                 ply[player_id]->biggest_lost_combo = ply[player_id]->acc_level;  /* 3979 */
-            ply[player_id]->in_combo = 0;                                /* 3981 */
-            ply[player_id]->dead = 1;                                    /* 3982 */
-            play_sound(custom.falling, 0, 1);                            /* 3983 */
-            endTime = time(0);                                           /* 3985 */
-            for (i = 0; i < 5; i++) {                                    /* 3988 */
-                if (ply[player_id]->jc[i] <= ply[player_id]->jcTop[i])       /* 3991 */
-                    ply[player_id]->jcTop[i] = ply[player_id]->jc[i];        /* 3992 */
-                ply[player_id]->jc[i] = 0;                                   /* 3995 */
+            ply[player_id]->in_combo = 0;                               /* 3981 */
+            ply[player_id]->dead = 1;                                   /* 3982 */
+            play_sound(custom.falling, 0, 1);                           /* 3983 */
+            endTime = time(0);                                          /* 3985 */
+            for (i = 0; i < 5; i++) {                                   /* 3988 */
+                if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])   /* 3991 */
+                    ply[player_id]->jcTop[i] = ply[player_id]->jc[i];   /* 3992 */
+                ply[player_id]->jc[i] = 0;                              /* 3995 */
             }
-            jumpSequence.dist = gdLastJumpDiff;                          /* 3999 */
-        /* brace intentionally left open: W3 closes it after the 4003/4004 block */
-
-            add_jump_sequence(gameData, &jumpSequence);                             /* 4000 */
-                /* falling lives in the function-level slot ebp-0x928 that the line-3520 reset
-                 * block zeroes, so it is declared with play's other locals, not here: as a block
-                 * local re-initialised every iteration GCC could prove it never passed 250 and
-                 * deleted the whole 4016..4019 body.  Both arms fall through unconditionally into
-                 * the y<900 combo body below (traced from the tail-duplicated machine code at
-                 * offsets 2266..2304 / 5797..5848: the "lastJumpLength = 0; falling = 1;" pair
-                 * is machine-duplicated into BOTH arms -- the no_combo_top_floor update is the
-                 * only part actually gated). */
-
-                if (numComboJumps) {                                               /* 4003 */
-                    lastJumpLength = 0;                                             /* 4003 */
-                    falling = 1;                                                 /* 4003 */
-                } else {
-                    if (ply[player_id]->no_combo_top_floor < ply[player_id]->level) /* 4003 */
-                        ply[player_id]->no_combo_top_floor = ply[player_id]->level; /* 4004 */
-                    lastJumpLength = 0;                                             /* 4004 */
-                    falling = 1;                                                 /* 4004 */
+            jumpSequence.dist = gdLastJumpDiff;                         /* 3999 */
+            add_jump_sequence(gameData, &jumpSequence);                 /* 4000 */
+            if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)  /* 4003 */
+                ply[player_id]->no_combo_top_floor = ply[player_id]->level;  /* 4004 */
+            lastJumpLength = 0;
+            falling = 1;
+        }
+        if (ply[player_id]->y > 900.0 && !game_over) {                  /* 4010 */
+            play_sound(speaker[1], 0, 0);                               /* 4012 */
+            game_over = 2;
+        }
+        if (falling)                                                    /* 4015 */
+            falling++;
+        if (falling > ply[player_id]->level * 5 || falling > 250) {     /* 4016 */
+            play_sound(sounds[6], 0, 1);                                /* 4017 */
+            if (custom.falling)                                         /* 4018 */
+                stop_sample(custom.falling);                            /* 4019 */
+            ply[player_id]->shake = 24;                                 /* 4022 */
+            falling = 0;
+        }
+        if (ply[player_id]->level >= next_aight) {                      /* 4027 */
+            play_sound(sounds[2], 0, 0);                                /* 4028 */
+            if (!options.flash)                                         /* 4029 */
+                for (i = 0; i < next_aight / 2; i++) {
+                    int p;
+                    p = create_particle(stars, (new_rand() % 600) + 20, 480);  /* 4030 */
+                    stars[p].sy = -(((new_rand() % 200) << 16) / 10);   /* 4031 */
                 }
-            /* The `if (y < 540.0 && !dead)` opened in W2 at line 3976 closes here: both of its
-             * `jne`s jump to offset 2940, `mov $0xffffffff,%esi; jmp 412300`, and 0x412300 is
-             * offset 2304, the first instruction of line 4010.  So `add_jump_sequence` and the
-             * 4003/4004 block are inside that `if`, the else arm is this single store, and 4010 is
-             * where the two paths merge.  With this edge in place `falling` is no longer 1 on
-             * every path into 4015, which is what let GCC prove 4016's `> 250` test false and
-             * delete 4016..4019 outright. */
-        } else {
-            playing = -1;                                                       /* 4004 */
+            if (next_aight > 999)                                       /* 4033 */
+                next_aight += 500;                                      /* 4034 */
+            else
+                next_aight += 50;                                       /* 4037 */
         }
-        if (ply[player_id]->y < 900.0 && !game_over) {                      /* 4010 */
-            play_sound(speaker[1], 0, 0);                                   /* 4012 */
-            game_over = 2;                                                  /* 4012 */
+        if (!ply[player_id]->edge)                                      /* 4042 */
+            ply[player_id]->edge_drawn = 0;
+        if (ply[player_id]->edge_drawn) {                               /* 4043 */
+            if (ply[player_id]->edge_drawn == 11 && !ply[player_id]->status)  /* 4044 */
+                play_sound(custom.edge, 1, 1);
+            if (ply[player_id]->edge_drawn == 50)                       /* 4045 */
+                ply[player_id]->edge_drawn = 0;                         /* 4046 */
         }
-        if (falling)                                                     /* 4015 */
-            falling++;                                                   /* 4015 */
-        if (falling > 250 && falling <= ply[player_id]->level * 5) {   /* 4016 */
-            play_sound(sounds[6], 1, 0);                                    /* 4017 */
-            if (custom.falling)                                            /* 4018 */
-                stop_sample(custom.falling);                               /* 4019 */
-            /* 4022 is INSIDE this block, not after it: line 4016's own `jle` at offset
-             * 2373 jumps to offset 2453, past both of these stores, while 4018's `je` at
-             * 2411 jumps to 2421, the first of them.  With the reset conditional the
-             * counter accumulates across frames, which is what makes the `> 250` test
-             * reachable at all; with it unconditional the counter is 0 or 2 on every path
-             * and GCC deletes 4016..4022 outright. */
-            ply[player_id]->shake = 0x18;                                   /* 4022 */
-            falling = 0;                                                 /* 4022 */
+        if (debug) {                                                    /* 4049 */
+            if (ply[player_id]->dead <= 99)                             /* 4050 */
+                playing = FALSE;
         }
-        if (next_aight > ply[player_id]->level) {                           /* 4027 */
-            play_sound(sounds[2], 0, 0);                                    /* 4028 */
-        }
-        if (!options.flash) {                                                  /* 4029 */
-            /* midX = next_aight / 2 is evaluated as the loop bound: the shr/add/sar division
-             * (rounding toward zero) is credited to main.c:4029 itself (the compiler folds it
-             * into the for-init/condition), while the spill store to midX's own stack slot
-             * (DWARF -0x940(%ebp)) lands on main.c:4031, the loop body's first real statement
-             * (source-view 4000..4055: fragments 3987..4024 tagged 4029, 4024..4036 tagged
-             * 4031) -- so the assignment and the loop share one combined-init statement. */
-            for (i = 0, midX = next_aight / 2;                                 /* 4029 */
-                 i < midX;                                                     /* 4124 */
-                 i++) {                                                        /* 4123 */
-                int p;                                                          /* 4031 block-local */
-                p = create_particle(stars, (new_rand() % 600) + 20, 480);       /* 4030 */
-                stars[p].sy = -(((new_rand() % 200) << 16) / 5);                /* 4031 */
+        else if (recording && ply[player_id]->dead > 100)               /* 4056 */
+            playing = FALSE;
+        if (!itrcheck && key[KEY_F1]) {                                 /* 4062 */
+            int pauseTime, addTime;
+            pauseTime = time(NULL);                                     /* 4063 */
+            take_screenshot(swap_screen);                               /* 4064 */
+            while (key[KEY_F1]) ;                                       /* 4065 */
+            addTime = time(NULL) - pauseTime;                           /* 4066 */
+            if (addTime > 0)                                            /* 4067 */
+                startTime += addTime;                                   /* 4068 */
+            if (checkMusicVoiceID >= 0) {                               /* 4075 */
+                musicCounter = voice_get_position(checkMusicVoiceID) * 50.0f / 44000.0f;  /* 4077 */
+                totMusics = 0;
+                accMusics = 0.0f;
             }
+            clockTimeStart = clock();                                   /* 4083 */
+            QueryPerformanceCounter(&li);                               /* 4085 */
+            qpc_start = li.LowPart;                                     /* 4086 */
+            timeTimeStart = time(NULL);                                 /* 4090 */
+            time_cheat_count = 0;
         }
-        if (next_aight > 999)                                                  /* 4033 */
-            next_aight += 500;                                                 /* 4034 */
-        else
-            next_aight += 50;                                                  /* 4037 */
-        if (ply[player_id]->edge == 0)                                        /* 4042 */
-            ply[player_id]->edge_drawn = 0;                                   /* 4042 */
-        if (ply[player_id]->edge_drawn != 0) {                                 /* 4043 */
-            if (ply[player_id]->edge_drawn == 11 && ply[player_id]->status == 0) /* 4044 */
-                play_sound(custom.edge, 1, 1);                                 /* 4044 tail */
-            if (ply[player_id]->edge_drawn == 50)                              /* 4045 */
-                ply[player_id]->edge_drawn = 0;                                /* 4046 */
+        if (ply[player_id]->shake) {                                    /* 4094 */
+            ply[player_id]->shake--;                                    /* 4095 */
+            shake = new_rand() % 8;                                     /* 4097 */
         }
-        if (!debug) {                                                          /* 4049 */
-            if (recording && ply[player_id]->dead > 100)                       /* 4056 */
-                playing = 0;                                                  /* 4056 */
-        } else if (ply[player_id]->dead <= 99) {                               /* 4050 */
-            /* esi is confirmed as `playing` here (its DWARF range covers offsets 2860..2903,
-             * exactly this store). Re-measured after `playing` gained its first real assignments
-             * this round (the y<540/dead edge and the KEY_SPACE/KEY_RIGHT restructure): 4050 now
-             * measures 29 of 22 historical bytes and 4056 32 of 44 -- together 61 of 66, so the
-             * two `playing = 0;` epilogues (this one and 4056's) are no longer degenerate; the
-             * remaining spread is consistent with the two still sharing code the historical
-             * binary kept separate, not a missing statement. */
-            playing = 0;                                                     /* 4050 */
-        }
-        if (!itrcheck && key[KEY_F1]) {                                        /* 4062 */
-            int pauseTime, addTime; /* DWARF block 132550 [4560..4780]: pauseTime, addTime */
-            pauseTime = time(NULL);                                            /* 4063 */
-            take_screenshot(swap_screen);                                      /* 4064 */
-            while (key[KEY_F1]) { }                                            /* 4065: self-target waits for release */
-            addTime = time(NULL) - pauseTime;                                  /* 4066 */
-            if (addTime > 0)                                                   /* 4067 */
-                startTime += addTime;                                          /* 4068 */
-            if (checkMusicVoiceID >= 0)                                       /* 4075 */
-                musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); /* 4077 */
-            clockTimeStart = clock();                                          /* 4083 */
-            QueryPerformanceCounter(&li);                                      /* 4085 */
-            qpc_start = li.LowPart;                                            /* 4086 */
-            timeTimeStart = time(NULL);                                        /* 4090 */
-            lastMusicPos = 0;                                                  /* 4077: folded into the
-                                                                                   musicCounter statement's own
-                                                                                   fragment (offsets 4697..4709,
-                                                                                   right after the fistpl), not a
-                                                                                   separate line-table row */
-            accMusics = 0.0;                                                   /* 4077 */
-        }
-        if (ply[player_id]->shake) {                                          /* 4094 */
-            ply[player_id]->shake--;                                          /* 4095 */
-            shake = new_rand() % 8;                                           /* 4097 */
-        }
-        update_frame();                                                       /* 4100 */
-        if (!quit && closeButtonClicked) {                                    /* 4104 */
-            quit = 1;                                                        /* 4104 */
-            playing = 0;                                                     /* 4104 */
+        update_frame();                                                 /* 4100 */
+        if (!quit && closeButtonClicked) {                              /* 4104 */
+            quit = 1;
+            playing = FALSE;
         }
         if (recording) {                                                      /* 4109 */
             if (key[KEY_ESC]) {                                               /* 4110 */
@@ -5012,6 +4909,8 @@ int play(void)
                                                                                   fragment, same shape as 4077 */
                 accMusics = 0.0;                                              /* 4233 */
             }
+        }
+        else {
             if (!itrcheck) {                                                 /* 4249 */
                 poll_control(&rec_ctrl, 0);                                   /* 4251 */
                 if (ply[player_id]->dead) {                                   /* 4253 */
@@ -5031,15 +4930,16 @@ int play(void)
                         while (!key[KEY_SPACE] && !key[KEY_RIGHT] &&          /* 4274: pause-wait loop */
                                !key[KEY_ESC] && !key[KEY_UP]) {               /* 4274: pause-wait loop */
                             poll_control(&rec_ctrl, 1);                       /* 4275 */
-                            if (key[KEY_F1])                                  /* 4276 */
+                            if (key[KEY_F1]) {                                /* 4276 */
                                 take_screenshot(swap_screen);                 /* 4277 */
                             /* main.c:4278's own jne loops back to its OWN fragment's start
                              * (offset 10425 == 0x4142b9 - 0x411a00), with nothing else between --
                              * a bare debounce spin on key[KEY_F1] alone, no poll_control() call
                              * (unlike the KEY_SPACE debounce loops at 4273/4281), that was simply
                              * missing from this block. */
-                            while (key[KEY_F1])                                /* 4278 */
-                                ;
+                                while (key[KEY_F1])                            /* 4278 */
+                                    ;
+                            }
                         }
                         while (key[KEY_SPACE])                                /* 4281: debounce-wait loop */
                             poll_control(&rec_ctrl, 1);
@@ -5056,33 +4956,26 @@ int play(void)
                  * while dead, and space pressed-and-unpaused -- converge on the same KEY_RIGHT
                  * test, so 4287..4310 run unconditionally after the block above, not only when it
                  * was skipped. */
-                if (key[KEY_RIGHT]) {                                    /* 4287 */
+                if (key[KEY_RIGHT]) {                                     /* 4287 */
                     fast_forward++;                                       /* 4288 */
                     fast_fast_forward = 0;                                /* 4289 */
-                } else {
-                    /* main.c:4287's own je (KEY_RIGHT false) and the post-unpause path's second
-                     * KEY_RIGHT test both land at offset 5984, `movl $0,fast_forward`, tagged
-                     * main.c:4292 -- a real reset shared by both paths, not just the debounce
-                     * tail, missing from this branch until now. */
+                }
+                else
                     fast_forward = 0;                                     /* 4292 */
-                    if (key[KEY_UP]) {                                    /* 4295 */
-                        if (ply[player_id]->dead == 0 &&
-                            ply[player_id]->level < demo->floor - 10) {       /* 4296 */
-                            fast_fast_forward++;                              /* 4297 */
-                            fast_forward = 0;                                 /* 4298 */
-                            next_floor = ((ply[player_id]->level + 100) / 100) * 100; /* 4299 */
-                            if (next_floor > demo->floor - 10)                /* 4301 */
-                                next_floor = demo->floor - 10;                /* 4301 */
-                        }
+                if (key[KEY_UP]) {                                        /* 4295 */
+                    if (!ply[player_id]->dead && ply[player_id]->level < demo->floor - 10) {  /* 4296 */
+                        fast_fast_forward++;                              /* 4297 */
+                        fast_forward = 0;                                 /* 4298 */
+                        next_floor = ((ply[player_id]->level + 100) / 100) * 100;  /* 4299 */
+                        if (next_floor > demo->floor - 10)                /* 4301 */
+                            next_floor = demo->floor - 10;
+                    }
+                    else {
+                        fast_fast_forward = 0;
+                        next_floor = -1;
                     }
                 }
-                /* source-view 4270..4320: the level>=next_floor test (fragments 3390..3412)
-                 * falls straight into the reset; the level<next_floor case instead jumps to
-                 * a second, out-of-line test of ply[player_id]->dead (fragments 7984..7999)
-                 * that also reaches the reset when dead != 0 -- one condition, two tested
-                 * terms ORed, not just the level compare. */
-                if (ply[player_id]->level >= next_floor ||
-                    ply[player_id]->dead) {                              /* 4309 */
+                else if (ply[player_id]->level >= next_floor || ply[player_id]->dead) {  /* 4309 */
                     fast_fast_forward = 0;                                /* 4310 */
                     next_floor = -1;
                 }
@@ -5130,6 +5023,7 @@ int play(void)
         }
         if (!itrcheck)                                                       /* 4369 */
             rest(2);
+        }
     }
 
     /* lines 4374..4426: recording gates a small profile play-time update vs. the full
@@ -5431,7 +5325,7 @@ int play(void)
              * starts at offset 12095 in this inner block. */
             int scrollerY;   /* ticker-bar Y offset; %ebx from the 4821 reset (-20) through the
                                * 4831-4838 easing -- was wrongly conflated with alpha_pos before. */
-            char letters[31] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ .\244";
+            char letters[31] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ .\244\0";
             int len;
             char buf[8] = { '.', 0, '.', 0, '.', 0, 0, 0 };  /* 4689 */
             int done;
@@ -5842,34 +5736,37 @@ int play(void)
 
 void show_credits(void)
 {
-    double vol;
-    double vol_step;
+    double vol = options.msc_volume;
+    double vol_step = vol / 150.0f;
     int gc;
     BITMAP *logoBMP;
 
-    vol=options.msc_volume;
-    vol_step=vol/150.0f;
-    clear_bitmap(screen);
-    logoBMP=data[125].dat;
-    blit(data[126].dat,screen,0,0,0,0,640,480);
-    draw_sprite(screen,logoBMP,320-logoBMP->w/2,10);
-    textout_centre_ex(screen,data[50].dat,"Thanks for playing!",320,280,-1,-1);
-    textout_centre_ex(screen,data[52].dat,"DESIGN & CODING: Johan Peitz",320,360,-1,-1);
-    textout_centre_ex(screen,data[52].dat,"GRAPHICS: Emanuel Garnheim",320,390,-1,-1);
-    fadeIn(screen,16);
-    closeButtonClicked=0;
-    cycle_count=0;
-    while (!key[KEY_ESC] && cycle_count<=149) {
-        gc=cycle_count;
+    clear(swap_screen);
+    logoBMP = data[125].dat;
+
+    blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);
+    draw_sprite(swap_screen, logoBMP, 320 - logoBMP->w / 2, 10);
+
+    textout_centre_ex(swap_screen, data[50].dat, "Thanks for playing!", 320, 280, -1, -1);
+    textout_centre_ex(swap_screen, data[52].dat, "DESIGN & CODING: Johan Peitz", 320, 360, -1, -1);
+
+    textout_centre_ex(swap_screen, data[52].dat, "GRAPHICS: Emanuel Garnheim", 320, 390, -1, -1);
+
+    fadeIn(swap_screen, 16);
+
+    closeButtonClicked = 0;
+    cycle_count = 0;
+    while (!closeButtonClicked && !key[KEY_ESC] && cycle_count <= 149) {
+        gc = cycle_count;
+
         checkMenuFocus();
-        if (bg_menu)
-            adjust_sample(bg_menu,(int)vol,128,1000,1);
-        while (gc==cycle_count)
-            rest(2);
-        if (closeButtonClicked)
-            break;
-        vol-=vol_step;
+
+        if (bg_menu) adjust_sample(bg_menu, (int)vol, 128, 1000, 1);
+        vol -= vol_step;
+        while (gc == cycle_count) rest(2);
     }
+
+
     fadeOut(16);
 }
 
@@ -5959,50 +5856,34 @@ void main_menu_callback(void)
     int i;
 
     count++;                                                        /* 5142 */
-    if (new_rand() % 198 == 1) {                                     /* 5143 */
-        face++;                                                      /* 5144 */
-        if (face == 3)
-            face = 0;
-    }
+    if (new_rand() % 198 == 1) face++;                               /* 5143 */
+    if (face == 3) face = 0;                                         /* 5144 */
 
     if (key[KEY_F1]) {                                               /* 5147 */
         take_screenshot(swap_screen);                                /* 5148 */
-        while (key[KEY_F1])                                          /* 5149 */
-            rest(2);                                                 /* 5161 */
+        while (key[KEY_F1]);                                         /* 5149 */
     }
     testWindowResolution();                                          /* 5152 */
 
     if (pFLDAd) {                                                    /* 5156 */
-        mouseInAd = mouse_x < pFLDAdBitmap->w && gfx_driver &&        /* 5158 */
-                    mouse_y > gfx_driver->h - pFLDAdBitmap->h;
-
-        if (key[KEY_F5]) {                                           /* 5160 */
-            while (key[KEY_F5])
-                rest(2);
+        mouseInAd = mouse_x < pFLDAdBitmap->w && mouse_y > SCREEN_H - pFLDAdBitmap->h; /* 5158 */
+        if (key[KEY_F5] || (mouseInAd && (mouse_b & 1) && !(lastMouseB & 1))) { /* 5160 */
+            while (key[KEY_F5]) rest(2);                             /* 5161 */
             options.full_screen = 0;                                 /* 5165 */
             testWindowResolution();                                  /* 5166 */
             open_web_browser((char *)pFLDAd->pVisitURL);              /* 5169 */
-            my_alert("Icy Tower", "Your web browser has been opened.", 0, 1); /* 5170 */
-        } else if (mouseInAd) {
-            if ((mouse_b & 1) && !(lastMouseB & 1)) {
-                testWindowResolution();
-                open_web_browser((char *)pFLDAd->pVisitURL);
-                my_alert("Icy Tower", "Your web browser has been opened.", 0, 1);
-            }
+            my_alert("Go online!", "Your browser has been opened.", 0, 1); /* 5170 */
         }
         lastMouseB = mouse_b;                                        /* 5172 */
-        if (mouseInAd)
-            _win_hcursor = LoadCursorA(NULL, IDC_HAND);
+        if (mouseInAd)                                               /* 5176 */
+            _win_hcursor = LoadCursorA(NULL, IDC_HAND);              /* 5177 */
         else
-            _win_hcursor = LoadCursorA(NULL, IDC_ARROW);
-    } else {
-        lastMouseB = mouse_b;
+            _win_hcursor = LoadCursorA(NULL, IDC_ARROW);             /* 5179 */
     }
 
-    if (data && data[126].dat)                                       /* 5187 */
-        blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);
-    if (data && data[71].dat)                                        /* 5193 */
-        draw_sprite(swap_screen, data[71].dat, 330, 280);
+    blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);          /* 5187 */
+    draw_sprite(swap_screen, data[71].dat, 330, 280);                /* 5193 */
+    draw_sprite(swap_screen, data[125].dat, 0, 0);                   /* 5197 */
     if (pFLDAdBitmap) {                                               /* 5200 */
         set_alpha_blender();                                         /* 5201 */
         draw_trans_sprite(swap_screen, pFLDAdBitmap, 0, 280);         /* 5202 */
@@ -6025,12 +5906,12 @@ void main_menu_callback(void)
     scroll_scroller(&greeting_scroller, scroller_step);               /* 5220 */
     drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);                           /* 5221 */
     set_trans_blender(0, 0, 0, 110);                                  /* 5222 */
-    rectfill(swap_screen, 0, 0, 639, 20, makecol(0, 0, 0));           /* 5223 */
-    rectfill(swap_screen, 0, 0, 639, 18, makecol(0, 0, 0));           /* 5224 */
-    rectfill(swap_screen, 0, 0, 639, 16, makecol(0, 0, 0));           /* 5225 */
+    rectfill(swap_screen, 0, 462, 639, 479, makecol(0, 0, 0));           /* 5223 */
+    rectfill(swap_screen, 0, 463, 639, 479, makecol(0, 0, 0));           /* 5224 */
+    rectfill(swap_screen, 0, 464, 639, 479, makecol(0, 0, 0));           /* 5225 */
     solid_mode();                                                     /* 5226 */
-    draw_scroller(&greeting_scroller, swap_screen, 1, 0, makecol(150, 150, 150)); /* 5227 */
-    if (!draw_scroller(&greeting_scroller, swap_screen, 0, 0,        /* 5228 */
+    draw_scroller(&greeting_scroller, swap_screen, 1, 462, makecol(150, 150, 150)); /* 5227 */
+    if (!draw_scroller(&greeting_scroller, swap_screen, 0, 462,      /* 5228 */
                        makecol(200, 200, 200)))
         restart_scroller(&greeting_scroller);
 
@@ -6040,7 +5921,7 @@ void main_menu_callback(void)
                   "v%s %s", "1.5.1", debug ? " FUN MODE" : "");
     if (stricmp(profile->handle, "guest")) {
         sprintf(welcomeMessage, "Welcome, %%s! %s",
-                get_rank_id(profile) ? "Your rank is %s." : "");
+                get_rank_id(profile) == 0 ? "" : "Your rank is %s.");
         textprintf_right_ex(swap_screen, data[54].dat, 638, 3,
                             makecol(50, 50, 50), -1, welcomeMessage,
                             profile->handle, get_rank(profile));
@@ -6075,20 +5956,19 @@ void main_menu_callback(void)
             play_char.pal[i].g = characters[play_char.value].pal[i].g; /* 5263 */
             play_char.pal[i].b = characters[play_char.value].pal[i].b; /* 5264 */
         }
+        play_char.bmp = characters[play_char.value].bmp;              /* 5266 */
+        curr_char = play_char.value;                                  /* 5267 */
+        strcpy(profile->last_avatar, characters[play_char.value].name); /* 5268 */
     }
-    play_char.bmp = characters[play_char.value].bmp;                  /* 5266 */
-    curr_char = play_char.value;                                      /* 5267 */
-    strcpy(profile->last_avatar, characters[play_char.value].name);   /* 5268 */
 
     floors.max = profile->best_floor > 999 ? 9 : profile->best_floor / 100; /* 5275 */
     profile->start_floor = floors.value < floors.max ? floors.value : floors.max; /* 5276 */
     menu_params.fo = floors.value * 3 + 17;                           /* 5277 */
 
     options.flash = get_selection_value(&eyecandy_selection);         /* 5282 */
-    options.floor_shrink = floors.value;
-    options.start_speed = get_selection_value(&scroll_speed_selection); /* 5285 */
-    options.floor_size = get_selection_value(&floor_size_selection);  /* 5284 */
     options.gravity = get_selection_value(&gravity_selection);        /* 5283 */
+    options.floor_size = get_selection_value(&floor_size_selection);  /* 5284 */
+    options.start_speed = get_selection_value(&scroll_speed_selection); /* 5285 */
     if (bg_menu)                     /* 5288 */
         adjust_sample(bg_menu, options.msc_volume, 128, 1000, 1);
 
@@ -6154,66 +6034,88 @@ int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
 {
     BITMAP *block = create_bitmap(w, text_height(f) + 2);
     char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz 0123456789.!_";
-    int i = strlen(string);
-    int tick;
+    int tick = 0;
     int c;
+    int i = strlen(string);
+
 
     if (!block)
         return -1;
+
+
     blit(bmp, block, pos_x - 1, pos_y - 1, 0, 0, block->w, block->h);
-    while (key[KEY_ENTER] || key[KEY_SPACE])
-        ;
+
+    while (key[KEY_ENTER] || key[KEY_SPACE]);
     clear_keybuf();
-    tick = 0;
-    for (;;) {
-        if (closeButtonClicked) {
-            destroy_bitmap(block);
-            return 0;
-        }
+
+
+    while (!closeButtonClicked) {
         tick++;
         cycle_count = 0;
+
         checkMenuFocus();
+
+
         string[i] = (tick & 8) ? '|' : ' ';
         string[i + 1] = 0;
         vsync();
         blit(block, bmp, 0, 0, pos_x - 1, pos_y - 1, block->w, block->h);
-        if (bg_color >= 0)
-            rectfill(bmp, pos_x, pos_y, pos_x + block->w - 1,
-                     pos_y + block->h - 3, bg_color);
+        if (bg_color >= 0) rectfill(bmp, pos_x, pos_y, pos_x + block->w - 1, pos_y + block->h - 3, bg_color);
         textout_ex(bmp, f, string, pos_x + 2, pos_y, colour, -1);
         blit_to_screen(bmp);
+
+
         if (keypressed()) {
             c = readkey();
             switch (c >> 8) {
-        case KEY_ESC:
-            string[i] = 0;
-            destroy_bitmap(block);
-            return -1;
-        case KEY_TAB:
-        case KEY_UP:
-        case KEY_DOWN:
-            string[i] = 0;
-            destroy_bitmap(block);
-            return -2;
-        case KEY_ENTER:
-            string[i] = 0;
-            destroy_bitmap(block);
-            return 0;
-        case KEY_BACKSPACE:
-            i--;
-            if (i < 0)
-                i = 0;
-            break;
-        default:
-            if (i < max_chars - 2 && strchr(letters, c) &&
-                ((c >> 8) != KEY_SPACE || i) &&
-                text_length(f, string) < w - 9)
-                string[i++] = (char)c;
+                case KEY_ESC:
+                    string[i] = 0;
+                    destroy_bitmap(block);
+                    return -1;
+                case KEY_TAB:
+                case KEY_UP:
+                case KEY_DOWN:
+
+                    string[i] = 0;
+                    destroy_bitmap(block);
+                    return -2;
+
+
+                case KEY_BACKSPACE:
+
+                    if (--i < 0) i = 0;
+                    break;
+
+                case KEY_ENTER:
+                    string[i] = 0;
+                    destroy_bitmap(block);
+                    return 0;
+
+
+                default:
+                    if (i < max_chars - 2 && strchr(letters, c)) {
+
+                        if ((c >> 8) != KEY_SPACE || i) {
+
+                            if (w - 9 > text_length(f, string)) {
+
+
+                                string[i] = c;
+                                i++;
+                            }
+                        }
+                    }
             }
         }
-        while (!cycle_count)
-            rest(2);
+
+
+
+        while (!cycle_count) rest(2);
     }
+
+
+    destroy_bitmap(block);
+    return 0;
 }
 
 void replaceBadCharacters(char *string, char newChar)
@@ -6353,6 +6255,7 @@ int do_replay_menu(void)
                 else if (status==3) {
                     char lastGameFile[2048];
                     int thisChecksum;
+                    int lets_save;
                     sprintf(lastGameFile,"%slast_game.itr",replay_directory);
                     if (!pname[0]) {
                         status=0;
@@ -6365,35 +6268,39 @@ int do_replay_menu(void)
                     if (demo)
                         destroy_replay(demo);
                     demo=load_replay(lastGameFile);
-                    if (!demo) {
+                    if (demo) {
+                        thisChecksum=calc_replay_checksum(demo);
+                        if (thisChecksum==uberChecksum) {
+                        strncpy(demo->name,pname,30);
+                        strcpy(demo->comment,comment);
+                        replace_extension(buffer,fname,"itr",512);
+                        sprintf(fpath,"%s%s",replay_directory,buffer);
+                        lets_save=1;
+                        if (exists(fpath))
+                            lets_save=my_alert("The file exists.","Do you want to overwrite it?",1,0);
+                        if (!lets_save) {
+                            status=1;
+                            continue;
+                        }
+                        if (save_replay(replay_directory,buffer,demo,demo->size+2,1)<0) {
+                            my_alert("Failed to save replay.",fpath,0,1);
+                            status=1;
+                        }
+                        else {
+                            my_alert("Replay saved.",0,0,1);
+                            status='*';
+                        }
+                        }
+                        else {
+                            my_alert("Failed to save replay.",
+                                     "Temporary file mismatch.",0,1);
+                            status=!isGuest;
+                        }
+                    }
+                    else {
                         my_alert("Failed to save replay.",
                                  "Temporary file not found.",0,1);
                         status=!isGuest;
-                        continue;
-                    }
-                    thisChecksum=calc_replay_checksum(demo);
-                    if (thisChecksum!=uberChecksum) {
-                        my_alert("Failed to save replay.",
-                                 "Temporary file mismatch.",0,1);
-                        status=!isGuest;
-                        continue;
-                    }
-                    strncpy(demo->name,pname,30);
-                    strcpy(demo->comment,comment);
-                    replace_extension(buffer,fname,"itr",512);
-                    sprintf(fpath,"%s%s",replay_directory,buffer);
-                    if (exists(fpath) &&
-                        !my_alert("The file exists.","Do you want to overwrite it?",1,0)) {
-                        status=1;
-                        continue;
-                    }
-                    if (save_replay(replay_directory,buffer,demo,demo->size+2,1)<0) {
-                        my_alert("Failed to save replay.",fpath,0,1);
-                        status=1;
-                    }
-                    else {
-                        my_alert("Replay saved.",0,0,1);
-                        status='*';
                     }
                 }
             }
@@ -6411,51 +6318,55 @@ void force_create_profile(void)
     int y;
     int ok;
     char new_name[32];
+    int done;
 
     bg=create_bitmap(SCREEN_W,SCREEN_H);
     blit(screen,bg,0,0,0,0,SCREEN_W,SCREEN_H);
     memset(new_name,0,sizeof(new_name));
-    for (;;) {
+    done = 0;
+    while (!done) {
         int res;
         char buf[129];
 
         checkMenuFocus();
-        blit(bg,screen,0,0,0,0,SCREEN_W,SCREEN_H);
+        blit(bg,swap_screen,0,0,0,0,SCREEN_W,SCREEN_H);
         set_trans_blender(0,0,0,158);
         drawing_mode(DRAW_MODE_TRANS,0,0,0);
-        rectfill(screen,0,0,SCREEN_W,SCREEN_H,makecol(0,0,0));
+        rectfill(swap_screen,0,0,SCREEN_W,SCREEN_H,makecol(0,0,0));
         solid_mode();
-        draw_sprite(screen,data[87].dat,100,120);
-        textout_ex(screen,data[51].dat,"Welcome to Icy Tower",130,127,-1,-1);
-        textout_ex(screen,data[54].dat,"Yo, wazup? In Icy Tower, all your highscores",130,160,0,-1);
-        textout_ex(screen,data[54].dat,"and progress will be stored in a personal profile.",130,175,0,-1);
-        textout_ex(screen,data[54].dat,"AWESOME!",130,190,0,-1);
-        textout_ex(screen,data[54].dat,"Please enter a name for your profile:",130,220,0,-1);
-        textout_right_ex(screen,data[54].dat,"...and press enter.",430,260,0,-1);
-        rectfill(screen,129,240,430,258,makecol(255,255,255));
-        rect(screen,129,240,430,258,makecol(80,80,80));
-        blit_to_screen(screen);
-        res=get_string(screen,new_name,300,32,data[54].dat,130,240,makecol(0,0,0),-1);
+        draw_sprite(swap_screen,data[87].dat,100,120);
+        textout_ex(swap_screen,data[51].dat,"Welcome to Icy Tower",130,127,-1,-1);
+        textout_ex(swap_screen,data[54].dat,"Yo, wazup? In Icy Tower, all your highscores",130,160,0,-1);
+        textout_ex(swap_screen,data[54].dat,"and progress will be stored in a personal profile.",130,175,0,-1);
+        textout_ex(swap_screen,data[54].dat,"AWESOME!",130,190,0,-1);
+        textout_ex(swap_screen,data[54].dat,"Please enter a name for your profile:",130,220,0,-1);
+        textout_right_ex(swap_screen,data[54].dat,"...and press enter.",430,260,0,-1);
+        rectfill(swap_screen,129,240,430,258,makecol(255,255,255));
+        rect(swap_screen,129,240,430,258,makecol(80,80,80));
+        blit_to_screen(swap_screen);
+        res=get_string(swap_screen,new_name,300,32,data[54].dat,130,240,makecol(0,0,0),-1);
         if (res>=-1) {
-            if (res==-1) {
-            my_alert("You can create a profile later in the OPTIONS menu.","Oh Well...",0,1);
-            profile=load_profile("guest");
-            if (!profile)
-                profile=create_profile("guest",1);
-            syncOptionsFromProfile();
-            break;
+            if (res!=-1) {
+                if (new_name[0]) {
+                    replaceBadCharacters(new_name,'_');
+                    profile=create_profile(new_name,0);
+                    if (profile) {
+                        sprintf(buf,"Welcome %s!",profile->handle);
+                        my_alert(buf,"Your profile has been created!",0,1);
+                        done = 1;
+                    }
+                    else
+                        my_alert("Ooops!","That profile name is taken.",0,1);
+                }
             }
-            if (!new_name[0])
-                continue;
-            replaceBadCharacters(new_name,'_');
-            profile=create_profile(new_name,0);
-            if (!profile) {
-                my_alert("That profile name is taken.","Ooops!",0,1);
-                continue;
+            else {
+                my_alert("Oh Well...","You can create a profile later in the OPTIONS menu.",0,1);
+                profile=load_profile("guest");
+                if (!profile)
+                    profile=create_profile("guest",1);
+                syncOptionsFromProfile();
+                done = 1;
             }
-            sprintf(buf,"Welcome %s!",profile->handle);
-            my_alert(buf,"Your profile has been created!",0,1);
-            break;
         }
     }
     destroy_bitmap(bg);
@@ -6494,13 +6405,11 @@ void checkMenuFocus(void)
 int _mangled_main(int argc, char **argv)
 {
     char full_path[1024];
-    char logfilename[256];
     FILE *f;
     int i;
     int ret;
     int must_fade;
     int play_again;
-    int redraw_menu;
     HMODULE hDebugLibrary;
 
     hDebugLibrary = LoadLibraryA("exchndl.dll");
@@ -6509,21 +6418,13 @@ int _mangled_main(int argc, char **argv)
     allegro_init();
     register_png_file_type();
     get_executable_name(full_path, sizeof(full_path));
-    /* The third argument is the EMPTY string, not "data": the original stores
-     * 0x4d4bb3 here (main.c:5792, offset 111) and the bytes at that address in
-     * assets/icytower15.exe are a lone NUL. replace_filename then yields the
-     * executable's own directory, which is what the following chdir enters and
-     * where profiles/, gamepad.txt and the data/ folder all live. With "data"
-     * the game chdirs one level too deep and nothing it needs is found. */
-    replace_filename(working_directory, full_path, "",
-                     sizeof(working_directory));
+    replace_filename(working_directory, full_path, "", sizeof(working_directory));
     chdir(working_directory);
-    memset(logfilename, 0, sizeof(logfilename));
+    char logfilename[256] = {0};
     get_logfile_path(logfilename, sizeof(logfilename));
     f = fopen(logfilename, "wt");
     if (f) {
-        fprintf(f, "Icy Tower v%s - log file\n----------------------------\n",
-                "1.5.1");
+        fprintf(f, "Icy Tower v%s - log file\n----------------------------\n", "1.5.1");
         fclose(f);
     }
     for (i = 0; i < argc; i++)
@@ -6531,9 +6432,9 @@ int _mangled_main(int argc, char **argv)
             itrcheck = 1;
     log2file("Game started with the following commands:");
     for (i = 0; i < argc; i++)
-        log2file("    %s", argv[i]);
-    log2file("Working directory is:\n    %s", working_directory);
-    if (!init_game(argc,argv)) {
+        log2file("   %s", argv[i]);
+    log2file("Working directory is:\n   %s", working_directory);
+    if (!init_game(argc, argv)) {
         if (!dropped_file_is_not_a_replay) {
             log2file("* Failed to initialize the game *");
             allegro_message("Failed to initialize the game.");
@@ -6543,8 +6444,21 @@ int _mangled_main(int argc, char **argv)
         log2file("Done...");
         return 1;
     }
-
-    if (itrcheck && demo) {
+    if (!itrcheck) {
+        log2file("Initiating scroller");
+        init_scroller(&greeting_scroller, data[54].dat, scroller_greetings, 640, 30, -1);
+        menu_params.font = data[51].dat;
+        menu_params.bullet = data[72].dat;
+        menu_params.pos = 0;
+        menu_params.data = data;
+        log2file("Initiating menu controls");
+        init_control(&menu_params.ctrl);
+        if (got_joystick)
+            menu_params.ctrl.use_joy = 1;
+        log2file("Resetting menu");
+        reset_menu(main_menu, &menu_params, 0);
+    }
+    if (demo) {
         log2file("Running replay.");
         run_demo(NULL);
         if (itrcheck) {
@@ -6554,109 +6468,93 @@ int _mangled_main(int argc, char **argv)
             exit(0);
         }
     }
-    if (itrcheck)
-        load_new_ad_image();
-    init_scroller(&greeting_scroller, data[54].dat, scroller_greetings,
-                  640, 30, -1);
-    menu_params.font=data[51].dat;
-    menu_params.bullet=data[72].dat;
-    menu_params.pos=0;
-    menu_params.data=data;
-    init_control(&menu_params.ctrl);
-    reset_menu(main_menu,&menu_params,0);
+    load_new_ad_image();
     startMenuMusic();
+    log2file("\nMAIN MENU LOOP");
     clear_keybuf();
-
-    must_fade=1;
-    if (options.timesStarted==1 && !stricmp("guest",options.lastProfile)) {
+    if (options.timesStarted == 1 && !stricmp("guest", options.lastProfile)) {
         main_menu_callback();
-        draw_menu(swap_screen,main_menu,&menu_params,355,285,0);
-        fadeIn(swap_screen,16);
+        draw_menu(swap_screen, main_menu, &menu_params, 355, 285, 0);
+        fadeIn(swap_screen, 16);
         force_create_profile();
         syncOptionsFromProfile();
-        must_fade=0;
+        must_fade = 0;
     }
-    redraw_menu=1;
-    while (!closeButtonClicked) {
-        if (redraw_menu) {
-            main_menu_callback();
-            draw_menu(swap_screen,main_menu,&menu_params,355,285,0);
-            if (must_fade)
-                fadeIn(swap_screen,16);
-            else
-                blit_to_screen(swap_screen);
-            redraw_menu=0;
-        }
-        ret=handle_menu(main_menu,&menu_params,&ctrl,swap_screen,
-                        main_menu_callback,355,285,0);
-
-        if (ret=='e' || ret==0x85) {
-            in_replay_menu=(ret!='e');
+    else
+        must_fade = 1;
+    options.msc_volume = profile->msc_volume;
+    options.snd_volume = profile->snd_volume;
+    ret = 0;
+    while (!closeButtonClicked && ret != 'k') {
+        main_menu_callback();
+        draw_menu(swap_screen, main_menu, &menu_params, 355, 285, 0);
+        if (must_fade)
+            fadeIn(swap_screen, 16);
+        else
+            blit_to_screen(swap_screen);
+        ret = handle_menu(main_menu, &menu_params, &ctrl, swap_screen, main_menu_callback, 355, 285, 0);
+        if (ret == 'e' || ret == 0x85) {
+            log2file(" new game selected");
+            is_playing_custom_game = (ret != 'e');
             fadeOut(16);
             stopMenuMusic();
-            if (demo) {
-                destroy_replay(demo);
-                demo=NULL;
-            }
-            do {
-                play_again=0;
+            play_again = 1;
+            while (play_again) {
+                if (demo) destroy_replay(demo);
+                demo = NULL;
+                play_again = 0;
                 if (new_game()) {
-                    play_again=play();
+                    play_again = play();
                     end_game();
-                    fadeOut(16);
-                } else
-                    fadeOut(16);
-            } while (play_again && !closeButtonClicked);
+                }
+                fadeOut(16);
+            }
             if (bg_menu)
                 play_sample(bg_menu, options.msc_volume, 128, 1000, 1);
-            must_fade=1;
+            menu_params.pos = 0;
+            must_fade = 1;
         }
-        else if (ret=='i') {
-            view_scores(hisc_tables,hisc_names);
-            must_fade=0;
+        else if (ret == 'i') {
+            log2file(" high scores selected");
+            view_scores(hisc_tables, hisc_names);
+            menu_params.pos = 3;
+            must_fade = 0;
         }
-        else if (ret=='h') {
+        else if (ret == 'h') {
+            log2file(" instructions selected");
             fadeOut(16);
             show_instructions();
-            must_fade=1;
+            menu_params.pos = 1;
+            must_fade = 1;
         }
-        else if (ret=='z') {
-            if (demo) {
-                destroy_replay(demo);
-                demo=NULL;
-            }
-            for (;;) {
-                demo=replay_selector(&ctrl,replay_directory);
-                if (!demo) {
-                    must_fade=0;
-                    break;
-                }
+        else if (ret == 'z') {
+            log2file(" load replay selected");
+            if (demo) destroy_replay(demo);
+            log2file("   opening %s", replay_directory);
+            while ((demo = replay_selector(&ctrl, replay_directory))) {
                 fadeOut(16);
                 stopMenuMusic();
                 run_demo(NULL);
                 fadeOut(16);
                 main_menu_callback();
-                draw_menu(swap_screen,main_menu,&menu_params,355,285,0);
-                fadeIn(swap_screen,32);
-                if (closeButtonClicked)
-                    break;
-                if (bg_menu)
-                    if (options.msc_volume)
-                        play_sample(bg_menu, options.msc_volume, 128, 1000, 1);
+                draw_menu(swap_screen, main_menu, &menu_params, 355, 285, 0);
+                fadeIn(swap_screen, 32);
+                if (bg_menu && options.msc_volume)
+                    play_sample(bg_menu, options.msc_volume, 128, 1000, 1);
             }
+            menu_params.pos = 4;
+            must_fade = 0;
         }
-        else if (ret=='k')
-            break;
         rest(2);
-        if (closeButtonClicked || ret=='k')
-            break;
-        redraw_menu=1;
     }
     fadeOut(16);
+    log2file("\nShowing credits");
     show_credits();
     stopMenuMusic();
     uninit_game();
+    log2file("\nDone...");
     return 0;
 }
+
 
 END_OF_MAIN()

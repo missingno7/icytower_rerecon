@@ -130,6 +130,29 @@ class GateTests(unittest.TestCase):
             if field=='data':after['initialized_data_comparison'][0]['content_equal']=False
             if field=='common':after['common_allocations'][0]['value']=8
             with self.subTest(field=field),self.assertRaises(ValueError):protect(before,after)
+    def storage_reports(self):
+        before={'functions':[{'name':'peer','status':'FUNCTION_MATCH','body_sha256':'same'}],
+          'object_ownership':{'accepted':[]},
+          'initialized_data_comparison':[{'section':'.data','logical_size':8,'content_equal':False}],
+          'common_allocations':[{'name':'_g','value':4,'storage_class':2},{'name':'_h','value':4,'storage_class':2}]}
+        after=copy.deepcopy(before)
+        after['functions'][0]['body_sha256']='changed'
+        after['initialized_data_comparison'][0]['content_equal']=True
+        after['object_ownership']['accepted']=[{'scope':['GLOBAL'],'name':'g','size':4,'section':'.data','original_va':100,'dwarf_type':'int'}]
+        after['common_allocations']=[{'name':'_h','value':4,'storage_class':2}]
+        return before,after
+    def test_storage_promotion_allows_only_proven_moves(self):
+        before,after=self.storage_reports()
+        protect(before,after)  # newly proved .data: exact peer keeps code, _g becomes a proven owner
+        cases={'no_new_proof':lambda a:a['initialized_data_comparison'][0].update(content_equal=False),
+               'peer_lost':lambda a:a['functions'][0].update(status='DIFFER'),
+               'owner_missing':lambda a:a['object_ownership'].update(accepted=[]),
+               'owner_unproved_section':lambda a:a['object_ownership']['accepted'][0].update(section='.rdata'),
+               'common_added':lambda a:a['common_allocations'].append({'name':'_k','value':4,'storage_class':2}),
+               'common_resized':lambda a:a['common_allocations'][0].update(value=8)}
+        for name,mutate in cases.items():
+            changed=copy.deepcopy(after);mutate(changed)
+            with self.subTest(case=name),self.assertRaises(ValueError):protect(before,changed)
     def test_effective_output_ignores_only_resolved_layout(self):
         row={'candidate_size':5,'instructions':[{'bytes':'e801000000'}],
           'relocations':[{'function_offset':1,'type':20,'symbol':'_f','addend':1,'target_va':4096}], 'direct_transfers':[]}

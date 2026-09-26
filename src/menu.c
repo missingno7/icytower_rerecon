@@ -172,6 +172,7 @@ int update_game_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, Tcontrol *ctrl,
     } while ((signed char)m[num_posts].flags >= 0);
     old_pos = pos;
     draw_menu(bmp, m, mp, x, y, stepIn);
+    return_value = 0;
     if (ctrl) {
         if (is_up(ctrl) || is_up(&mp->ctrl)) {
             pos--;
@@ -183,16 +184,17 @@ int update_game_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, Tcontrol *ctrl,
             if (pos > num_posts)
                 pos = 0;
         }
-        if (key[KEY_F1] && pos != num_posts)
-            pos = num_posts;
-    }
-    return_value = 0;
-    if (old_pos != pos) {
+        if (key[KEY_F1]) {
+            if (pos != num_posts)
+                pos = num_posts;
+            else
+                return_value = m[pos].return_select;
+        }
+        if (old_pos != pos) {
         m[old_pos].flags &= ~1;
         m[pos].flags |= 1;
         play_menu_move();
     }
-    if (ctrl) {
         if (is_fire(ctrl) || is_enter(&mp->ctrl) ||
             is_fire(&mp->ctrl))
             return_value = m[pos].return_select;

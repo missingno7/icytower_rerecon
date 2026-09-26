@@ -1,0 +1,14 @@
+{
+  "source": "src/fld_adspot.c",
+  "base_sha256": "9116d56f22599dfa2e7eb197a067039f693b858948946530f2dd225cbb1f5016",
+  "edits": [
+    {
+      "old": "{\n    int shouldDownloadAds;\n    struct stat statCsv;\n\n    fldads_load_local_cache();\n    shouldDownloadAds = stat(fldads_get_local_cache_name(\"ads.csv\"), &statCsv);\n    if (!shouldDownloadAds && statCsv.st_mtime + 259200 < time(NULL)) {\n        shouldDownloadAds = 1;\n    }\n    if (shouldDownloadAds) {\n        HTTPResponse *pResponse;\n        log2file(\"Downloading ad listing\");\n        pResponse = HTTPGet(\"http://www.icytower.com/icytower_pc.csv\");\n        if (pResponse && pResponse->iStatusCode == 200 && pResponse->pPayload) {\n            fldads_update_cache(pResponse->pPayload, pResponse->iPayloadSize);\n        } else {\n            log2file(\"Could not fetch ad listing from http://www.icytower.com/icytower_pc.csv (%d), skipping ad update\",\n                     pResponse ? pResponse->iStatusCode : 0);\n        }\n        destroyHTTPResponse(pResponse);\n    } else {\n        log2file(\"Cached ads are up to date\");\n    }\n    log2file(\"There are %d available ad spots.\", giAdCacheSize);\n    return NULL;\n}",
+      "new": "{\n    int shouldDownloadAds;\n    struct stat statCsv;\n\n    fldads_load_local_cache();\n    shouldDownloadAds = stat(fldads_get_local_cache_name(\"ads.csv\"), &statCsv);\n    if (!shouldDownloadAds && statCsv.st_mtime + 259200 < time(NULL)) {\n        shouldDownloadAds = 1;\n    }\n    if (!shouldDownloadAds) {\n        log2file(fldads_cached_status);\n    }\n    if (shouldDownloadAds) {\n        HTTPResponse *pResponse;\n        log2file(\"Downloading ad listing\");\n        pResponse = HTTPGet(\"http://www.icytower.com/icytower_pc.csv\");\n        if (pResponse && pResponse->iStatusCode == 200 && pResponse->pPayload) {\n            fldads_update_cache(pResponse->pPayload, pResponse->iPayloadSize);\n        } else {\n            log2file(\"Could not fetch ad listing from http://www.icytower.com/icytower_pc.csv (%d), skipping ad update\",\n                     pResponse ? pResponse->iStatusCode : 0);\n        }\n        destroyHTTPResponse(pResponse);\n    }\n    log2file(\"There are %d available ad spots.\", giAdCacheSize);\n    return NULL;\n}"
+    },
+    {
+      "old": "void *fldads_threadmain(void *data)\n{",
+      "new": "static const char fldads_cached_status[] = \"Cached ads are up to date\";\n\nvoid *fldads_threadmain(void *data)\n{"
+    }
+  ]
+}

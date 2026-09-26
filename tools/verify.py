@@ -32,13 +32,36 @@ def fresh(target,dest=None,source_root=ROOT):
     return result
 
 def exact_set(report):return {f['name'] for f in report['functions'] if f['status']=='FUNCTION_MATCH'}
+def newly_proved_data(before,after):
+    """Initialized-data contributions unproved before and content-equal after."""
+    was={s['section'] for s in before['initialized_data_comparison'] if s['content_equal']}
+    return {s['section'] for s in after['initialized_data_comparison'] if s['content_equal'] and s['section'] not in was}
+def commons_moved_to_proven_owners(before,after):
+    # A TU storage promotion may turn common (tentative) definitions into initialized
+    # definitions, but only when every removed common now has an independently accepted
+    # global owner inside a content-equal initialized contribution. Nothing may be added
+    # to, or resized in, the common set.
+    def common(r):return {(s['name'],s['value'],s['storage_class']) for s in r['common_allocations']}
+    a,b=common(before),common(after)
+    if not b<=a:return False
+    proved={s['section'] for s in after['initialized_data_comparison'] if s['content_equal']}
+    owners={o['name']:o for o in after['object_ownership']['accepted'] if tuple(o['scope'])==('GLOBAL',)}
+    for name,_,_ in a-b:
+        owner=owners.get(name[1:] if name.startswith('_') else name)
+        if not owner or owner['section'] not in proved:return False
+    return True
 def protect(before,after):
     old={f['name']:f for f in before['functions']};new={f['name']:f for f in after['functions']}
     if set(old)!=set(new):raise ValueError('Historical function inventory changed')
     lost=exact_set(before)-exact_set(after)
     if lost:raise ValueError('Exact peers regressed: '+', '.join(sorted(lost)))
+    # Exact peer source is frozen, except in a TU storage promotion that newly proves a
+    # complete initialized-data contribution: literal pools follow each function's expansion
+    # order, so that proof may require an exact peer to keep its code while changing source.
+    # The peer must still be FUNCTION_MATCH (checked above).
+    storage_promotion=bool(newly_proved_data(before,after))
     for name in exact_set(before):
-        if old[name].get('body_sha256')!=new[name].get('body_sha256'):
+        if old[name].get('body_sha256')!=new[name].get('body_sha256') and not storage_promotion:
             raise ValueError('Protected exact peer body changed: '+name)
     # Protect each complete previously established data/BSS owner and contribution.
     def owners(r):
@@ -54,7 +77,8 @@ def protect(before,after):
                 raise ValueError('Proven data contribution regressed: '+section['section'])
     # BSS/common ownership and size cannot change in a function-body promotion.
     def common(r):return sorted((s['name'],s['value'],s['storage_class']) for s in r['common_allocations'])
-    if common(before)!=common(after):raise ValueError('Common/BSS allocations changed')
+    if common(before)!=common(after) and not (storage_promotion and commons_moved_to_proven_owners(before,after)):
+        raise ValueError('Common/BSS allocations changed')
 
 def state_from(reports,link,source_root=ROOT):
     return {'schema':1,'inputs':canonical_inputs(source_root),'proof_context':proof_context(),

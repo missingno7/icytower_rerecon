@@ -1,0 +1,30 @@
+{
+  "source": "src/replay.c",
+  "base_sha256": "ef08cac2b6cc853f139f94ec85a17c2473c1f1d13ea502e566910607b805895c",
+  "edits": [
+    {
+      "old": "    int ok_to_rename = 0;\n",
+      "new": ""
+    },
+    {
+      "old": "            case KEY_ENTER:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files) {\n                    Treplay_post *post = &itr_file_list[curr_file_id];\n                    if (post->directory) {\n                        strcpy(path, post->full_path);\n                        canonicalize_filename(fname, path, sizeof(fname));\n                        strcpy(path, fname);\n                        update_file_list(path);\n                        curr_file_id = offset = 0;\n                        need_to_update = 1;\n                    } else if (rep) {\n                        play_menu_select();\n                        done = 1;\n                    }\n                }\n                break;\n            case KEY_DEL:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files &&\n                    !itr_file_list[curr_file_id].directory && rep &&\n                    my_alert(\"Really delete replay?\", \"WARNING: It will be gone forever.\",\n                             1, 0)) {\n                    delete_file(itr_file_list[curr_file_id].full_path);\n                    need_to_update = 1;\n                }\n                break;\n            case KEY_ESC:\n                play_menu_select();\n                destroy_replay(rep);\n                rep = NULL;\n                done = -1;\n                break;\n            case KEY_F1:\n                set_sort_method(1);\n                need_to_update = 1;\n                break;\n            case KEY_F2:\n                set_sort_method(2);\n                need_to_update = 1;\n                break;\n            case KEY_F3:\n                set_sort_method(3);\n                need_to_update = 1;\n                break;\n            case KEY_F4:\n                set_sort_method(4);\n                need_to_update = 1;\n                break;\n            case KEY_F5:\n                install_mouse();\n                file_select_ex(\"Select a new folder and press OK\", path, \"itr\",\n                               sizeof(fname), 400, 400);\n                remove_mouse();\n                replace_filename(fname, path, \"\", sizeof(fname));\n                strcpy(path, fname);\n                update_file_list(path);\n                curr_file_id = offset = 0;\n                need_to_update = 1;\n                ok_to_rename = 1;\n                break;\n",
+      "new": "            case KEY_F1: {\n                char p[1024];\n\n                play_menu_select();\n                if (rep)\n                    destroy_replay(rep);\n                gui_bg_color = makecol(255, 255, 255);\n                gui_fg_color = makecol(0, 0, 0);\n                install_mouse();\n                file_select_ex(\"Select a new folder and press OK.\", path, \"itr\",\n                               sizeof(p), 400, 400);\n                remove_mouse();\n                replace_filename(p, path, \"\", sizeof(p));\n                strcpy(path, p);\n                need_to_update = 1;\n                offset = 0;\n                curr_file_id = 0;\n                break;\n            }\n            case KEY_DEL:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files &&\n                    !itr_file_list[curr_file_id].directory && rep) {\n                    play_menu_select();\n                    strcpy(fname, \"Really delete replay?\");\n                    if (my_alert(fname, \"WARNING: It will be gone forever.\", 1, 0)) {\n                        delete_file(itr_file_list[curr_file_id].full_path);\n                        need_to_update = 1;\n                    }\n                }\n                break;\n            case KEY_ESC:\n                play_menu_select();\n                destroy_replay(rep);\n                rep = NULL;\n                done = -1;\n                break;\n            case KEY_ENTER:\n            case KEY_SPACE:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files) {\n                    Treplay_post *post = &itr_file_list[curr_file_id];\n                    if (post->directory) {\n                        strcpy(path, post->full_path);\n                        canonicalize_filename(fname, path, sizeof(fname));\n                        strcpy(path, fname);\n                        update_file_list(path);\n                        curr_file_id = offset = 0;\n                        need_to_update = 1;\n                    } else if (rep) {\n                        play_menu_select();\n                        done = 1;\n                    }\n                }\n                break;\n"
+    },
+    {
+      "old": "        (void)ok_to_rename;\n",
+      "new": ""
+    },
+    {
+      "old": "static char replay_header[] = \"ITR140\";",
+      "new": "static const char REPLAY_HEADER[6];"
+    },
+    {
+      "old": "memcpy(r->header, replay_header, 6);",
+      "new": "memcpy(r->header, REPLAY_HEADER, 6);"
+    },
+    {
+      "old": "    return 0;\n}\n\n/* Recovered from replay.c:460, 0x41be58..0x41cce6.  The oracle's inline",
+      "new": "    return 0;\n}\n\nstatic const char REPLAY_HEADER[6] = \"ITR140\";\n\n/* Recovered from replay.c:460, 0x41be58..0x41cce6.  The oracle's inline"
+    }
+  ]
+}

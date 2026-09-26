@@ -1,0 +1,34 @@
+{
+  "source": "src/replay.c",
+  "base_sha256": "ef08cac2b6cc853f139f94ec85a17c2473c1f1d13ea502e566910607b805895c",
+  "edits": [
+    {
+      "old": "static char replay_header[] = \"ITR140\";",
+      "new": "static const char REPLAY_HEADER[6] = \"ITR140\";"
+    },
+    {
+      "old": "memcpy(r->header, replay_header, 6);",
+      "new": "memcpy(r->header, REPLAY_HEADER, 6);"
+    },
+    {
+      "old": "memcmp(r_temp.header, \"ITR140\", 3)",
+      "new": "memcmp(r_temp.header, REPLAY_HEADER, 3)"
+    },
+    {
+      "old": "            case KEY_F5:\n                install_mouse();\n                file_select_ex(\"Select a new folder and press OK\", path, \"itr\",\n                               sizeof(fname), 400, 400);\n                remove_mouse();\n                replace_filename(fname, path, \"\", sizeof(fname));\n                strcpy(path, fname);\n                update_file_list(path);\n                curr_file_id = offset = 0;\n                need_to_update = 1;\n                ok_to_rename = 1;\n                break;\n",
+      "new": ""
+    },
+    {
+      "old": "            case KEY_DEL:\n",
+      "new": "            case KEY_F5:\n                install_mouse();\n                file_select_ex(\"Select a new folder and press OK.\", path, \"itr\",\n                               sizeof(fname), 400, 400);\n                remove_mouse();\n                replace_filename(fname, path, \"\", sizeof(fname));\n                strcpy(path, fname);\n                update_file_list(path);\n                curr_file_id = offset = 0;\n                need_to_update = 1;\n                ok_to_rename = 1;\n                break;\n            case KEY_DEL:\n"
+    },
+    {
+      "old": "            case KEY_DEL:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files &&\n                    !itr_file_list[curr_file_id].directory && rep &&\n                    my_alert(\"Really delete replay?\", \"WARNING: It will be gone forever.\",\n                             1, 0)) {\n                    delete_file(itr_file_list[curr_file_id].full_path);\n                    need_to_update = 1;\n                }\n                break;",
+      "new": "            case KEY_DEL:\n                if (curr_file_id >= 0 && curr_file_id < num_itr_files &&\n                    !itr_file_list[curr_file_id].directory && rep) {\n                    play_menu_select();\n                    strcpy(fname, \"Really delete replay?\");\n                    if (my_alert(fname, \"WARNING: It will be gone forever.\", 1, 0)) {\n                        delete_file(itr_file_list[curr_file_id].full_path);\n                        need_to_update = 1;\n                    }\n                }\n                break;"
+    },
+    {
+      "old": "    case 3:\n        retval = r->combo;\n        log2file(\"%s:combo=%d\", filename, retval);\n        break;\n    case 4:\n        retval = r->floor;\n        log2file(\"%s:floor=%d\", filename, retval);\n        break;",
+      "new": "    case 4:\n        retval = r->floor;\n        log2file(\"%s:floor=%d\", filename, retval);\n        break;\n    case 3:\n        retval = r->combo;\n        log2file(\"%s:combo=%d\", filename, retval);\n        break;"
+    }
+  ]
+}

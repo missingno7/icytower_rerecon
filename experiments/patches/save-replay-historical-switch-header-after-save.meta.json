@@ -1,0 +1,8 @@
+{
+  "round": 4,
+  "parent": "c3997b1cb967638262a7f772cbe00ad97b0c4899bac3de36dbaa350a42f6b58e",
+  "family": "historical-selector-switch-header-owner-order",
+  "description": "Keep the historical selector switch patch and automatic save_replay months initializer, but place the source-declared six-byte REPLAY_HEADER definition after save_replay so the named anchor may follow the anonymous month table in .rdata.",
+  "prediction": "Moving the six-byte initialized owner after the function will preserve prior selector literal addresses while anchoring save_replay months at the target owner-relative address.",
+  "falsifier": "The relocation remains unresolved, selector operand mismatches persist, or exact peers regress."
+}
