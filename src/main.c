@@ -3764,130 +3764,155 @@ int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int d
  * intentionally left for the presentation recovery pass. */
 void handle_player_collision_vector(int lastX, int lastY)
 {
-    Tplayer *p;
-    int floor_y;
-    int floor_x1, floor_x2;
-    int left_x, left_y, right_x, right_y;
     int left, right;
-    int current_x, current_y;
 
-    p = ply[player_id];
-    current_x = (int)p->x;
-    current_y = (int)p->y;
-    floor_y = -12345678;
-    floor_x1 = 0;
-    floor_x2 = 0;
-    getFloorData(&map, current_y, &floor_y, &floor_x1, &floor_x2);
-    if (floor_y == -12345678) {
-        getFloorData(&map, lastY, &floor_y, &floor_x1, &floor_x2);
-        if (floor_y == -12345678) {
-            if (p->status == 2 || p->status == 0)
-                p->status = 3;
+
+    int fx1 = 0, fy1, fx2 = 0, fy2;
+
+
+    int plx1 = (int)ply[player_id]->x - 11;
+    int ply1 = (int)ply[player_id]->y + 1;
+    int plx2 = lastX - 11;
+    int ply2 = lastY;
+
+
+    int prx1 = (int)ply[player_id]->x + 11;
+    int pry1 = ply1;
+    int prx2 = lastX + 11;
+    int pry2 = lastY;
+
+
+    int ilx, ily, irx, iry;
+
+
+    fy1 = -12345678;
+
+    getFloorData(&map, (int)ply[player_id]->y, &fy1, &fx1, &fx2);
+    if (fy1 == -12345678) {
+        getFloorData(&map, lastY, &fy1, &fx1, &fx2);
+        if (fy1 == -12345678) {
+
+            if (ply[player_id]->status == 2 ||
+                ply[player_id]->status == 0) ply[player_id]->status = 3;
+            fx1 = fx2 = 0;
             return;
         }
     }
+    fy2 = fy1;
+    if (debug && key[KEY_F2]) {
 
-    if (debug) {
-        if (key[KEY_F2]) {
-            int col1 = makecol(255, 0, 0);
-            int col2 = makecol(255, 255, 0);
-            line(screen, floor_x1, floor_y, floor_x2, floor_y, col1);
-            line(screen, current_x - 11, current_y + 1, lastX - 11, lastY, col2);
-            line(screen, current_x + 11, current_y + 1, lastX + 11, lastY, col2);
-        }
-    }
-    left = line_intersect(floor_x1, floor_y, floor_x2, floor_y,
-        current_x - 11, current_y + 1, lastX - 11, lastY, &left_x, &left_y);
-    right = line_intersect(floor_x1, floor_y, floor_x2, floor_y,
-        current_x + 11, current_y + 1, lastX + 11, lastY, &right_x, &right_y);
-    if (!left && !right) {
-        if (p->status == 2 || p->status == 0)
-            p->status = 3;
-        return;
-    }
-    p->edge = left == right ? 0 : (left ? 1 : 2);
-    if (p->status != 2 && p->status != 3)
-        return;
-    if (left && right &&
-        (left_x < -10000 || right_x < -10000 || left_x > 10000 || right_x > 10000))
-        return;
+        int col1 = makecol(255, 0, 0);
+        int col2 = makecol(255, 255, 0);
 
-    play_sound(sounds[8], 1, 1);
-    p->status = 0;
-    p->sy = 0;
-    p->y = floor_y - 1;
-    p->x = left ? left_x + 11 : right_x - 11;
-    p->rotate = 0;
+
+        line(screen, fx1, fy1, fx2, fy2, col1);
+
+
+        line(screen, plx1, ply1, plx2, ply2, col2);
+        line(screen, prx1, pry1, prx2, pry2, col2);
+    }
+
+
+    left = line_intersect(fx1, fy1, fx2, fy2, plx1, ply1, plx2, ply2, &ilx, &ily);
+    right = line_intersect(fx1, fy1, fx2, fy2, prx1, pry1, prx2, pry2, &irx, &iry);
+
+
+    if (left + right == 0 && (ply[player_id]->status == 2 ||
+        ply[player_id]->status == 0)) ply[player_id]->status = 3;
+
+    if (left != right) ply[player_id]->edge = left ? 1 : 2;
+    else ply[player_id]->edge = 0;
+
+    if (left + right != 0 && (ply[player_id]->status == 2 || ply[player_id]->status == 3)) {
+        if (left && right && (ilx < -10000 || irx < -10000 || ilx > 10000 || irx > 10000))
+            return;
+
+
+
+        play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        ply[player_id]->y = fy1 - 1;
+        ply[player_id]->x = left ? ilx + 11 : irx - 11;
+        ply[player_id]->rotate = 0;
+    }
 }
+
 
 /* Partial recovery of main.c, 0x4088c8..0x408d08.  This variant retries the
  * floor segment four pixels lower before transitioning to falling state. */
 void handle_player_collision_vector_2(int lastX, int lastY)
 {
-    Tplayer *p;
-    int floor_y, floor_x1, floor_x2;
-    int left_x, left_y, right_x, right_y;
     int left, right;
-    int current_x, current_y;
-    int plx1, plx2, prx1, prx2;
-    int col1, col2;
 
-    p = ply[player_id];
-    plx1 = (int)p->x - 11;
-    current_x = (int)p->x;
-    current_y = (int)p->y + 1;
-    plx2 = lastX - 11;
-    prx1 = (int)p->x + 11;
-    prx2 = lastX + 11;
-    col1 = makecol(255, 0, 0);
-    col2 = makecol(255, 255, 0);
-    floor_y = -12345678;
-    floor_x1 = 0;
-    floor_x2 = 0;
-    getFloorData(&map, (int)p->y, &floor_y, &floor_x1, &floor_x2);
-    if (floor_y == -12345678) {
-        getFloorData(&map, lastY, &floor_y, &floor_x1, &floor_x2);
-        if (floor_y == -12345678) {
-            floor_y = 0;
-            floor_x1 = 0;
-            floor_x2 = 0;
-        }
+
+    int fx1, fy1, fx2, fy2;
+
+
+    int plx1 = (int)ply[player_id]->x - 11;
+    int ply1 = (int)ply[player_id]->y + 1;
+    int plx2 = lastX - 11;
+    int ply2 = lastY;
+
+
+    int prx1 = (int)ply[player_id]->x + 11;
+    int pry1 = ply1;
+    int prx2 = lastX + 11;
+    int pry2 = lastY;
+
+
+    int ilx, ily, irx, iry;
+
+
+    int col1 = makecol(255, 0, 0);
+    int col2 = makecol(255, 255, 0);
+
+
+    fy1 = -12345678;
+
+    getFloorData(&map, (int)ply[player_id]->y, &fy1, &fx1, &fx2);
+    if (fy1 == -12345678) {
+        getFloorData(&map, lastY, &fy1, &fx1, &fx2);
+        if (fy1 == -12345678) fx1 = fx2 = 0;
+    }
+    fy2 = fy1;
+
+    if (debug && key[KEY_F2]) {
+
+        line(screen, fx1, fy1, fx2, fy2, col1);
+
+
+        line(screen, plx1, ply1, plx2, ply2, col2);
+        line(screen, prx1, pry1, prx2, pry2, col2);
     }
 
-    if (debug) {
-        if (key[KEY_F2]) {
-            line(screen, floor_x1, floor_y, floor_x2, floor_y, col1);
-            line(screen, plx1, current_y, plx2, lastY, col2);
-            line(screen, prx1, current_y, prx2, lastY, col2);
-        }
-    }
-    left = line_intersect(floor_x1, floor_y, floor_x2, floor_y,
-        plx1, current_y, plx2, lastY, &left_x, &left_y);
-    right = line_intersect(floor_x1, floor_y, floor_x2, floor_y,
-        prx1, current_y, prx2, lastY, &right_x, &right_y);
+
+    left = line_intersect(fx1, fy1, fx2, fy2, plx1, ply1, plx2, ply2, &ilx, &ily);
+    right = line_intersect(fx1, fy1, fx2, fy2, prx1, pry1, prx2, pry2, &irx, &iry);
+
     if (!left && !right) {
-        left = line_intersect(floor_x1, floor_y + 4, floor_x2, floor_y + 4,
-            plx1, current_y, plx2, lastY, &left_x, &left_y);
-        right = line_intersect(floor_x1, floor_y + 4, floor_x2, floor_y + 4,
-            prx1, current_y, prx2, lastY, &right_x, &right_y);
+        int snap = 4;
+        left = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, plx1, ply1, plx2, ply2, &ilx, &ily);
+        right = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, prx1, pry1, prx2, pry2, &irx, &iry);
     }
-    if (!left && !right) {
-        if (p->status == 2 || p->status == 0)
-            p->status = 3;
-        p->edge = 0;
-        return;
-    }
-    p->edge = left == right ? 0 : (left ? 1 : 2);
-    if (p->status != 2 && p->status != 3)
-        return;
 
-    play_sound(sounds[8], 1, 1);
-    p->status = 0;
-    p->sy = 0;
-    p->y = floor_y - 1;
-    p->x = left ? left_x + 11 : right_x - 11;
-    p->rotate = 0;
+
+    if (left + right == 0 && (ply[player_id]->status == 2 ||
+        ply[player_id]->status == 0)) ply[player_id]->status = 3;
+
+    if (left != right) ply[player_id]->edge = left ? 1 : 2;
+    else ply[player_id]->edge = 0;
+
+    if (left + right != 0 && (ply[player_id]->status == 2 || ply[player_id]->status == 3)) {
+        play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        ply[player_id]->y = fy1 - 1;
+        ply[player_id]->x = left ? ilx + 11 : irx - 11;
+        ply[player_id]->rotate = 0;
+    }
 }
+
 
 /* Partial recovery of main.c, 0x408358..0x4088c8.  Combo mode uses ordinary
  * solid-foot correction first, then a floor-segment landing intersection. */

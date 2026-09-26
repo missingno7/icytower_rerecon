@@ -1,0 +1,18 @@
+{
+ "source": "src/replay.c",
+ "base_sha256": "e931dd11c264f3250aa582928f2e3172eddc83fa56dbff6b696d0d3b27f58cf2",
+ "edits": [
+  {
+   "old": "\nint sort_method;\n",
+   "new": "\nint sort_method = 1;\n"
+  },
+  {
+   "old": "\nint num_itr_files;\nstatic char replay_header[] = \"ITR140\";\n",
+   "new": "\nint num_itr_files = 0;\nstatic const char REPLAY_HEADER[6] = \"ITR140\";\n"
+  },
+  {
+   "old": "memcpy(r->header, replay_header, 6);",
+   "new": "memcpy(r->header, REPLAY_HEADER, 6);"
+  }
+ ]
+}
