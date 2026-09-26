@@ -1,7 +1,7 @@
 """Fresh whole-TU proof, compact state, and exact-peer protection."""
 import argparse, collections, json
 from pathlib import Path
-from common import ROOT, BUILD, ORACLE, ANALYSIS, identity, read_json, write_json, digest
+from common import ROOT, BUILD, ORACLE, ANALYSIS, identity, read_json, write_json, digest, sha
 from build import targets, compile_target
 from compare import compare
 from source_scope import body_hash
@@ -11,14 +11,19 @@ def canonical_inputs(root=ROOT):
     # One snapshot of the active C/headers; generated objects never establish source identity.
     return {p.relative_to(root).as_posix():identity(p) for folder in ['src','include']
             for p in sorted((Path(root)/folder).rglob('*')) if p.is_file()}
-def proof_context():
+def proof_context(overrides=None):
+    # overrides: {relative path: bytes} for a configuration file about to be published atomically.
     proof_modules='common build binary dwarf compare data_owners type_graph control_transfers instructions evidence verify link source_scope scratch promote transaction storage test'.split()
     files=[*sorted((ROOT/'tests').glob('*.py')),*[ROOT/'tools'/(name+'.py') for name in proof_modules],
            *sorted((ROOT/'evidence').glob('*.json')),*sorted((ROOT/'toolchain').glob('*.json')),*sorted((ROOT/'third_party').glob('*.json'))]
-    return digest({p.relative_to(ROOT).as_posix():identity(p) for p in files})
-def fresh(target,dest=None,source_root=ROOT):
-    config=targets()[target]
-    obj,compilation=compile_target(target,dest,source_root)
+    context={p.relative_to(ROOT).as_posix():identity(p) for p in files}
+    for rel,data in (overrides or {}).items():
+        if rel not in context:raise ValueError('Unknown proof configuration file: '+rel)
+        context[rel]={'size':len(data),'sha256':sha(data)}
+    return digest(context)
+def fresh(target,dest=None,source_root=ROOT,config=None):
+    config=config or targets()[target]
+    obj,compilation=compile_target(target,dest,source_root,config=config)
     result=compare(obj,config['historical_cu'],ORACLE,ANALYSIS)
     if identity(obj)!=compilation['object']:raise ValueError('Object changed during verification')
     result['build']=compilation
@@ -64,10 +69,14 @@ def protect(before,after):
     # order, so that proof may require an exact peer to keep its code while changing source.
     # The peer must still be FUNCTION_MATCH (checked above).
     data_promotion=bool(newly_proved_data(before,after))
+    # Likewise a promotion that newly proves the TU's complete text contribution (function
+    # order and padding included) may need exact peers to move or be re-spelled; each must
+    # still be FUNCTION_MATCH.
+    text_promotion=not before.get('whole_text_contribution_equal') and bool(after.get('whole_text_contribution_equal'))
     # A newly proven BSS layout never needs an exact peer to change source.
     storage_promotion=data_promotion or bool(newly_proved_bss(before,after))
     for name in exact_set(before):
-        if old[name].get('body_sha256')!=new[name].get('body_sha256') and not data_promotion:
+        if old[name].get('body_sha256')!=new[name].get('body_sha256') and not (data_promotion or text_promotion):
             raise ValueError('Protected exact peer body changed: '+name)
     # Protect each complete previously established data/BSS owner and contribution.
     def owners(r):

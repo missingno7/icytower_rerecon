@@ -71,7 +71,7 @@ void reset_options(Toptions *o)
     strcpy(o->updateDate,"2001-12-22");
     strcpy(o->lastProfile,"guest");
     strcpy(o->posterDate,"1111-22-33");
-    strcpy(o->posterUrl,"http://www.freelunchdesign.com/?src=it15_game");
+    strcpy(o->posterUrl,"http://www.freelunchdesign.com/?src=it14_game");
     strcpy(o->posterSrc,"default.dat");
     o->posterSize=file_size_ex("data/com/default.dat");
 }

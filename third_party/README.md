@@ -17,7 +17,8 @@ versions, examples, alternative backends, source archives or prebuilt libraries.
   link, their used headers and COPYING notices. Source hashes/archive identities
   are retained. Successful linking does not prove historical Xiph byte equality;
   original libogg objects identify GCC 4.2.1-sjlj, which remains unavailable here.
-- libpng 1.2.34 / zlib 1.2.3: only required headers and notices. Historical loadpng,
+- libpng 1.2.37 / zlib 1.2.3: only required headers and notices. The libpng version is
+  evidenced by the original .rdata string "1.2.37" (1.2.34 was a migration assumption). Historical loadpng,
   savepng and regpng sources remain in their original game TU locations under src/.
 - DirectX 8 MinGW headers: the exact used header subset; no SDK libraries are copied.
   Provenance identifies the archive and observed hash without claiming proof of the

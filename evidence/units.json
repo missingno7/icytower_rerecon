@@ -32,10 +32,7 @@
   "game-fld-adspot": {
     "source": "src/fld_adspot.c",
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\fld_adspot.c",
-    "default": "-O2",
-    "flags": [
-      "-fno-toplevel-reorder"
-    ]
+    "default": "-O2"
   },
   "game-hisc": {
     "source": "src/hisc.c",
@@ -92,7 +89,7 @@
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\loadpng.c",
     "default": "-O2",
     "includes": [
-      "third_party/libpng-1.2.34",
+      "third_party/libpng-1.2.37",
       "third_party/zlib-1.2.3"
     ]
   },
@@ -101,7 +98,7 @@
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\savepng.c",
     "default": "-O2",
     "includes": [
-      "third_party/libpng-1.2.34",
+      "third_party/libpng-1.2.37",
       "third_party/zlib-1.2.3"
     ]
   },
@@ -110,15 +107,14 @@
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\regpng.c",
     "default": "-O2",
     "includes": [
-      "third_party/libpng-1.2.34",
+      "third_party/libpng-1.2.37",
       "third_party/zlib-1.2.3"
     ]
   },
   "game-strptime": {
     "source": "src/strptime.c",
     "historical_cu": "F:\\projects\\icytower\\trunk\\source\\strptime.c",
-    "default": "-O2",
-    "flags": ["-fno-inline-small-functions"]
+    "default": "-O2"
   },
   "game-timecompat": {
     "source": "src/timecompat.c",

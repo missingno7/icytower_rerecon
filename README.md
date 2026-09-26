@@ -93,6 +93,11 @@ python tools/promote.py create_profile candidates\context.json --patch
 History stores replacements, not another complete main.c. Exact peer bodies remain
 protected. Header or cross-TU changes require a reviewed extension of the gate.
 
+A unit-configuration promotion also replaces that TU's per-unit flags in
+`evidence/units.json`, in the same journaled transaction (e.g. `--flags "[]"`). It
+must keep every exact function, proven data/BSS owner and the link. Exact peers may be
+re-spelled only when the promotion newly proves the TU's complete text contribution.
+
 ## Strict acceptance
 
 Promotion freshly compiles the baseline and candidate in whole-TU context. It

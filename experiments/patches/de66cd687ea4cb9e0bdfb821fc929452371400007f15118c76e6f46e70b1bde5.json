@@ -1,0 +1,10 @@
+{
+ "source": "src/menu.c",
+ "base_sha256": "c33872a8709f2391041e381ca74c5ac4c7af94fff945e24859c5bb02f84dabf5",
+ "edits": [
+  {
+   "old": "\nint stepIn;\n",
+   "new": "\nint stepIn = 0;\n"
+  }
+ ]
+}

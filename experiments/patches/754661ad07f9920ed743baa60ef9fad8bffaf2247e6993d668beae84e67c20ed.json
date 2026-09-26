@@ -1,0 +1,10 @@
+{
+ "source": "src/fld_adspot.c",
+ "base_sha256": "5670f53fa9eb48dec79054b8ef371a1ed0b05a9dce7c80aec8731d19efb2ab1d",
+ "edits": [
+  {
+   "old": "int giAdCacheSize;\nFLDAdSpot *gpAdCache;\n",
+   "new": "int giAdCacheSize = 0;\nFLDAdSpot *gpAdCache = 0;\n"
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "source": "src/custom.c",
+ "base_sha256": "d3f74e4dcc50f167a7e130e5e7c72ba961d38d8acbfd6faa7f60245bc914461c",
+ "edits": [
+  {
+   "old": "\r\nRGB black;\r\n",
+   "new": "\r\nRGB black = {0, 0, 0, 0};\r\n"
+  }
+ ]
+}

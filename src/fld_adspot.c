@@ -28,11 +28,34 @@ extern void destroyHTTPResponse(HTTPResponse *pResponse);
 
 pthread_t gFLDADThread;
 pthread_mutex_t gFLDADMutex;
-int giAdCacheSize;
-FLDAdSpot *gpAdCache;
+int giAdCacheSize = 0;
+FLDAdSpot *gpAdCache = 0;
 
 void fldads_update_local_adimg(const char *pRemoteName);
 void *fldads_threadmain(void *data);
+const char *get_url_filename(const char *pURL)
+{
+    char *p;
+    p = pURL + strlen(pURL) - 1;
+    while (*(p - 1) != '/') {
+        p--;
+    }
+    return p;
+}
+
+const char *fldads_get_local_cache_name(const char *pFileName)
+{
+    static char localFilename[256];
+    get_adcache_dir(localFilename, sizeof(localFilename));
+    mkdir(localFilename);
+    strcat(localFilename, pFileName);
+    return localFilename;
+}
+
+const char *fldads_get_local_filename_from_url(const char *pRemoteName)
+{
+    return fldads_get_local_cache_name(get_url_filename(pRemoteName));
+}
 
 void fldads_destroy_cache(void)
 {
@@ -49,43 +72,35 @@ void fldads_destroy_cache(void)
     }
 }
 
-const char *fldads_get_local_cache_name(const char *pFileName)
+void fldads_update_local_adimg(const char *pRemoteName)
 {
-    static char localFilename[256];
-    get_adcache_dir(localFilename, sizeof(localFilename));
-    mkdir(localFilename);
-    strcat(localFilename, pFileName);
-    return localFilename;
-}
+    char *localFilename = fldads_get_local_filename_from_url(pRemoteName);
+    struct stat localStat;
+    HTTPResponse *pResponse;
 
-void fldads_dump_local_cache(void)
-{
-    FILE *fp = fopen(fldads_get_local_cache_name("ads.csv"), "wb");
-    if (fp) {
-        int i;
-        pthread_mutex_lock(&gFLDADMutex);
-        for (i = 0; i < giAdCacheSize; i++) {
-            fprintf(fp, "%s,%s,%.1f\n", gpAdCache[i].pRemoteImageURL,
-                    gpAdCache[i].pVisitURL, gpAdCache[i].fFrequency);
+    if (!stat(localFilename, &localStat)) {
+        time_t lastModified;
+        HTTPResponse *pHead = HTTPHead(pRemoteName);
+        if (pHead && pHead->iStatusCode == 200) {
+            lastModified = httpGetLastModified(pHead);
+            if (lastModified && localStat.st_mtime >= lastModified) {
+                log2file("Local file %s is newer (%d) than server (%d), using local",
+                         localFilename, localStat.st_mtime, lastModified);
+                return;
+            }
         }
-        pthread_mutex_unlock(&gFLDADMutex);
-        fclose(fp);
     }
-}
 
-const char *get_url_filename(const char *pURL)
-{
-    char *p;
-    p = pURL + strlen(pURL) - 1;
-    while (*(p - 1) != '/') {
-        p--;
+    pResponse = HTTPGet(pRemoteName);
+    log2file("Downloading %s -> %s", pRemoteName, localFilename);
+    if (pResponse && pResponse->iStatusCode == 200) {
+        FILE *fp = fopen(localFilename, "wb");
+        if (fp) {
+            fwrite(pResponse->pPayload, 1, pResponse->iPayloadSize, fp);
+            fclose(fp);
+        }
     }
-    return p;
-}
-
-const char *fldads_get_local_filename_from_url(const char *pRemoteName)
-{
-    return fldads_get_local_cache_name(get_url_filename(pRemoteName));
+    destroyHTTPResponse(pResponse);
 }
 
 void fldads_load_cache_from_csv(CSVParseContext *pCsv)
@@ -127,35 +142,19 @@ void fldads_load_local_cache(void)
     }
 }
 
-void fldads_update_local_adimg(const char *pRemoteName)
+void fldads_dump_local_cache(void)
 {
-    char *localFilename = fldads_get_local_filename_from_url(pRemoteName);
-    struct stat localStat;
-    HTTPResponse *pResponse;
-
-    if (!stat(localFilename, &localStat)) {
-        time_t lastModified;
-        HTTPResponse *pHead = HTTPHead(pRemoteName);
-        if (pHead && pHead->iStatusCode == 200) {
-            lastModified = httpGetLastModified(pHead);
-            if (lastModified && localStat.st_mtime >= lastModified) {
-                log2file("Local file %s is newer (%d) than server (%d), using local",
-                         localFilename, localStat.st_mtime, lastModified);
-                return;
-            }
+    FILE *fp = fopen(fldads_get_local_cache_name("ads.csv"), "wb");
+    if (fp) {
+        int i;
+        pthread_mutex_lock(&gFLDADMutex);
+        for (i = 0; i < giAdCacheSize; i++) {
+            fprintf(fp, "%s,%s,%.1f\n", gpAdCache[i].pRemoteImageURL,
+                    gpAdCache[i].pVisitURL, gpAdCache[i].fFrequency);
         }
+        pthread_mutex_unlock(&gFLDADMutex);
+        fclose(fp);
     }
-
-    pResponse = HTTPGet(pRemoteName);
-    log2file("Downloading %s -> %s", pRemoteName, localFilename);
-    if (pResponse && pResponse->iStatusCode == 200) {
-        FILE *fp = fopen(localFilename, "wb");
-        if (fp) {
-            fwrite(pResponse->pPayload, 1, pResponse->iPayloadSize, fp);
-            fclose(fp);
-        }
-    }
-    destroyHTTPResponse(pResponse);
 }
 
 void fldads_update_cache(unsigned char *pData, int iDataSize)
@@ -171,11 +170,6 @@ void fldads_update_cache(unsigned char *pData, int iDataSize)
     fldads_load_cache_from_csv(pCsv);
     csv_destroy(pCsv);
     fldads_dump_local_cache();
-}
-
-void fldads_start(void)
-{
-    pthread_create(&gFLDADThread, NULL, fldads_threadmain, NULL);
 }
 
 const FLDAdSpot *fldads_get_random_ad(void)
@@ -203,33 +197,36 @@ const FLDAdSpot *fldads_get_random_ad(void)
     return pAd;
 }
 
-static const char fldads_cached_status[] = "Cached ads are up to date";
-
 void *fldads_threadmain(void *data)
 {
-    int shouldDownloadAds;
-    struct stat statCsv;
-
     fldads_load_local_cache();
-    shouldDownloadAds = stat(fldads_get_local_cache_name("ads.csv"), &statCsv);
-    if (!shouldDownloadAds && statCsv.st_mtime + 259200 < time(NULL)) {
-        shouldDownloadAds = 1;
+
+    int shouldDownloadAds = 1;
+    struct stat statCsv;
+    if (stat(fldads_get_local_cache_name("ads.csv"), &statCsv) == 0) {
+        if (statCsv.st_mtime + 259200 >= time(NULL)) {
+            log2file("Cached ads are up to date");
+            shouldDownloadAds = 0;
+        }
     }
-    if (!shouldDownloadAds) {
-        log2file(fldads_cached_status);
-    }
+
     if (shouldDownloadAds) {
-        HTTPResponse *pResponse;
         log2file("Downloading ad listing");
-        pResponse = HTTPGet("http://www.icytower.com/icytower_pc.csv");
+        HTTPResponse *pResponse = HTTPGet("http://www.icytower.com/icytower_pc.csv");
         if (pResponse && pResponse->iStatusCode == 200 && pResponse->pPayload) {
             fldads_update_cache(pResponse->pPayload, pResponse->iPayloadSize);
         } else {
-            log2file("Could not fetch ad listing from http://www.icytower.com/icytower_pc.csv (%d), skipping ad update",
-                     pResponse ? pResponse->iStatusCode : 0);
+            log2file("Could not fetch ad listing from http://www.icytower.com/icytower_pc.csv (%d), skipping ad update", pResponse ? pResponse->iStatusCode : 0);
         }
         destroyHTTPResponse(pResponse);
     }
+
     log2file("There are %d available ad spots.", giAdCacheSize);
+
     return NULL;
+}
+
+void fldads_start(void)
+{
+    pthread_create(&gFLDADThread, NULL, fldads_threadmain, NULL);
 }

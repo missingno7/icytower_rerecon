@@ -29,7 +29,7 @@ def libraries():
         for archive in sorted({name for name,_ in built}):
             dest=out/archive;dest.unlink(missing_ok=True)
             run([TC/'bin/ar.exe','rcs',dest,*[p for n,p in built if n==archive]])
-        run([TC/'bin/dlltool.exe','-d','third_party/libpng-1.2.34/libpng3-derived.def','-l',out/'libpng3.a'])
+        run([TC/'bin/dlltool.exe','-d','third_party/libpng-1.2.37/libpng3-derived.def','-l',out/'libpng3.a'])
         compile_target('allegro-logg',out/'logg',config=plan['logg'])
         verify_inputs()
         if inputs['headers']!={p.relative_to(ROOT).as_posix():identity(p) for p in (ROOT/'include').rglob('*') if p.is_file()}:

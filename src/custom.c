@@ -6,7 +6,7 @@
 #include "custom.h"
 #include "game_services.h"
 
-RGB black;
+RGB black = {0, 0, 0, 0};
 RGB pink = {255, 0, 255, 0};
 
 void custom_alert(char *txt1, char *txt2)

@@ -43,6 +43,35 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(source.read_bytes(),b'foreign edit');self.assertTrue(journal.exists())
             source.write_bytes(b'new source');rollback(root,journal)
             self.assertEqual(source.read_bytes(),b'old source');self.assertEqual((root/'recovery.json').read_bytes(),b'old state')
+    def test_unit_configuration_is_published_and_rolled_back_with_source(self):
+        for boundary in [None,'source','config','state']:
+            with self.subTest(boundary=boundary),tempfile.TemporaryDirectory(dir=BUILD) as folder:
+                root=Path(folder);source,journal=self.prepare(root)
+                (root/'evidence').mkdir();units=root/'evidence/units.json';units.write_bytes(b'old units')
+                def fail(point):
+                    if point==boundary:raise RuntimeError('injected failure')
+                if boundary is None:
+                    publish(source,b'new source',b'new state',b'old source',b'old state',root,journal,units=(b'old units',b'new units'))
+                    self.assertEqual([source.read_bytes(),units.read_bytes(),(root/'recovery.json').read_bytes()],[b'new source',b'new units',b'new state'])
+                else:
+                    with self.assertRaises(RuntimeError):
+                        publish(source,b'new source',b'new state',b'old source',b'old state',root,journal,fail,units=(b'old units',b'new units'))
+                    self.assertEqual([source.read_bytes(),units.read_bytes(),(root/'recovery.json').read_bytes()],[b'old source',b'old units',b'old state'])
+                self.assertFalse(journal.exists())
+    def test_unit_configuration_must_be_unchanged_before_commit(self):
+        with tempfile.TemporaryDirectory(dir=BUILD) as folder:
+            root=Path(folder);source,journal=self.prepare(root)
+            (root/'evidence').mkdir();(root/'evidence/units.json').write_bytes(b'foreign units')
+            with self.assertRaises(ValueError):
+                publish(source,b'new source',b'new state',b'old source',b'old state',root,journal,units=(b'old units',b'new units'))
+            self.assertEqual(source.read_bytes(),b'old source');self.assertFalse(journal.exists())
+    def test_journal_only_names_source_state_or_unit_configuration(self):
+        with tempfile.TemporaryDirectory(dir=BUILD) as folder:
+            root=Path(folder);_,journal=self.prepare(root);(root/'evidence').mkdir()
+            for path in ['evidence/oracle.json','tools/verify.py','include/x.h']:
+                (root/path).parent.mkdir(exist_ok=True);(root/path).write_bytes(b'x')
+                write_json(journal,{'files':[{'path':path,'before':'','after':''}]})
+                with self.subTest(path=path),self.assertRaises(ValueError):rollback(root,journal)
     def test_journal_path_escape_rejected(self):
         with tempfile.TemporaryDirectory(dir=BUILD) as folder:
             root=Path(folder);_,journal=self.prepare(root)
@@ -183,6 +212,27 @@ class GateTests(unittest.TestCase):
                        lambda a:a.update(bss_layout_comparison=[])):
             changed=copy.deepcopy(proven);mutate(changed)
             with self.assertRaises(ValueError):protect(proven,changed)
+    def test_text_promotion_allows_peer_respelling_only_with_new_whole_text_proof(self):
+        before=self.report();before['whole_text_contribution_equal']=False
+        after=copy.deepcopy(before);after['functions'][0]['body_sha256']='moved';after['whole_text_contribution_equal']=True
+        protect(before,after)  # newly proven complete text contribution: exact peer re-spelled, still exact
+        for name,mutate in {'no_new_proof':lambda a:a.update(whole_text_contribution_equal=False),
+                            'peer_lost':lambda a:a['functions'][0].update(status='DIFFER'),
+                            'data_regressed':lambda a:a['initialized_data_comparison'][0].update(content_equal=False)}.items():
+            changed=copy.deepcopy(after);mutate(changed)
+            with self.subTest(case=name),self.assertRaises(ValueError):protect(before,changed)
+        proven=copy.deepcopy(before);proven['whole_text_contribution_equal']=True
+        with self.assertRaises(ValueError):protect(proven,after)  # already proven: no allowance
+    def test_unit_configuration_edit_is_minimal(self):
+        import promote
+        raw,new,config=promote.unit_configuration('game-map',['-fno-example'])
+        before,after=json.loads(raw),json.loads(new)
+        self.assertEqual(after['game-map']['flags'],['-fno-example']);self.assertEqual(config,after['game-map'])
+        self.assertEqual({k:v for k,v in before.items() if k!='game-map'},{k:v for k,v in after.items() if k!='game-map'})
+        self.assertEqual(len(new.splitlines())-len(raw.splitlines()),1)
+        with patch.object(Path,'read_bytes',lambda path,*a,**k:new if path.name=='units.json' else Path.__dict__['read_bytes'](path,*a,**k)):
+            _,removed,_=promote.unit_configuration('game-map',[])
+        self.assertEqual(removed,raw)  # removing the flag restores the original bytes exactly
     def test_effective_output_ignores_only_resolved_layout(self):
         row={'candidate_size':5,'instructions':[{'bytes':'e801000000'}],
           'relocations':[{'function_offset':1,'type':20,'symbol':'_f','addend':1,'target_va':4096}], 'direct_transfers':[]}

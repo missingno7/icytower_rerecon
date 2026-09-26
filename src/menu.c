@@ -19,7 +19,7 @@ extern int my_alert(char*, char*, int, int);
 
 #include "recovered/Tmenu_params.h"
 
-int stepIn;
+int stepIn = 0;
 
 extern void key_to_str(int key, char *dest);
 extern void draw_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, int x, int y,

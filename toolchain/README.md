@@ -29,7 +29,9 @@ include/library/path overrides are cleared. Actual include dependencies are chec
 before and after each compilation, including locked system headers.
 
 Game flags are locked per TU in `evidence/units.json`: `-O2 -g -mfpmath=387
--DALLEGRO_STATICLINK`; `fld_adspot.c` additionally uses `-fno-toplevel-reorder`.
+-DALLEGRO_STATICLINK` for every TU. The former per-unit `-fno-toplevel-reorder`
+(fld_adspot.c) and `-fno-inline-small-functions` (strptime.c) were migration artifacts;
+they were removed by unit-configuration promotions once the historical source matched.
 Historical Allegro macros and header ordering are retained. These settings reproduce
 the current game baseline, not an assertion about every original third-party CU.
 The original libogg compiler is still a separate unresolved historical question.

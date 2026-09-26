@@ -1,0 +1,20 @@
+{
+    o->flash=0;
+    o->full_screen=0;
+    o->jump_hold=1;
+    o->msc_volume=150;
+    o->snd_volume=150;
+    o->floor_shrink=1;
+    o->speed_increase=1;
+    o->start_speed=5;
+    o->floor_size=1;
+    o->gravity=1;
+    o->timesStarted=0;
+    o->sort_method=1;
+    strcpy(o->updateDate,"2001-12-22");
+    strcpy(o->lastProfile,"guest");
+    strcpy(o->posterDate,"1111-22-33");
+    strcpy(o->posterUrl,"http://www.freelunchdesign.com/?src=it14_game");
+    strcpy(o->posterSrc,"default.dat");
+    o->posterSize=file_size_ex("data/com/default.dat");
+}

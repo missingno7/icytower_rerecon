@@ -1,135 +1,3 @@
-/* Historical CU: F:\projects\icytower\trunk\source\strptime.c
- * Ownership: VENDORED_UPSTREAM
- * Current recovery status: src/recovery.json and docs/current/.
- * Historical extents below are evidence, not recovery claims.
- * Historical function: _strptime @ 0x0041f640, 2028 bytes
- */
-#include <time.h>
-#include <ctype.h>
-#include <malloc.h>
-#include <stdlib.h>
-#include <string.h>
-
-static const char *abb_weekdays[] = {
-    "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", NULL
-};
-static const char *full_weekdays[] = {
-    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
-    "Saturday", NULL
-};
-static const char *abb_month[] = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-    "Oct", "Nov", "Dec", NULL
-};
-static const char *full_month[] = {
-    "January", "February", "March", "April", "May", "June", "July",
-    "August", "September", "October", "November", "December", NULL
-};
-static const char *ampm[] = { "am", "pm", NULL };
-const int tm_year_base = 1900;
-
-static char *_strptime(const char *buf, const char *format, struct tm *tm,
-                int *state);
-
-char *strptime(const char *buf, const char *format, struct tm *tm)
-{
-    int state = 0;
-
-    return _strptime(buf, format, tm, &state);
-}
-
-static int
-is_leap_year (int year)
-{
-    return (year % 4) == 0 && ((year % 100) != 0 || (year % 400) == 0);
-}
-
-static int first_day(int year)
-{
-    int ret = 4;
-
-    for (; year > 1970; --year)
-	ret = (ret + 365 + is_leap_year (year) ? 1 : 0) % 7;
-    return ret;
-}
-
-static int
-match_string(const char **buf, const char **strs)
-{
-    int i;
-
-    for (i = 0; strs[i] != NULL; i++) {
-        int len = strlen(strs[i]);
-
-        if (strncasecmp(*buf, strs[i], len) == 0) {
-            *buf += len;
-            return i;
-        }
-    }
-    return -1;
-}
-
-/*
- * Set `timeptr' given `wnum' (week number [0, 53])
- * Needed for strptime
- */
-
-static void
-set_week_number_sun (struct tm *timeptr, int wnum)
-{
-    int fday = first_day (timeptr->tm_year + tm_year_base);
-
-    timeptr->tm_yday = wnum * 7 + timeptr->tm_wday - fday;
-    if (timeptr->tm_yday < 0) {
-	timeptr->tm_wday = fday;
-	timeptr->tm_yday = 0;
-    }
-}
-
-/*
- * Set `timeptr' given `wnum' (week number [0, 53])
- * Needed for strptime
- */
-
-static void
-set_week_number_mon (struct tm *timeptr, int wnum)
-{
-    int fday = (first_day (timeptr->tm_year + tm_year_base) + 6) % 7;
-
-    timeptr->tm_yday = wnum * 7 + (timeptr->tm_wday + 6) % 7 - fday;
-    if (timeptr->tm_yday < 0) {
-	timeptr->tm_wday = (fday + 1) % 7;
-	timeptr->tm_yday = 0;
-    }
-}
-
-/*
- * Set `timeptr' given `wnum' (week number [0, 53])
- * Needed for strptime
- */
-static void
-set_week_number_mon4 (struct tm *timeptr, int wnum)
-{
-    int fday = (first_day (timeptr->tm_year + tm_year_base) + 6) % 7;
-    int offset = 0;
-
-    if (fday < 4)
-	offset += 7;
-
-    timeptr->tm_yday = offset + (wnum - 1) * 7 + timeptr->tm_wday - fday;
-    if (timeptr->tm_yday < 0) {
-	timeptr->tm_wday = fday;
-	timeptr->tm_yday = 0;
-    }
-}
-
-/* strptime: roken */
-/* extern "C" */
-char *strptime (const char *buf, const char *format, struct tm *timeptr);
-
-static char *
-_strptime (const char *buf, const char *format, struct tm *timeptr,
-           int *gmt)
 {
     char c;
 
@@ -217,18 +85,18 @@ _strptime (const char *buf, const char *format, struct tm *timeptr,
 		timeptr->tm_yday = ret - 1;
 		buf = s;
 		break;
-	    case 'm' :
-		ret = strtol (buf, &s, 10);
-		if (s == buf)
-		    return NULL;
-		timeptr->tm_mon = ret - 1;
-		buf = s;
-		break;
 	    case 'M' :
 		ret = strtol (buf, &s, 10);
 		if (s == buf)
 		    return NULL;
 		timeptr->tm_min = ret;
+		buf = s;
+		break;
+	    case 'm' :
+		ret = strtol (buf, &s, 10);
+		if (s == buf)
+		    return NULL;
+		timeptr->tm_mon = ret - 1;
 		buf = s;
 		break;
 	    case 'n' :
@@ -349,12 +217,12 @@ _strptime (const char *buf, const char *format, struct tm *timeptr,
                 zonestr = alloca(cp - buf + 1);
                 strncpy(zonestr, buf, cp - buf);
                 zonestr[cp - buf] = '\0';
-                _tzset();
+                tzset();
                 if (0 == strcmp(zonestr, "GMT")) {
                     *gmt = 1;
-                } else if (0 == strcmp(zonestr, _tzname[0])) {
+                } else if (0 == strcmp(zonestr, tzname[0])) {
                     timeptr->tm_isdst = 0;
-                } else if (0 == strcmp(zonestr, _tzname[1])) {
+                } else if (0 == strcmp(zonestr, tzname[1])) {
                     timeptr->tm_isdst = 1;
                 } else {
                     return NULL;
