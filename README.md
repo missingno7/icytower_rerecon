@@ -156,6 +156,32 @@ python tools/diag.py --triage                 # every DIFFER function, canonical
 python tools/diag_test.py
 ```
 
+`tools/pipeline.py` answers pass-level questions for last-mile functions, also outside the
+proof context. `isolate` compiles the TU prelude plus one body, about 1 s instead of a whole TU.
+Per-function passes behave the same, but peephole/DECL_UID state can differ, so confirm with
+`diag.py`.
+
+- `threads` lists every tree jump-threading event: the pass, and the threaded condition in
+  that pass's input CFG. With `--class`/`--want`/`--forbid` it becomes a pass/fail fingerprint.
+- `predict` breaks each branch into GCC's predictor heuristics, how they were combined, and
+  the CFG facts that triggered them.
+- `whatif` forces one condition at a time to a probability. It uses a patched cc1 copy under
+  `build/diag/` and is diagnostic only.
+- `stc` replays bb-reorder's trace heaps with an exact fibheap model, so key/tie hypotheses can
+  be tested.
+
+Probes, patched compilers and `--flag` never produce candidates.
+
+```powershell
+python tools/pipeline.py threads handle_player_collision_vector_2 --body candidates\x.c `
+    --class "SUM=left_\d+ \+ right|right_\d+ \+ left" --class "EDGE=left_\d+ != right" `
+    --want SUM@vrp2,dom2 --forbid EDGE
+python tools/pipeline.py predict handle_player_collision_original --body candidates\x.c --lines 3299-3312
+python tools/pipeline.py whatif load_character_bmp --body candidates\x.c 300 1000 3900
+python tools/pipeline.py stc handle_player_collision_vector_2 --body candidates\x.c --key 28=-1200000
+python tools/pipeline_test.py
+```
+
 After intentional proof-code/configuration changes, run
 `python tools/verify.py --all --refresh`. It preserves every accepted exact function
 and link closure, and refuses unpromoted source changes. Context/search presentation
