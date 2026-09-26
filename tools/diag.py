@@ -92,12 +92,15 @@ def candidate_rows(obj, name):
         if not on: continue
         m = re.match(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2}\s)+)\s*(.*)', l)
         if m:
-            asm, rel = m[3], []
-            for r in re.finditer(r'	([0-9a-f]+): (\S+)	(\S+)', asm): rel.append(r[3])
-            asm = re.split(r'	[0-9a-f]+: \S+	', asm)[0]
-            rows.append({'off': int(m[1], 16) - base, 'asm': asm.strip(), 'reloc': rel}); continue
+            asm, rel, at = m[3], [], int(m[1], 16)
+            row = {'off': at - base, 'asm': '', 'reloc': rel, 'len': len(m[2].split()), 'rpos': []}
+            for r in re.finditer(r'	([0-9a-f]+): (\S+)	(\S+)', asm):
+                rel.append(r[3]); row['rpos'].append(int(r[1], 16) - at)
+            row['asm'] = re.split(r'	[0-9a-f]+: \S+	', asm)[0].strip()
+            rows.append(row); continue
         m = re.match(r'^\s*([0-9a-f]+):\s+(\S+)\s+(\S+)', l)
-        if m and rows and m[2].startswith(('DISP32', 'dir32', 'R_')): rows[-1]['reloc'].append(m[3])
+        if m and rows and m[2].startswith(('DISP32', 'dir32', 'R_')):
+            rows[-1]['reloc'].append(m[3]); rows[-1]['rpos'].append(int(m[1], 16) - base - rows[-1]['off'])
     return rows
 
 
@@ -124,10 +127,17 @@ def _mask_abs(ops, row, force):
     # absolute memory operands (no base register) are image addresses -> A
     ops = re.sub(r'(?<![\w$])0x[0-9a-f]+(?=\(,)', 'A', ops)
     ops = re.sub(r'(?<![\w$(])0x[0-9a-f]+(?![\w(])', 'A', ops)
-    if 'va' in row:
-        ops = re.sub(r'\$0x([0-9a-f]+)', lambda m: '$A' if 0x400000 <= int(m[1], 16) < 0x600000 else m[0], ops)
+    image = lambda m, text: text if 0x400000 <= int(m[1], 16) < 0x600000 else m[0]
+    if 'va' in row:   # original: image addresses as immediates or as displacements over a base register
+        ops = re.sub(r'\$0x([0-9a-f]+)', lambda m: image(m, '$A'), ops)
+        ops = re.sub(r'(?<![\w$])0x([0-9a-f]+)(?=\(%)', lambda m: image(m, 'A'), ops)
     elif row['reloc'] and 'A' not in ops:
-        ops = re.sub(r'\$0x[0-9a-f]+', '$A', ops, count=1)
+        # candidate: a relocation in the last 4 bytes of an insn with an immediate patches the immediate,
+        # otherwise it patches the memory displacement
+        for pos in row.get('rpos') or [None]:
+            imm = '$0x' in ops and (pos is None or pos + 4 == row.get('len'))
+            ops = re.sub(r'\$0x[0-9a-f]+', '$A', ops, count=1) if imm else \
+                re.sub(r'(?<![\w$])-?0x[0-9a-f]+(?=\(%)', 'A', ops, count=1)
     return ops
 
 

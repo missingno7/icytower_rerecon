@@ -61,6 +61,19 @@ class DiagTests(unittest.TestCase):
         self.assertEqual(set(s['kinds']), {'registers'})
         self.assertEqual(s['bucket'], 2)
 
+    def test_relocated_displacement_is_masked(self):
+        orig = rows([(0x0, 'mov    0x4facc8(%esi),%eax'), (0x6, 'movl   $0x5,0x4facd0(%esi)'), (0x10, 'ret')], True)
+        cand = rows([(0x0, 'mov    0x0(%esi),%eax'), (0x6, 'movl   $0x5,0x8(%esi)'), (0x10, 'ret')], False)
+        cand[0].update(reloc=['_frames'], rpos=[2], len=6); cand[1].update(reloc=['_frames'], rpos=[2], len=10)
+        s = summarize(classify(orig, cand, 'f'))
+        self.assertEqual(s['bucket'], 0)
+
+    def test_relocated_immediate_is_masked(self):
+        orig = rows([(0x0, 'movl   $0x4d4b83,0x18(%esp)'), (0x8, 'ret')], True)
+        cand = rows([(0x0, 'movl   $0x63,0x18(%esp)'), (0x8, 'ret')], False)
+        cand[0].update(reloc=['.rdata'], rpos=[4], len=8)
+        self.assertEqual(summarize(classify(orig, cand, 'f'))['bucket'], 0)
+
     def test_deterministic(self):
         first = [(k, x[0].id, n) for k, x, _, n in run(COPIED, SHARED)[1]['earliest']]
         for _ in range(3):
