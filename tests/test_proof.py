@@ -222,6 +222,48 @@ class PipelineTests(unittest.TestCase):
             self.assertFalse(next(s for s in after['initialized_data_comparison'] if s['section']=='.rdata')['content_equal'])
             with self.assertRaises(ValueError):protect_storage(report,after,path,changed)
 
+    def test_bss_layout_requires_complete_historical_placement(self):
+        from compare import bss_layout
+        orig=[{'name':'_g','storage_class':2,'va':1000},{'name':'_count.101','storage_class':3,'va':1004},
+              {'name':'_count.102','storage_class':3,'va':1008},{'name':'_buf.7','storage_class':3,'va':1024}]
+        cand=[{'name':'_g','storage_class':2,'value':0},{'name':'_count.55','storage_class':3,'value':4},
+              {'name':'_count.56','storage_class':3,'value':8},{'name':'_buf.9','storage_class':3,'value':24}]
+        self.assertTrue(bss_layout(cand,1056,orig,1000,1056,{1000})['layout_equal'])
+        import copy
+        cases={'size':dict(logical=1060),'base_conflict':dict(bases={1000,992}),'no_base':dict(bases=set()),
+               'no_anchor':dict(original_va=None,original_size=None,original=[]),
+               'shifted':dict(mutate=lambda c:c[3].update(value=32)),
+               'linkage':dict(mutate=lambda c:c[0].update(storage_class=3)),
+               'renamed':dict(mutate=lambda c:c[1].update(name='_face.55')),
+               'extra':dict(mutate=lambda c:c.append({'name':'_x','storage_class':2,'value':12})),
+               'missing':dict(mutate=lambda c:c.pop())}
+        for name,case in cases.items():
+            c=copy.deepcopy(cand)
+            if 'mutate' in case:case['mutate'](c)
+            result=bss_layout(c,case.get('logical',1056),case.get('original',orig),case.get('original_va',1000),
+                              case.get('original_size',1056),case.get('bases',{1000}))
+            with self.subTest(case=name):self.assertFalse(result['layout_equal'])
+
+    def test_changed_bss_requires_proven_layout(self):
+        import copy
+        from storage import protect_storage
+        path=ROOT/'build/test-objects/game-main/unit.o'
+        report=compare(path,'F:\\projects\\icytower\\trunk\\source\\main.c',ORACLE,ANALYSIS)
+        self.assertIn('.bss',[s['section'] for s in report['bss_layout_comparison']])
+        obj=Binary(path)
+        secsym=next(s for s in obj.symbols if s['name']=='.bss' and s['aux_count'])
+        with tempfile.TemporaryDirectory(dir=ROOT/'build') as folder:
+            changed=Path(folder)/'unit.o';data=bytearray(path.read_bytes())
+            # Grow the logical .bss contribution (auxiliary section length) by 32 bytes.
+            aux=obj.header['symbol_table_pointer']+(secsym['index']+1)*18
+            struct.pack_into('<I',data,aux,struct.unpack_from('<I',data,aux)[0]+32);changed.write_bytes(data)
+            unproved=copy.deepcopy(report)
+            for s in unproved['bss_layout_comparison']:s['layout_equal']=False
+            with self.assertRaises(ValueError):protect_storage(report,unproved,path,changed)
+            proved=copy.deepcopy(report)
+            for s in proved['bss_layout_comparison']:s['layout_equal']=True
+            protect_storage(report,proved,path,changed)
+
     def test_locked_modified_logg_still_matches(self):
         from common import read_json
         config=read_json(ROOT/'third_party/build.json')['logg']

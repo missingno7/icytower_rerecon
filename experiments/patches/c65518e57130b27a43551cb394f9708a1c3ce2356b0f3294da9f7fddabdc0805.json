@@ -1,0 +1,218 @@
+{
+ "source": "src/main.c",
+ "base_sha256": "7db536a358bfd5a14b0841a7ac42fdf75b2c0419633c37ebefb3546d4d919dc5",
+ "edits": [
+  {
+   "old": "static int face;\nstatic int count;\n",
+   "new": ""
+  },
+  {
+   "old": "    int old_msc;\n    const int scroller_step = -1;\n",
+   "new": "    const int scroller_step = -1;\n    static int face;\n    static int count;\n    int old_msc;\n"
+  },
+  {
+   "old": "\nint collision_type;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTbeta *testers;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTbeta *the_tester;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTcmdline cmdline;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint debug;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint init_ok;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint itrcheck;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint dropped_file_is_not_a_replay;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any11;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any12;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any13;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any21;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any22;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint any23;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint is_playing_custom_game;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint gdLastJumpDiff;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint gdComboStart;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nBITMAP *swap_screen;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nBITMAP *poster;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint bg_stripe_ids[5];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nvoid *hisc_tables[15];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint new_personal_best[15];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nDATAFILE *data;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nDATAFILE *sfx;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint fall_count;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint clock_angle;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint cycle_loops;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTreplay *demo;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint fast_forward;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint fast_fast_forward;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint uberChecksum;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTgame_data *gameData;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint closeButtonClicked;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint lastMouseB;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint num_chars;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint curr_char;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTavailable_profile *profiles;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint numProfiles;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTprofile *profile;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *combo_sound[10];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *bg_beat;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *bg_menu;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *jump_sound[3];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *speaker[3];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *menu_sounds[2];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nSAMPLE *sounds[9];\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nTmenu_floor_selection floors;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nBITMAP *pFLDAdBitmap;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nconst FLDAdSpot *pFLDAd;\n",
+   "new": "\n"
+  },
+  {
+   "old": "\nint in_replay_menu;\n",
+   "new": "\n"
+  },
+  {
+   "old": "typedef Tgd_jump_sequence Tjump_sequence;\n",
+   "new": "typedef Tgd_jump_sequence Tjump_sequence;\nint collision_type = 0;\nTbeta *testers = 0;\nTbeta *the_tester = 0;\nTcommandline cmdline = {0};\nint debug = 0;\nint init_ok = 0;\nint itrcheck = 0;\nint dropped_file_is_not_a_replay = 0;\nint any11 = 0;\nint any12 = 0;\nint any13 = 0;\nint any21 = 0;\nint any22 = 0;\nint any23 = 0;\nint is_playing_custom_game = 0;\nint gdLastJumpDiff = 0;\nint gdComboStart = 0;\nBITMAP *swap_screen = 0;\nBITMAP *poster = 0;\nint bg_stripe_ids[5] = {0};\nThisc_table *hisc_tables[15] = {0};\nint new_personal_best[15] = {0};\nDATAFILE *data = 0;\nDATAFILE *sfx = 0;\nint fall_count = 0;\nint clock_angle = 0;\nint cycle_loops = 0;\nTreplay *demo = 0;\nint fast_forward = 0;\nint fast_fast_forward = 0;\nint uberChecksum = 0;\nTgame_data *gameData = 0;\nint closeButtonClicked = 0;\nint lastMouseB = 0;\nint num_chars = 0;\nint curr_char = 0;\nTavailable_profile *profiles = 0;\nint numProfiles = 0;\nTprofile *profile = 0;\nSAMPLE *combo_sound[10] = {0};\nSAMPLE *bg_beat = 0;\nSAMPLE *bg_menu = 0;\nSAMPLE *jump_sound[3] = {0};\nSAMPLE *speaker[3] = {0};\nSAMPLE *menu_sounds[2] = {0};\nSAMPLE *sounds[9] = {0};\nTmenu_floor_selection floors = {0};\nBITMAP *pFLDAdBitmap = 0;\nconst FLDAdSpot *pFLDAd = 0;\nint in_replay_menu = 0;\n"
+  }
+ ]
+}

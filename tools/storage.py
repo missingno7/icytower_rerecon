@@ -28,6 +28,10 @@ def protect_storage(before,after,before_obj,after_obj):
     a,b=storage(before_obj,before),storage(after_obj,after)
     for section in set(a)|set(b):
         if a.get(section)==b.get(section):continue
-        if section=='.bss':raise ValueError('BSS contribution changed; body-only promotion requires unchanged allocation')
+        if section=='.bss':
+            # Only a change to a completely proven historical layout is acceptable.
+            if not any(s['section']==section and s['layout_equal'] for s in after.get('bss_layout_comparison',[])):
+                raise ValueError('BSS contribution changed; body-only promotion requires unchanged allocation or a newly proven complete layout')
+            continue
         newly_proved=next((s for s in after['initialized_data_comparison'] if s['section']==section and s['content_equal']),None)
         if not newly_proved:raise ValueError('Unproved initialized data changed: '+section+'; independently prove the new contribution first')

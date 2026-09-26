@@ -153,6 +153,36 @@ class GateTests(unittest.TestCase):
         for name,mutate in cases.items():
             changed=copy.deepcopy(after);mutate(changed)
             with self.subTest(case=name),self.assertRaises(ValueError):protect(before,changed)
+    def bss_reports(self):
+        before,_=self.storage_reports()
+        before['bss_layout_comparison']=[{'section':'.bss','logical_size':4,'layout_equal':False}]
+        after=copy.deepcopy(before)
+        after['bss_layout_comparison'][0].update(logical_size=8,layout_equal=True)
+        after['object_ownership']['accepted']=[{'scope':['GLOBAL'],'name':'g','size':4,'section':'.bss','original_va':100,'dwarf_type':'int'}]
+        after['common_allocations']=[{'name':'_h','value':4,'storage_class':2}]
+        return before,after
+    def test_bss_layout_promotion_allows_only_proven_moves(self):
+        before,after=self.bss_reports()
+        protect(before,after)  # newly proven BSS layout: _g becomes a proven zero-initialized owner
+        cases={'no_new_proof':lambda a:a['bss_layout_comparison'][0].update(layout_equal=False),
+               'peer_lost':lambda a:a['functions'][0].update(status='DIFFER'),
+               # Unlike literal pools, a BSS layout never requires exact peer source to change.
+               'peer_source_changed':lambda a:a['functions'][0].update(body_sha256='changed'),
+               'owner_missing':lambda a:a['object_ownership'].update(accepted=[]),
+               'owner_unproved_section':lambda a:a['object_ownership']['accepted'][0].update(section='.data'),
+               'common_added':lambda a:a['common_allocations'].append({'name':'_k','value':4,'storage_class':2}),
+               'common_resized':lambda a:a['common_allocations'][0].update(value=8)}
+        for name,mutate in cases.items():
+            changed=copy.deepcopy(after);mutate(changed)
+            with self.subTest(case=name),self.assertRaises(ValueError):protect(before,changed)
+    def test_proven_bss_layout_cannot_regress(self):
+        _,proven=self.bss_reports()
+        protect(proven,copy.deepcopy(proven))
+        for mutate in (lambda a:a['bss_layout_comparison'][0].update(layout_equal=False),
+                       lambda a:a['bss_layout_comparison'][0].update(logical_size=12),
+                       lambda a:a.update(bss_layout_comparison=[])):
+            changed=copy.deepcopy(proven);mutate(changed)
+            with self.assertRaises(ValueError):protect(proven,changed)
     def test_effective_output_ignores_only_resolved_layout(self):
         row={'candidate_size':5,'instructions':[{'bytes':'e801000000'}],
           'relocations':[{'function_offset':1,'type':20,'symbol':'_f','addend':1,'target_va':4096}], 'direct_transfers':[]}

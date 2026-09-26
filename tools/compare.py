@@ -51,6 +51,25 @@ def candidate_literal(content,addend,instruction):
     return literal
 
 
+def bss_layout(candidate_symbols,logical_size,original_symbols,original_va,original_size,bases):
+    """Complete zero-initialized contribution layout, from COFF placement only.
+
+    BSS has no bytes to compare; its storage is the placement of its objects. A
+    contribution is proven only when its logical size equals the historical CU
+    contribution, the named candidate symbols map one-to-one onto the historical
+    symbols inside that contribution (base name before any TDM static serial,
+    storage class, offset), and every independent base agrees on the COFF anchor.
+    Code operands are never consulted."""
+    stem=lambda name:name.split('.',1)[0]
+    candidate=sorted((stem(s['name']),s['storage_class'],s['value']) for s in candidate_symbols)
+    original=sorted((stem(s['name']),s['storage_class'],s['va']-original_va) for s in original_symbols) if original_va is not None else []
+    equal=(bool(original_size) and logical_size==original_size and candidate==original
+           and set(bases)=={original_va})
+    missing=sorted(set(original)-set(candidate));extra=sorted(set(candidate)-set(original))
+    return {'logical_size':logical_size,'original_va':original_va,'original_logical_size':original_size,
+            'symbols':len(candidate),'section_bases':sorted(bases),'missing':missing[:20],'extra':extra[:20],
+            'layout_equal':equal}
+
 def compare(obj_path,cu_path,exe_path,analysis_objdump):
     verify_oracle(exe_path)
     db=Evidence()
@@ -290,6 +309,22 @@ def compare(obj_path,cu_path,exe_path,analysis_objdump):
                               'coff_contribution':contribution_evidence.get(section['index']),
                               'content_equal':not pending and len(section_bases.get(section['index'],set()))==1
                                   and next(iter(section_bases[section['index']])) in locations})
+    bss_evidence=[]
+    for section in obj.sections:
+        if section['name']!='.bss': continue
+        symbol=next((s for s in obj.symbols if s['name']==section['name'] and s['aux_count'] and s['section']==section['index']),None)
+        size=struct.unpack_from('<I',bytes.fromhex(symbol['aux_hex']))[0] if symbol else section['raw_size']
+        anchors=[s for s in owned if s['name']==section['name'] and s['storage_class']==3 and s['aux_count']]
+        original_va=original_size=None;original_symbols=[]
+        if len(anchors)==1:
+            original_va=anchors[0]['va'];original_size=struct.unpack_from('<I',bytes.fromhex(anchors[0]['aux_hex']))[0]
+            # Linker contributions do not overlap, so every named original symbol inside the
+            # anchored range belongs to this CU (externals are listed after all file groups).
+            original_symbols=[s for s in exe.symbols if s.get('va') is not None and s['section']==anchors[0]['section']
+                              and original_va<=s['va']<original_va+original_size and not s['name'].startswith('.')]
+        candidate_symbols=[s for s in obj.symbols if s['section']==section['index'] and not s['name'].startswith('.')]
+        bss_evidence.append({'section':section['name'],**bss_layout(candidate_symbols,size,original_symbols,original_va,
+                             original_size,section_bases.get(section['index'],set()))})
     # A read-only literal pool whose complete contribution differs can still have its base
     # established when several distinct literals each locate uniquely in the original .rdata
     # by content alone and every such anchor implies the same base. Operands are never used.
@@ -420,7 +455,7 @@ def compare(obj_path,cu_path,exe_path,analysis_objdump):
             'whole_text_contribution_equal':whole,'relative_layout_equal':layout,'unresolved_text_relocations':unresolved,
             'object_sections':obj.sections,'object_symbols':obj.symbols,'object_relocations':obj.relocations,
             'common_allocations':[s for s in obj.symbols if s['section']==0 and s['value']>0],
-            'initialized_data_comparison':data_evidence,
+            'initialized_data_comparison':data_evidence,'bss_layout_comparison':bss_evidence,
             'static_data_evidence':static_evidence,'object_ownership':object_owners,
             'original_defined_globals':db.globals(cu_path),
             'object_match':False,'cu_match':False,

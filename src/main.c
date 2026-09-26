@@ -35,49 +35,30 @@ extern void handle_player_collision_combo(int, int);
 SAMPLE *logg_load_memory(void *pData, size_t iSize);
 
 /* Declared at original line 92; log2file suppresses output while it is set. */
-int itrcheck;
-int dropped_file_is_not_a_replay;
-int init_ok;
 char last_log[1024];
 char working_directory[1024];
 #include "recovered/Tcommandline.h"
 typedef Tcommandline Tcmdline;
-Tcmdline cmdline;
 double seed;
 int hasFocus = 1;
 int lastFocus = 1;
-int closeButtonClicked;
-int lastMouseB;
 int window = -1;
-int in_replay_menu;
 char sfx_file[512];
-int collision_type;
 int got_joystick;
 int scroll_count;
 int scroll_delay;
-int gdLastJumpDiff;
-int gdComboStart;
 int last_stripe_y;
-int new_personal_best[15];
-Tbeta *testers;
-Tbeta *the_tester;
 
 #include "recovered/Trecord.h"
 #include "recovered/Treplay.h"
 extern int get_string(BITMAP*, char*, int, int, FONT*, int, int, int, int);
 extern void drawSlot(BITMAP*, int, int, char*, char*, int);
-Treplay *demo;
-int uberChecksum;
 Tcontrol ctrl;
 extern DATAFILE *data;
-DATAFILE *sfx;
 
 void blit_to_screen(BITMAP *bmp);
 void checkMenuFocus(void);
 
-BITMAP *swap_screen;
-BITMAP *poster;
-int bg_stripe_ids[5];
 BITMAP *gameover_bmp;
 
 #include "recovered/Toptions.h"
@@ -116,6 +97,56 @@ typedef struct Tavatar_profile {
 
 #include "recovered/Tgd_jump_sequence.h"
 typedef Tgd_jump_sequence Tjump_sequence;
+int collision_type = 0;
+Tbeta *testers = 0;
+Tbeta *the_tester = 0;
+Tcommandline cmdline = {0};
+int debug = 0;
+int init_ok = 0;
+int itrcheck = 0;
+int dropped_file_is_not_a_replay = 0;
+int any11 = 0;
+int any12 = 0;
+int any13 = 0;
+int any21 = 0;
+int any22 = 0;
+int any23 = 0;
+int is_playing_custom_game = 0;
+int gdLastJumpDiff = 0;
+int gdComboStart = 0;
+BITMAP *swap_screen = 0;
+BITMAP *poster = 0;
+int bg_stripe_ids[5] = {0};
+Thisc_table *hisc_tables[15] = {0};
+int new_personal_best[15] = {0};
+DATAFILE *data = 0;
+DATAFILE *sfx = 0;
+int fall_count = 0;
+int clock_angle = 0;
+int cycle_loops = 0;
+Treplay *demo = 0;
+int fast_forward = 0;
+int fast_fast_forward = 0;
+int uberChecksum = 0;
+Tgame_data *gameData = 0;
+int closeButtonClicked = 0;
+int lastMouseB = 0;
+int num_chars = 0;
+int curr_char = 0;
+Tavailable_profile *profiles = 0;
+int numProfiles = 0;
+Tprofile *profile = 0;
+SAMPLE *combo_sound[10] = {0};
+SAMPLE *bg_beat = 0;
+SAMPLE *bg_menu = 0;
+SAMPLE *jump_sound[3] = {0};
+SAMPLE *speaker[3] = {0};
+SAMPLE *menu_sounds[2] = {0};
+SAMPLE *sounds[9] = {0};
+Tmenu_floor_selection floors = {0};
+BITMAP *pFLDAdBitmap = 0;
+const FLDAdSpot *pFLDAd = 0;
+int in_replay_menu = 0;
 
 char *hisc_names[15] = {
     "Best Scores", "Best Combos", "Highest Floors", "Biggest Lost Combos",
@@ -179,66 +210,34 @@ char *hints[45] = {
     "Join all the Icy Tower fans on Facebook!"
 };
 Toptions options;
-Tprofile *profile;
-Tavailable_profile *profiles;
-int numProfiles;
-SAMPLE *bg_menu;
-SAMPLE *menu_sounds[2];
-SAMPLE *jump_sound[3];
-SAMPLE *speaker[3];
-SAMPLE *sounds[9];
 Tcustom custom;
 int reward_time;
 fixed reward_scale;
 BITMAP *reward_bmp;
 Tparticle stars[512];
-SAMPLE *combo_sound[10];
-int num_chars;
 Tcharacter *characters;
-int curr_char;
 Tmenu_char_selection play_char;
 Tplayer *ply[1000];
 int player_id;
-int any11;
-int any12;
-int any13;
-int any21;
-int any22;
-int any23;
-int is_playing_custom_game;
 Tmap map;
-Tgame_data *gameData;
 int checkMusicVoiceID = -1;
 int rejump;
 Tjump_sequence jumpSequence;
-int fast_forward;
-int fast_fast_forward;
 int gameMusicVoiceID = -1;
 int start_speeds[6] = { 5, 4, 3, 2, 1, 0 };
 char *version_str = "1.5.1";
-SAMPLE *bg_beat;
 Tmenu_slider snd_volume_slider = { 0, 0, 250, 25 };
 Tmenu_slider msc_volume_slider = { 0, 0, 250, 25 };
 Tmenu_selection eyecandy_selection;
-Tmenu_floor_selection floors;
 Tmenu_selection scroll_speed_selection;
 Tmenu_selection floor_size_selection;
 Tmenu_selection gravity_selection;
 Tmenu_params menu_params;
 char replay_directory[1024];
-BITMAP *pFLDAdBitmap;
-const FLDAdSpot *pFLDAd;
-DATAFILE *data;
 int rec_pos;
 int recording;
 int rec_seed;
 int hurry_y;
-int fall_count;
-int clock_angle;
-int cycle_loops;
-void *hisc_tables[15];
-static int face;
-static int count;
 Tscroller greeting_scroller;
 char summary_scroller_message[5120];
 Tscroller summary_scroller;
@@ -404,7 +403,6 @@ void play_sound(SAMPLE *s, int pitch, int please_pan);
 
 /* Oracle: main.c:2267, 0x40b6bc..0x40bc43.  Debug keys select the historical
  * presentation experiments; ordinary play always takes the direct path. */
-int debug;
 
 /* Partial source recovery of main.c:3405, 0x411a00..0x415e0c.  This retains
  * the oracle's real game-state ownership and phase order while the remaining
@@ -5844,8 +5842,10 @@ void testWindowResolution(void)
  * expansion is still classified DIFFER. */
 void main_menu_callback(void)
 {
-    int old_msc;
     const int scroller_step = -1;
+    static int face;
+    static int count;
+    int old_msc;
     BITMAP *head_bmp;
     BITMAP *head_shadow;
     BITMAP *head;

@@ -36,15 +36,19 @@ def newly_proved_data(before,after):
     """Initialized-data contributions unproved before and content-equal after."""
     was={s['section'] for s in before['initialized_data_comparison'] if s['content_equal']}
     return {s['section'] for s in after['initialized_data_comparison'] if s['content_equal'] and s['section'] not in was}
+def proved_bss(report):
+    """Zero-initialized contributions whose complete historical layout is proven."""
+    return {s['section'] for s in report.get('bss_layout_comparison',[]) if s['layout_equal']}
+def newly_proved_bss(before,after):return proved_bss(after)-proved_bss(before)
 def commons_moved_to_proven_owners(before,after):
-    # A TU storage promotion may turn common (tentative) definitions into initialized
-    # definitions, but only when every removed common now has an independently accepted
-    # global owner inside a content-equal initialized contribution. Nothing may be added
-    # to, or resized in, the common set.
+    # A TU storage promotion may turn common (tentative) definitions into definitions, but
+    # only when every removed common now has an independently accepted global owner inside
+    # a content-equal initialized contribution or a completely proven BSS layout. Nothing
+    # may be added to, or resized in, the common set.
     def common(r):return {(s['name'],s['value'],s['storage_class']) for s in r['common_allocations']}
     a,b=common(before),common(after)
     if not b<=a:return False
-    proved={s['section'] for s in after['initialized_data_comparison'] if s['content_equal']}
+    proved={s['section'] for s in after['initialized_data_comparison'] if s['content_equal']}|proved_bss(after)
     owners={o['name']:o for o in after['object_ownership']['accepted'] if tuple(o['scope'])==('GLOBAL',)}
     for name,_,_ in a-b:
         owner=owners.get(name[1:] if name.startswith('_') else name)
@@ -59,9 +63,11 @@ def protect(before,after):
     # complete initialized-data contribution: literal pools follow each function's expansion
     # order, so that proof may require an exact peer to keep its code while changing source.
     # The peer must still be FUNCTION_MATCH (checked above).
-    storage_promotion=bool(newly_proved_data(before,after))
+    data_promotion=bool(newly_proved_data(before,after))
+    # A newly proven BSS layout never needs an exact peer to change source.
+    storage_promotion=data_promotion or bool(newly_proved_bss(before,after))
     for name in exact_set(before):
-        if old[name].get('body_sha256')!=new[name].get('body_sha256') and not storage_promotion:
+        if old[name].get('body_sha256')!=new[name].get('body_sha256') and not data_promotion:
             raise ValueError('Protected exact peer body changed: '+name)
     # Protect each complete previously established data/BSS owner and contribution.
     def owners(r):
@@ -75,6 +81,11 @@ def protect(before,after):
             current=next((s for s in after['initialized_data_comparison'] if s['section']==section['section']),None)
             if not current or not current['content_equal'] or current['logical_size']!=section['logical_size']:
                 raise ValueError('Proven data contribution regressed: '+section['section'])
+    for section in before.get('bss_layout_comparison',[]):
+        if section['layout_equal']:
+            current=next((s for s in after.get('bss_layout_comparison',[]) if s['section']==section['section']),None)
+            if not current or not current['layout_equal'] or current['logical_size']!=section['logical_size']:
+                raise ValueError('Proven BSS layout regressed: '+section['section'])
     # BSS/common ownership and size cannot change in a function-body promotion.
     def common(r):return sorted((s['name'],s['value'],s['storage_class']) for s in r['common_allocations'])
     if common(before)!=common(after) and not (storage_promotion and commons_moved_to_proven_owners(before,after)):
