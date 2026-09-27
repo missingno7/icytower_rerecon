@@ -1,6 +1,6 @@
 # play: residual mechanism notes
 
-Accepted state remains DIFFER. Preferred unpromoted joint checkpoint is `candidates/continue16-context/checkpoint.json` (play effective `1304c73109b13c4f`). Normalized block equality is diagnostic only.
+Accepted state remains DIFFER. Preferred unpromoted joint checkpoint is `candidates/continue22-context/checkpoint.json` (play effective `4dd9171ef613fe51`). Continue16 remains a comparison control. Normalized block equality is diagnostic only.
 
 ## Continuations 18-19: distinct ordering mechanisms
 
@@ -27,3 +27,13 @@ Stable instruction lineage shows that qualification-close UID3256 and final-menu
 Narrow diagnostic-only frequency hints recover the intended directions. Menu-only reaches631 paired/524 normalized-exact blocks; close-only and joint probes regress overall. These probes are not candidates. Actual builtin expectation is100% in this locked compiler's dump. Heap replay validates all188 events; changing a replay key only changes recorded-segment visitation, not verified emitted code.
 
 Round88's explicit three-path profile-save source histories worsen correspondence (two-path form also loses a peer). Round89's early cleanup return on the debug/menu-skip path leaves the29% menu prediction unchanged and extra blocks survive. Reject both families. Preferred checkpoint remains unchanged. Full scope, reproduction inputs and receipts: `build/continue21/RESULTS.md`.
+
+## Continuation 22: admissible menu and allocation witnesses
+
+Ordinary, contextually dead C guards are allowed by README's compiler-steering policy; uncertain historical spelling alone is not a reason to exclude them. A negative return guarded by !debug inside the debug arm changes the final menu estimate from29% to90.7%, then disappears. Original menu JNE/fallthrough is recovered without builtins or compiler changes. Zero-return and opposite-arm controls reproduce the parent. Returns inside the gameplay loop alter loop-exit predictions and regress; reject that scope.
+
+The shake update guard adds a redundant byte/short/full-width conjunction under its existing nonzero disjunction. All additional tests disappear. Predicted retained update frequency29+71/8=37.875% gives measured block frequency76, raising shake's spill cost7to9. The seven locals now occupy shake18, next_speed19, timeTimeStart20, qpc_start21, clockTimeStart22, endTime23, next_floor24. The emitted shake store is the original ebp-0x96c. A two-test control gives frequency94/cost11; explicit final-tick paths first recovered cost9 but retained extra branches.
+
+The selected joint checkpoint reaches630 paired/536 normalized-exact play blocks (previous630/523), reducing stack-slot pairs21to3; frame remains209/171. Play has17443 bytes and13275 raw differences, so this is a structural/allocation gain with layout tradeoffs, not an exact function or universal score improvement. Every exact peer is preserved. Fresh play round98 and frame round94 reproduce effective identities; no promotion.
+
+Qualification still has the wrong branch direction. A modest zero implication improves later layout but does not resolve that guard. Relocation-aware comparison also identifies a reversed operand/relation pair at next_aight+0x995; it is equivalent behavior, not a missing computation. The frame .02-to-.2 x87 value lifetime remains real when the correct incoming path is followed. Full predictions, rejected controls, branch anchors and receipts: `build/continue22/RESULTS.md`. Rounds90-97 contain38 unique source candidates across both residuals; generated evidence stays ignored.
