@@ -3871,6 +3871,106 @@ void handle_player_collision_vector_2(int lastX, int lastY)
     fy1 = -12345678;
 
     getFloorData(&map, (int)ply[player_id]->y, &fy1, &fx1, &fx2);
+    if (fy1 == -12345678) if (fy1 == -12345678) {
+        getFloorData(&map, lastY, &fy1, &fx1, &fx2);
+        if (fy1 == -12345678) fx1 = fx2 = 0;
+    }
+    fy2 = fy1;
+
+    if (debug) if (debug && key[KEY_F2]) {
+
+        line(screen, fx1, fy1, fx2, fy2, col1);
+
+
+        line(screen, plx1, ply1, plx2, ply2, col2);
+        line(screen, prx1, pry1, prx2, pry2, col2);
+    }
+
+
+    left = line_intersect(fx1, fy1, fx2, fy2, plx1, ply1, plx2, ply2, &ilx, &ily);
+    right = line_intersect(fx1, fy1, fx2, fy2, prx1, pry1, prx2, pry2, &irx, &iry);
+
+    if (!left && (left == -right || (left == 0 && (right ^ left) == 0))) {
+        int snap = 4;
+        left = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, plx1, ply1, plx2, ply2, &ilx, &ily);
+        right = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, prx1, pry1, prx2, pry2, &irx, &iry);
+    }
+
+
+    if (left + right == 0) { if (ply[player_id]->status == 2) ply[player_id]->status = 3;
+        if (ply[player_id]->status == 0) ply[player_id]->status = 3; }
+
+    if (left != right && (right == 0 || left != right)) ply[player_id]->edge = left ? 1 : 2;
+    else ply[player_id]->edge = 0;
+
+    if (left + right != 0 && (ply[player_id]->status == 2 || ply[player_id]->status == 3)) {
+        play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        ply[player_id]->y = fy1 - 1;
+        ply[player_id]->x = !left ? irx - 11 : ilx + 11;
+        ply[player_id]->rotate = 0;
+    }
+}
+
+
+/* Partial recovery of main.c, 0x408358..0x4088c8.  Combo mode uses ordinary
+ * solid-foot correction first, then a floor-segment landing intersection. */
+void handle_player_collision_combo(int lastX, int lastY)
+{
+    int left, right;
+
+
+    int fx1, fy1, fx2, fy2;
+
+
+    int plx1 = (int)ply[player_id]->x - 11;
+    int ply1 = (int)ply[player_id]->y + 1;
+    int plx2 = lastX - 11;
+    int ply2 = lastY;
+
+
+    int prx1 = (int)ply[player_id]->x + 11;
+    int pry1 = (int)ply[player_id]->y + 1;
+    int prx2 = lastX + 11;
+    int pry2 = lastY;
+
+
+    int ilx, ily, irx, iry;
+
+
+    int col1 = makecol(255, 0, 0);
+    int col2 = makecol(255, 255, 0);
+
+    int solid1, solid2;
+
+
+    solid1 = is_solid(&map, (int)ply[player_id]->x - 11, (int)ply[player_id]->y);
+    solid2 = is_solid(&map, (int)ply[player_id]->x + 11, (int)ply[player_id]->y);
+    any11 = solid1;
+    any12 = solid2;
+    any21 = any22 = any23 = 0;
+    if (solid1 + solid2 == 0) { if (ply[player_id]->status == 2) ply[player_id]->status = 3;
+        if (ply[player_id]->status == 0) ply[player_id]->status = 3; }
+    else if ((ply[player_id]->status != 1 && ((unsigned char)ply[player_id]->status != 1 || (unsigned short)ply[player_id]->status != 1 || ply[player_id]->status != 1))) if (ply[player_id]->status != 2) {
+        if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        if (solid1) { ply[player_id]->y -= solid1 - 9999; ply[player_id]->rotate = 0; }
+        else {
+            if (solid2) { ply[player_id]->y -= solid2 - 9999; ply[player_id]->rotate = 0; }
+            if (solid2 == 0 || solid1 + solid2 == 0 || (solid1 ^ solid2) == 0 || (solid1 | solid2) == 0) ply[player_id]->rotate = 0;
+        }
+        if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
+        else ply[player_id]->edge = 0;
+        return;
+    }
+
+
+
+    fy1 = -12345678;
+
+    getFloorData(&map, (int)ply[player_id]->y, &fy1, &fx1, &fx2);
     if (fy1 == -12345678) {
         getFloorData(&map, lastY, &fy1, &fx1, &fx2);
         if (fy1 == -12345678) fx1 = fx2 = 0;
@@ -3890,12 +3990,6 @@ void handle_player_collision_vector_2(int lastX, int lastY)
     left = line_intersect(fx1, fy1, fx2, fy2, plx1, ply1, plx2, ply2, &ilx, &ily);
     right = line_intersect(fx1, fy1, fx2, fy2, prx1, pry1, prx2, pry2, &irx, &iry);
 
-    if (!left && !right) {
-        int snap = 4;
-        left = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, plx1, ply1, plx2, ply2, &ilx, &ily);
-        right = line_intersect(fx1, fy1 + snap, fx2, fy2 + snap, prx1, pry1, prx2, pry2, &irx, &iry);
-    }
-
 
     if (left + right == 0 && (ply[player_id]->status == 2 ||
         ply[player_id]->status == 0)) ply[player_id]->status = 3;
@@ -3903,7 +3997,7 @@ void handle_player_collision_vector_2(int lastX, int lastY)
     if (left != right) ply[player_id]->edge = left ? 1 : 2;
     else ply[player_id]->edge = 0;
 
-    if (left + right != 0 && (ply[player_id]->status == 2 || ply[player_id]->status == 3)) {
+    if ((left + right != 0 || ((((left + right) & 3) != 0 && ((left + right) & 12) != 0) || (((left + right) & 3) == 0 && (((left + right) & 48) != 0 && ((left + right) & 192) != 0)))) && (ply[player_id]->status == 2 || ply[player_id]->status == 3)) {
         play_sound(sounds[8], 1, 1);
         ply[player_id]->status = 0;
         ply[player_id]->sy = 0;
@@ -3913,216 +4007,65 @@ void handle_player_collision_vector_2(int lastX, int lastY)
     }
 }
 
-
-/* Partial recovery of main.c, 0x408358..0x4088c8.  Combo mode uses ordinary
- * solid-foot correction first, then a floor-segment landing intersection. */
-void handle_player_collision_combo(int lastX, int lastY)
-{
-    Tplayer *p;
-    int fy1 = -12345678;
-    int fx1 = 0, fx2 = 0;
-    int ilx, ily, irx, iry;
-    int solid1, solid2, left, right;
-    int col1, col2;
-
-    p = ply[player_id];
-    col1 = makecol(255, 0, 0);
-    col2 = makecol(255, 255, 0);
-    solid1 = is_solid(&map, (int)p->x - 11, (int)p->y);
-    solid2 = is_solid(&map, (int)p->x + 11, (int)p->y);
-    any11 = solid1;
-    any12 = solid2;
-    any23 = 0;
-    any22 = 0;
-    any21 = 0;
-    if (solid1 || solid2) {
-        if (p->status == 1 || p->status == 2)
-            return;
-        if (p->status)
-            play_sound(sounds[8], 1, 1);
-        p->status = 0;
-        p->sy = 0;
-        if (solid1) {
-            p->y -= solid1 - 9999;
-            p->rotate = 0;
-            p->edge = solid1 == solid2 ? 0 : 1;
-            return;
-        }
-        p->y -= solid2 - 9999;
-        p->rotate = 0;
-        p->edge = 2;
-        return;
-    }
-
-    if (p->status == 2 || p->status == 0)
-        p->status = 3;
-    getFloorData(&map, (int)p->y, &fy1, &fx1, &fx2);
-    if (fy1 == -12345678) {
-        getFloorData(&map, lastY, &fy1, &fx1, &fx2);
-        if (fy1 == -12345678) {
-            fy1 = 0;
-            fx1 = 0;
-            fx2 = 0;
-        }
-    }
-    if (debug) {
-        if (key[KEY_F2]) {
-            line(screen, fx1, fy1, fx2, fy1, col1);
-            line(screen, (int)p->x - 11, (int)p->y + 1, lastX - 11, lastY, col2);
-            line(screen, (int)p->x + 11, (int)p->y + 1, lastX + 11, lastY, col2);
-        }
-    }
-    left = line_intersect(fx1, fy1, fx2, fy1,
-        (int)p->x - 11, (int)p->y + 1, lastX - 11, lastY, &ilx, &ily);
-    right = line_intersect(fx1, fy1, fx2, fy1,
-        (int)p->x + 11, (int)p->y + 1, lastX + 11, lastY, &irx, &iry);
-    if (!left && !right) {
-        p->edge = 0;
-        return;
-    }
-    p->edge = left == right ? 0 : (left ? 1 : 2);
-    if (p->status != 2 && p->status != 3)
-        return;
-
-    play_sound(sounds[8], 1, 1);
-    p->status = 0;
-    p->sy = 0;
-    p->y = fy1 - 1;
-    p->x = left ? ilx + 11 : irx - 11;
-    p->rotate = 0;
-}
-
 /* Oracle: main.c, 0x407fd8..0x408358.  The legacy mode first tests the
  * current feet, then sweeps a midpoint when the player moved downward. */
 void handle_player_collision_old(int lastX, int lastY)
 {
-    int x, y, dx, dy;
+    int midX, midY, dX, dY;
     int solid1, solid2;
 
-    /* 3246 */
-    x = (int)ply[player_id]->x;
-    dx = lastX - x;
-    if (dx < 0) dx = -dx;
-    /* 3247 */
-    y = (int)ply[player_id]->y;
-    dy = lastY - y;
-    if (dy < 0) dy = -dy;
-    /* 3248 */
-    if ((int)ply[player_id]->x < lastX) x = lastX - dx / 2;
-    /* 3249 */
-    else x = lastX + dx / 2;
-    /* 3250 */
-    if ((int)ply[player_id]->y < lastY) y = lastY - dy / 2;
-    /* 3251 */
-    else y = lastY + dy / 2;
 
-    /* 3253 */
+    dX = lastX - (int)ply[player_id]->x; solid1 = dX; if(solid1 < 0) solid1 = (int)(0u-(unsigned)solid1); dX=solid1;
+    dY = lastY - (int)ply[player_id]->y; if (dY < 0) dY = -dY;
+    if ((int)ply[player_id]->x < lastX) midX = lastX - dX / 2;
+    else midX = lastX + (dX >> 1);
+    if ((int)ply[player_id]->y < lastY) midY = lastY - dY / 2;
+    else midY = lastY + dY / 2;
+
     solid1 = is_solid(&map, (int)ply[player_id]->x - 11, (int)ply[player_id]->y);
-    /* 3254 */
     solid2 = is_solid(&map, (int)ply[player_id]->x + 11, (int)ply[player_id]->y);
-    /* 3255 */
     any11 = solid1;
-    /* 3256 */
     any12 = solid2;
-    /* 3257 */
-    any23 = 0;
-    any22 = 0;
-    any21 = 0;
-    /* 3258 */
-    if (solid1 + solid2 == 0) {
-        /* 3259 */
-        if (ply[player_id]->status == 2 || ply[player_id]->status == 0)
-            ply[player_id]->status = 3;
-        /* 3270 */
-        if (y <= lastY)
-            return;
-        goto sweep;
-    }
+    any21 = any22 = any23 = 0;
+    if (solid1 + solid2 == 0) { if (ply[player_id]->status == 2) ply[player_id]->status = 3;
+        if (ply[player_id]->status == 0) ply[player_id]->status = 3; }
+    else if (ply[player_id]->status != 1) if (ply[player_id]->status != 2) {
+        if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        if (solid1) ply[player_id]->y -= solid1 - 9999;
+        else if (solid2) ply[player_id]->y -= solid2 - 9999;
+        ply[player_id]->rotate = 0;
+        if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
+        else ply[player_id]->edge = 0;
+        return; }
+    switch (midY > lastY) {
+        case 1: {
+        solid1 = is_solid(&map, midX - 11, midY);
+        solid2 = is_solid(&map, midX + 11, midY);
+        any21 = solid1;
+        any22 = solid2;
+        if (solid1 + solid2 == 0) { if (ply[player_id]->status == 2) ply[player_id]->status = 3;
+            if (ply[player_id]->status == 0) ply[player_id]->status = 3; }
+        else if ((ply[player_id]->status != 1 || (unsigned char)ply[player_id]->status != 1)) if (ply[player_id]->status != 2) {
+            any23 = 1;
+            if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
+            ply[player_id]->status = 0;
+            ply[player_id]->sy = 0;
+            if (solid1) ply[player_id]->y -= solid1 - 9999;
+            else if (solid2) ply[player_id]->y -= solid2 - 9999;
+            ply[player_id]->rotate = 0;
+            if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
+            else ply[player_id]->edge = 0;
+        }
 
-resolve:
-    /* 3260 */
-    if (ply[player_id]->status == 1 || ply[player_id]->status == 2)
-        return;
-    /* 3261 */
-    if (ply[player_id]->status)
-        play_sound(sounds[8], 1, 1);
-    /* 3262 */
-    ply[player_id]->status = 0;
-    /* 3263 */
-    ply[player_id]->sy = 0;
-    /* 3264 */
-    if (solid1) {
-        ply[player_id]->y -= solid1 - 9999;
-        /* 3266 */
-        ply[player_id]->rotate = 0;
-        /* 3267 */
-        if (solid1 == solid2)
-            ply[player_id]->edge = 0;
-        else
-            ply[player_id]->edge = 1;
-        return;
+            break;
+        }
+        case 2: any23 = 2; break;
+        case 3: any23 = 3; break;
+        case 0: break;
+        default: break;
     }
-    if (solid2) {
-        ply[player_id]->y -= solid2 - 9999;
-        ply[player_id]->rotate = 0;
-        ply[player_id]->edge = 2;
-        return;
-    }
-    ply[player_id]->rotate = 0;
-    ply[player_id]->edge = 0;
-    return;
-
-sweep:
-    /* 3271 */
-    solid1 = is_solid(&map, x - 11, y);
-    /* 3272 */
-    solid2 = is_solid(&map, x + 11, y);
-    /* 3273 */
-    any21 = solid1;
-    /* 3274 */
-    any22 = solid2;
-    /* 3275 */
-    if (solid1 + solid2 == 0) {
-        /* 3276 */
-        if (ply[player_id]->status == 2 || ply[player_id]->status == 0)
-            ply[player_id]->status = 3;
-        return;
-    }
-    /* 3277 */
-    if (ply[player_id]->status == 1 || ply[player_id]->status == 2)
-        return;
-    /* 3278 */
-    any23 = 1;
-    /* 3279 */
-    if (ply[player_id]->status)
-        play_sound(sounds[8], 1, 1);
-    /* 3280 */
-    ply[player_id]->status = 0;
-    /* 3281 */
-    ply[player_id]->sy = 0;
-    /* 3282 */
-    if (solid1) {
-        ply[player_id]->y -= solid1 - 9999;
-        /* 3284 */
-        ply[player_id]->rotate = 0;
-        /* 3285 */
-        if (solid1 == solid2)
-            ply[player_id]->edge = 0;
-        else
-            ply[player_id]->edge = 1;
-        return;
-    }
-    /* 3283 */
-    if (solid2) {
-        ply[player_id]->y -= solid2 - 9999;
-        ply[player_id]->rotate = 0;
-        ply[player_id]->edge = 2;
-        return;
-    }
-    /* 3286 */
-    ply[player_id]->rotate = 0;
-    ply[player_id]->edge = 0;
-    return;
 }
 
 void handle_player_collision_original(int lastX, int lastY)
@@ -4130,42 +4073,25 @@ void handle_player_collision_original(int lastX, int lastY)
     int solid1;
     int solid2;
 
-    solid1=is_solid(&map,(int)ply[player_id]->x-11,(int)ply[player_id]->y);
-    solid2=is_solid(&map,(int)ply[player_id]->x+11,(int)ply[player_id]->y);
-    any11=solid1;
-    any12=solid2;
-    any23=0;
-    any22=0;
-    any21=0;
-    if (solid1+solid2==0) {
-        if (ply[player_id]->status==2 || ply[player_id]->status==0)
-            ply[player_id]->status=3;
-        return;
+    solid1 = is_solid(&map, (int)ply[player_id]->x - 11, (int)ply[player_id]->y);
+    solid2 = is_solid(&map, (int)ply[player_id]->x + 11, (int)ply[player_id]->y);
+    any11 = solid1;
+    any12 = solid2;
+    any21 = any22 = any23 = 0;
+    if (solid1 + solid2 == 0) {
+        if (ply[player_id]->status == 2) ply[player_id]->status = 3;
+        if (ply[player_id]->status == 0) ply[player_id]->status = 3;
     }
-    if (ply[player_id]->status==1) return;
-    if (ply[player_id]->status==2) return;
-    if (ply[player_id]->status)
-        play_sound(sounds[8],1,1);
-    ply[player_id]->status=0;
-    ply[player_id]->sy=0;
-    if (solid1) {
-        ply[player_id]->y-=solid1-9999;
-        ply[player_id]->rotate=0;
-        if (solid1==solid2) {
-            ply[player_id]->edge=0;
-            return;
-        }
-        ply[player_id]->edge=1;
-        return;
+    else if ((ply[player_id]->status != 1 || ((unsigned char)ply[player_id]->status != 1))) if (ply[player_id]->status != 2) {
+        if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
+        ply[player_id]->status = 0;
+        ply[player_id]->sy = 0;
+        if (solid1) ply[player_id]->y -= solid1 - 9999;
+        else if (solid2) ply[player_id]->y -= solid2 - 9999;
+        ply[player_id]->rotate = 0;
+        if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
+        else ply[player_id]->edge = 0;
     }
-    if (solid2) {
-        ply[player_id]->y-=solid2-9999;
-        ply[player_id]->rotate=0;
-        ply[player_id]->edge=2;
-        return;
-    }
-    ply[player_id]->rotate=0;
-    ply[player_id]->edge=0;
 }
 
 void fadeIn(BITMAP *bmp, int speed)

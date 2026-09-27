@@ -3,7 +3,9 @@
 Kept outside tests/ on purpose: diag.py is search tooling, not part of the proof context.
   python tools/diag_test.py
 """
-import unittest
+import hashlib, tempfile, unittest
+from pathlib import Path
+import diag
 from diag import classify, summarize
 
 
@@ -54,6 +56,62 @@ class DiagTests(unittest.TestCase):
         a, s = run(COPIED, other)
         self.assertEqual(set(s['kinds']), {'operands'})
         self.assertEqual(s['bucket'], 1)
+
+    def test_inverse_branch_polarity_is_not_exact(self):
+        orig = [(0, 'test %eax,%eax'), (2, 'je 8 <_f+0x8>'),
+                (4, 'movl $0x1,0x8(%edx)'), (7, 'ret'),
+                (8, 'movl $0x0,0x8(%edx)'), (11, 'ret')]
+        cand = [(o, a.replace('je 8', 'jne 8')) for o, a in orig]
+        a, s = run(orig, cand)
+        self.assertEqual(s['bucket'], 1)
+        self.assertEqual(set(s['kinds']), {'true'})
+        self.assertTrue(a['issues'])
+
+    def test_unpaired_candidate_block_is_not_exact(self):
+        orig = [(0, 'test %eax,%eax'), (2, 'je 8 <_f+0x8>'),
+                (4, 'movl $0x1,0x8(%edx)'), (7, 'ret'),
+                (8, 'movl $0x0,0x8(%edx)'), (11, 'ret')]
+        cand = orig + [(12, 'movl $0x2,0xc(%edx)'), (15, 'jmp 0 <_f>')]
+        a, s = run(orig, cand)
+        self.assertEqual(len(a['cfree']), 1)
+        self.assertEqual(a['issues'], [])
+        self.assertEqual(s['bucket'], 4)
+
+    def test_cache_fingerprint_tracks_same_path_compiler_change(self):
+        with tempfile.TemporaryDirectory(dir=diag.BUILD) as folder:
+            compiler = Path(folder) / 'cc1.exe'
+            compiler.write_bytes(b'compiler-v1')
+            first = diag._file_snapshot([compiler])
+            compiler.write_bytes(b'compiler-v2')
+            second = diag._file_snapshot([compiler])
+        self.assertNotEqual(first, second)
+
+    def test_compile_cache_tracks_header_changes(self):
+        if not (diag.TC / 'bin/gcc.exe').is_file():
+            self.skipTest('locked compiler is unavailable')
+        with tempfile.TemporaryDirectory(dir=diag.BUILD) as folder:
+            root = Path(folder)
+            include = root / 'include'
+            include.mkdir()
+            header = include / 'cache_probe.h'
+            header.write_text('#define CACHE_PROBE_VALUE 1\n', encoding='ascii')
+            old_diag = diag.DIAG
+            diag.DIAG = root / 'diag-cache'
+            config = {'source': 'cache_probe.c', 'default': '-O0', 'flags': [],
+                      'includes': [str(include)]}
+            text = '#include "cache_probe.h"\nint cache_probe(void) { return CACHE_PROBE_VALUE; }\n'
+            try:
+                first, _ = diag.compile_tu(config, text)
+                first_hash = hashlib.sha256(first.read_bytes()).hexdigest()
+                header.write_text('#define CACHE_PROBE_VALUE 2\n', encoding='ascii')
+                second, _ = diag.compile_tu(config, text)
+                second_hash = hashlib.sha256(second.read_bytes()).hexdigest()
+                again, _ = diag.compile_tu(config, text)
+            finally:
+                diag.DIAG = old_diag
+        self.assertNotEqual(first.parent, second.parent)
+        self.assertNotEqual(first_hash, second_hash)
+        self.assertEqual(again, second)
 
     def test_register_rename_is_allocation(self):
         other = [(o, a.replace('%edx', '%ecx')) for o, a in COPIED]

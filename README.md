@@ -188,6 +188,10 @@ and link closure, and refuses unpromoted source changes. Context/search presenta
 changes do not require recovery-state synchronization. Git preserves exact file
 bytes; no line-ending normalization changes pinned inputs on checkout.
 
+## Compiler-steered matches
+
+The goal is a 1:1 matching decompilation. Proving the original C spelling is not required. Some accepted bodies contain code-free *steering* constructs, such as dead guards that later passes delete. At GCC 4.4.1's profile pass they change only branch predictions, and so block layout. Each such function has a `"kind": "compiler-steered"` entry in `evidence/observations.json`, which `context.py` shows as `provenance_observations`. That entry names every steering construct and the mechanism. For these functions the bytes are proven exact, but the source provenance is uncertain. A more natural body reaching the same compiler state may replace one later. The exact-peer gate forbids re-spelling an exact body, so markers live in that file, not in C comments.
+
 [AGENTS.md](AGENTS.md) is the short working contract.
 [MIGRATION.md](MIGRATION.md) contains the inventory, provenance and final audit.
 Old path references in unchanged C comments refer to the cold-storage archive.

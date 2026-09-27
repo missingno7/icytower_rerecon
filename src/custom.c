@@ -66,6 +66,7 @@ BITMAP *load_character_bmp(const char *name, int *uses_datafile, RGB *pal)
             set_color_conversion(color_conversion);
             sprintf(buf, "failed depth loading: %s", filename);
             custom_alert(buf, "character will be skipped");
+            if (bmp) return NULL;
             return bmp;
         }
         depth=bitmap_color_depth(bmp);
@@ -81,6 +82,7 @@ BITMAP *load_character_bmp(const char *name, int *uses_datafile, RGB *pal)
             char buf[256];
             sprintf(buf,"failed loading: %s",filename);
             custom_alert(buf,"character will be skipped");
+            if (bmp) return (BITMAP *)fp;
             return bmp;
         }
         else {

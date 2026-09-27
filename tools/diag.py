@@ -20,19 +20,23 @@ Triage buckets: 1 source/structure (unpaired content, CFG shape), 2 context/freq
 (same blocks and CFG, different placement or epilogue copying), 4 unexplained (most
 blocks unpaired).  A bucket routes hypotheses; it never grants or implies a match.
 """
-import argparse, bisect, collections, difflib, hashlib, os, re, subprocess
+import argparse, bisect, collections, difflib, hashlib, os, re, subprocess, tempfile
 from pathlib import Path
-from common import ROOT, BUILD, ORACLE, ANALYSIS, TC, environment, read_json
-from build import targets, flags_for
+from common import ROOT, BUILD, ORACLE, ANALYSIS, TC, environment, read_json, identity
+from build import targets, flags_for, dependencies
 from scratch import resolve_function, overlay, patched_source
 
 DIAG = BUILD / 'diag'
 DUMP_FLAGS = ('-fdump-tree-profile-details-lineno', '-fdump-tree-optimized-blocks-lineno', '-fdump-rtl-ira', '-fira-verbose=5',
               '-fdump-rtl-bbro-details', '-fdump-rtl-stack', '-fdump-rtl-peephole2')
 PAD = re.compile(r'^(nop|xchg\s+%ax,%ax|lea\s+0x0\(%[a-z]+(,%[a-z]+,1)?\),%[a-z]+|lea\s+0x0\(%[a-z]+,%eiz,1\),%[a-z]+)$')
-CC = {'e': 'eq', 'ne': 'eq', 'z': 'eq', 'nz': 'eq', 'l': 'lt', 'ge': 'lt', 'g': 'gt', 'le': 'gt',
-      'a': 'ab', 'be': 'ab', 'b': 'bl', 'ae': 'bl', 'jae': 'bl', 's': 'sg', 'ns': 'sg', 'p': 'pa', 'np': 'pa',
-      'o': 'ov', 'no': 'ov', 'nb': 'bl', 'nae': 'bl', 'c': 'bl', 'nc': 'bl'}
+CC = {'e': 'eq', 'z': 'eq', 'ne': 'ne', 'nz': 'ne',
+      'l': 'lt', 'nge': 'lt', 'ge': 'ge', 'nl': 'ge',
+      'le': 'le', 'ng': 'le', 'g': 'gt', 'nle': 'gt',
+      'a': 'ab', 'nbe': 'ab', 'be': 'be', 'na': 'be',
+      'b': 'bl', 'c': 'bl', 'nae': 'bl', 'ae': 'ae', 'nb': 'ae', 'nc': 'ae',
+      's': 'sg', 'ns': 'ns', 'p': 'pa', 'pe': 'pa', 'np': 'np', 'po': 'np',
+      'o': 'ov', 'no': 'no'}
 REG = re.compile(r'%(e?[abcd]x|[abcd][lh]|e?[sd]i)\b')
 STACK = re.compile(r'-?0x[0-9a-f]+(?=\(%e[bs]p\))')
 X87 = re.compile(r'^f')
@@ -50,16 +54,41 @@ def source_text(target, config, name, body=None, patch=None):
 CC1_DIR = None   # --cc1: a diagnostic compiler-proper directory (causal experiments only, never candidates)
 
 
+def _file_snapshot(paths):
+    return tuple((str(p.resolve()), identity(p)) for p in sorted(set(map(Path, paths))) if p.is_file())
+
+
+def _cache_inputs(config, text, flags, extra):
+    """Fingerprint resolved headers and the compiler files that can change object bytes."""
+    DIAG.mkdir(parents=True, exist_ok=True)
+    gcc = TC / 'bin/gcc.exe'
+    cc1 = Path(CC1_DIR) / 'cc1.exe' if CC1_DIR else next(TC.glob('libexec/gcc/*/*/cc1.exe'))
+    compiler_files = [gcc, TC / 'bin/as.exe', *cc1.parent.iterdir()]
+    compiler = _file_snapshot(compiler_files)
+    with tempfile.TemporaryDirectory(prefix='.diag-deps-', dir=DIAG) as folder:
+        src = Path(folder) / Path(config['source']).name
+        src.write_bytes(text.encode('cp1252'))
+        r = subprocess.run([str(gcc), *flags, *extra, '-M', '-MT', 'diag', str(src)],
+                           cwd=folder, env=environment(), capture_output=True)
+        if r.returncode:
+            raise SystemExit(r.stderr.decode(errors='replace')[-3000:])
+        paths = dependencies(r.stdout.decode(errors='replace'), ROOT)
+        src_path = src.resolve()
+        headers = _file_snapshot(p for p in paths if p.resolve() != src_path)
+    return compiler, headers
+
+
 def compile_tu(config, text, dumps=False):
-    """Compile the whole TU with the locked flags; cached by content."""
+    """Compile the whole TU; cache by source, flags, compiler files, and resolved headers."""
     extra = (DUMP_FLAGS if dumps else ()) + (('-B', str(Path(CC1_DIR).resolve()) + os.sep) if CC1_DIR else ())
-    key = hashlib.sha256(text.encode('cp1252') + repr((extra, config)).encode()).hexdigest()[:20]
+    flags = [x if not x.startswith('-I') else '-I' + str(ROOT / x[2:]) for x in flags_for(config)]
+    inputs = _cache_inputs(config, text, flags, extra)
+    key = hashlib.sha256(text.encode('cp1252') + repr((extra, config, inputs)).encode()).hexdigest()[:20]
     d = DIAG / key; d.mkdir(parents=True, exist_ok=True)
     obj = d / 'u.o'
     if not obj.exists():
         src = d / Path(config['source']).name
         src.write_bytes(text.encode('cp1252'))
-        flags = [x if not x.startswith('-I') else '-I' + str(ROOT / x[2:]) for x in flags_for(config)]
         r = subprocess.run([str(TC / 'bin/gcc.exe'), *flags, *extra, '-c', str(src), '-o', str(obj)],
                            cwd=str(d), env=environment(), capture_output=True)
         if r.returncode: raise SystemExit(r.stderr.decode(errors='replace')[-3000:])
@@ -176,7 +205,9 @@ class Block:
 
     def core(self):
         """Own body without epilogue rows and without an absorbed or shared return tail."""
-        return tuple(x87(STACK.sub('S', REG.sub('%r', x))) for x in self.body if not EPI.match(x))
+        body = tuple(x87(STACK.sub('S', REG.sub('%r', x))) for x in self.body if not EPI.match(x))
+        branch = ('J' + CC.get(self.term[1:], self.term),) if self.term and self.term.startswith('j') and self.term != 'jmp' else ()
+        return body + branch
 
 
 def x87(x):
@@ -465,6 +496,8 @@ def summarize(a):
         s['bucket'] = 0
     # Pairing breaks down when most blocks have no counterpart: the block model explains little.
     if ne_o and len(pairs) < ne_o / 2: s['bucket'] = 4
+    # The summary walks original blocks only; do not call it exact when candidate code was left over.
+    if a['cfree'] and s['bucket'] == 0: s['bucket'] = 4
     return s
 
 
@@ -487,6 +520,9 @@ def report(a, show_blocks=False):
                                                               pairs[o][0], cb[pairs[o][0]].start))
     print('triage bucket: %d %s' % (s['bucket'], BUCKET_NAME[s['bucket']]))
     if not issues:
+        if a['cfree']:
+            print('verdict: candidate has unpaired code blocks; the block comparison is incomplete')
+            return None
         print('verdict: block sets, CFG and fallthroughs agree' +
               ('; only trace order differs (bb-reorder connect_traces / cold placement)' if s['displaced'] else ''))
         return ('order', s['displaced']) if s['displaced'] else None

@@ -1,1 +1,183 @@
-{"archive_commit":"a7bfbb08a031a75133a768043f5daf194b6d4f46","observations":[{"archive_reference":"src/reconstruction-provenance.json at migration working tree","body_sha256":"db3c1dcb0cac98da3c51a5f8f1fee40f2fa90c32910accbe961adf5243bb7c3a","function":"draw_frame","measured":{"candidate_size":8203,"first_difference":{"candidate_byte":204,"offset":8,"original_byte":220,"original_va":4231844},"original_size":8518,"status":"DIFFER"},"observation":"Incomplete historical source candidate; no strict function match.","source":"src/main.c"},{"archive_reference":"src/reconstruction-provenance.json at migration working tree","body_sha256":"c45dd5172fa8d0435bd384abaca5cb1012ad7a358a784db5e2ab3a8dc8e16247","function":"play","measured":{"candidate_size":17400,"first_difference":{"candidate_byte":28,"offset":8,"original_byte":252,"original_va":4266504},"original_size":17420,"status":"DIFFER"},"observation":"Incomplete historical source candidate; no strict function match.","source":"src/main.c"},{"archive_reference":"src/reconstruction-provenance.json at migration working tree","body_sha256":"78367cda929aa7f647755c2a6d96648ecab5c6ffca5463cb1a5203ea341b0918","function":"main_menu_callback","measured":{"candidate_size":3788,"first_difference":{"candidate_byte":68,"offset":14,"original_byte":24,"original_va":4260102},"original_size":3741,"status":"DIFFER"},"observation":"Incomplete historical source candidate; no strict function match.","source":"src/main.c"}],"source_selection":{"archive_pointer":"HEAD:a7bfbb08a031a75133a768043f5daf194b6d4f46; working source imported without edits","changed_bodies_since_HEAD":["blit_to_screen","main_menu_callback","force_create_profile"],"exact_set_unchanged":true,"fresh_HEAD_and_working_exact_count":64,"source":"src/main.c","source_identity":{"sha256":"2b3c420ac0f7c3a538dce56e71f4ecb3453c4a2db9110afcd3fbb4c76bbd5c56","size":311299}}}
+{
+  "archive_commit": "a7bfbb08a031a75133a768043f5daf194b6d4f46",
+  "observations": [
+    {
+      "archive_reference": "src/reconstruction-provenance.json at migration working tree",
+      "body_sha256": "db3c1dcb0cac98da3c51a5f8f1fee40f2fa90c32910accbe961adf5243bb7c3a",
+      "function": "draw_frame",
+      "measured": {
+        "candidate_size": 8203,
+        "first_difference": {
+          "candidate_byte": 204,
+          "offset": 8,
+          "original_byte": 220,
+          "original_va": 4231844
+        },
+        "original_size": 8518,
+        "status": "DIFFER"
+      },
+      "observation": "Incomplete historical source candidate; no strict function match.",
+      "source": "src/main.c"
+    },
+    {
+      "archive_reference": "src/reconstruction-provenance.json at migration working tree",
+      "body_sha256": "c45dd5172fa8d0435bd384abaca5cb1012ad7a358a784db5e2ab3a8dc8e16247",
+      "function": "play",
+      "measured": {
+        "candidate_size": 17400,
+        "first_difference": {
+          "candidate_byte": 28,
+          "offset": 8,
+          "original_byte": 252,
+          "original_va": 4266504
+        },
+        "original_size": 17420,
+        "status": "DIFFER"
+      },
+      "observation": "Incomplete historical source candidate; no strict function match.",
+      "source": "src/main.c"
+    },
+    {
+      "archive_reference": "src/reconstruction-provenance.json at migration working tree",
+      "body_sha256": "78367cda929aa7f647755c2a6d96648ecab5c6ffca5463cb1a5203ea341b0918",
+      "function": "main_menu_callback",
+      "measured": {
+        "candidate_size": 3788,
+        "first_difference": {
+          "candidate_byte": 68,
+          "offset": 14,
+          "original_byte": 24,
+          "original_va": 4260102
+        },
+        "original_size": 3741,
+        "status": "DIFFER"
+      },
+      "observation": "Incomplete historical source candidate; no strict function match.",
+      "source": "src/main.c"
+    },
+    {
+      "source": "src/replay.c",
+      "function": "my_strcmp",
+      "kind": "compiler-steered",
+      "body_sha256": "a13c057ee17c38d2684ffff12e85230d1c8fd758c2ec05acf072291aeb94e6b5",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 128
+      },
+      "steering": [
+        "`if (a->directory == b->directory) return -1;` inside the directory-mismatch block (always false there)",
+        "`if (a->directory) return -1;` at the head of the `!a->directory` block (always false there)"
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. The two dead guards emit no code and are removed by FRE/DOM/VRP. At the 037t profile pass their -1 PHI arguments add GCC 4.4 negative-return predictions (4%) to the edges into them. This makes the stricmp path the likely successor of the directory test, and the mismatch block cold enough that bb-reorder places its trace last. The byte-exact match is proven; the guards themselves are NOT evidence of historical source spelling. A more natural source reaching the same profile may replace them."
+    },
+    {
+      "source": "src/custom.c",
+      "function": "load_character_bmp",
+      "kind": "compiler-steered",
+      "body_sha256": "825f0c7891e5ae9b4163eb0a7048b203e139dae2cf032e2ba8b2848d6af823f4",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 1992
+      },
+      "steering": [
+        "`if (bmp) return NULL;` at the end of the depth-loading failure block (bmp is NULL there)",
+        "`if (bmp) return (BITMAP *)fp;` at the end of the second load failure block (bmp is NULL there)"
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. The dead guards emit no code. The first makes its failure block not single-successor-to-return and adds a null-return prediction, so the depth-failure exit drops to frequency 0. The second removes the early-return prediction without adding a return prediction, so the second load-failure exit rises to frequency 2. With those two frequencies, bb-reorder's round-3 trace order matches the original (verified with tools/pipeline.py stc). The byte-exact match is proven; the guards are NOT evidence of historical source spelling."
+    },
+    {
+      "source": "src/main.c",
+      "function": "handle_player_collision_original",
+      "kind": "compiler-steered",
+      "body_sha256": "949f2430b83a66a1aa72ddf52bcf0f95ee4ee21ecef0ce49bdf26a560fa03117",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 456
+      },
+      "steering": [
+        "`|| (unsigned char)ply[player_id]->status != 1` added to the hit-path `status != 1` test. When the first comparison is false, status is exactly 1 and the byte comparison is also false, so the disjunct is redundant."
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. Two independent no-floor status assignments first fix the pointer/status EAX/EDX allocation (11 differences become a six-byte missing return tail). The redundant byte-cast disjunct exists at 037t.profile and is gone by 123t.optimized, but block frequencies survive its removal: the hit body rises from 3207 to 3781, sound from 930 to 1097, and zero-edge from 898 to 1059. The zero-edge return now exceeds bb-reorder's 1000 copy threshold while staying colder than sound, reproducing the third epilogue and original trace order. The optimized dump explicitly reports inconsistent incoming frequency sums after simplification; these are compiler estimates, not measured execution frequencies. Whole-TU strict search round 46 and promotion prove all 456 bytes, with exact peers and storage preserved. The guard is a compiler-state witness, not evidence of the original source spelling."
+    },
+    {
+      "source": "src/main.c",
+      "function": "handle_player_collision_combo",
+      "kind": "compiler-steered",
+      "body_sha256": "1b0460876c96a982cedd3c5e6ce4ea22a5c8949d8e6486760c5c1d36408ebd6f",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 1390
+      },
+      "steering": [
+        "A redundant conjunct on status!=1 tests byte/short/full-width disjunctions. The full-width disjunct makes this identical to status!=1.",
+        "A redundant nonzero-hit disjunct tests subsets of the bits in left+right. Every subset is false when the sum iszero, so landing eligibility is unchanged.",
+        "Rotation clearing is expressed in the first-solid arm and in independent second-solid hit/zero arms. Within the latter scope solid1==0, making the sum/xor/or zero checks equivalent to solid2==0."
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. These equivalent guards exist during GCC4.4.1 branch prediction and vanish before final machine emission, leaving inconsistent estimated frequencies (not measured execution counts). The accepted source preserves second-solid hit frequency634 while raising the zero-rotation trace to1153; debug1082, floor retry1023 and final landing1013 follow in target order. Landing is above the1000 epilogue-copy threshold. The prior exclusive OR-zero arm lowered second-solid hit to228, causing its trace to lose the shared edge store and invert the earlier branch. Independent hit and zero-arm stores resolve both constraints. Fresh whole-TU search round60 matches all1390 bytes with no peer losses. The strict promotion gate establishes byte equality, clean repeatability, storage and peer preservation, ordinary source link closure and tests. These guards are a compiler-state witness, not evidence of historical source spelling."
+    },
+    {
+      "source": "src/main.c",
+      "function": "handle_player_collision_vector_2",
+      "kind": "compiler-steered",
+      "body_sha256": "354503db54afe26bd8b5fa5254e9d6f0f390eba610e710c2d1c5874e9b1ec4bf",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 1086
+      },
+      "steering": [
+        "Repeated sentinel and debug guards survive branch prediction but disappear from the final instruction stream; the no-contact status assignments are independent.",
+        "The edge predicate adds `&& (right == 0 || left != right)` to `left != right`, a logically redundant conjunct.",
+        "The retry guard is `!left && (left == -right || (left == 0 && (right ^ left) == 0))`. The outer condition fixes left to zero and both alternatives then test right==0. The exact line_intersect implementation returns only 0 or 1, so negation cannot overflow."
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. The previous best candidate had 27 matching normalized blocks but swapped floor-height and left registers and inserted one alignment byte at +0x297. The redundant edge implication lowers the edge-body estimate from 7200 to 6192, recovering the original register allocation. The zero-contact XOR alternative raises the retry estimate from 685 to 1290, while its incoming edge still estimates 686. The join then has fallthrough frequency 1290 versus branch frequency 5000 and no longer receives GCC 4.4.1 internal-loop alignment. All 27 blocks, instruction order, register choices and padding match. These inconsistent frequencies are compiler estimates after simplification, not measured game execution. Whole-TU search round 44 and strict promotion prove all 1086 bytes, preserving exact peers and established storage, clean-build repeatability, ordinary link closure and tests. Diagnostic-only probability probes established causality; the accepted source uses the unchanged locked compiler and flags. The redundant guards are compiler-state witnesses, not evidence of historical source spelling."
+    },
+    {
+      "source": "src/main.c",
+      "function": "handle_player_collision_old",
+      "kind": "compiler-steered",
+      "body_sha256": "e0fb345650e2c5c1914172e6953cb537b392c7d3d26b9a7f4b634c546d678be8",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 894
+      },
+      "steering": [
+        "Initial hit status1/2 continues to the midpoint sweep check; only swept hit status1/2 returns. Fresh original branch decoding corrected the previous initial-return hypothesis.",
+        "Independent no-floor status assignments preserve pointer/status allocation. The sweep switch is Boolean; cases2 and3 are unreachable and prune after profile estimation, leaving a25% sweep estimate.",
+        "X magnitude uses the existing solid1 temporary and ordinary unsigned negation, then copies to dX. Its nonnegative midpoint addition uses arithmetic right shift. This prevents early ABS_EXPR recognition while preserving the target instruction sequence and register allocation.",
+        "The swept status!=1 guard includes the redundant disjunct (unsigned char)status!=1. If status==1 the cast also equals1; otherwise the original disjunct is already true."
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. The previous candidate paired all36 meaningful blocks but reversed the two negative-delta traces. Two ABS_EXPR expansions both received21% RTL estimates. Explicit unsigned X negation receives27%; using the existing solid1 temporary recovers the original EDI/ESI allocation and all36 blocks in target order. One final alignment byte was still absent at+0x347: the swept sound estimate172 was below the jump-alignment threshold174 (maximum frequency17448/100). The redundant swept-status disjunct raises landing594 to700 and sound172 to203 while preserving trace order and registers; the maximum becomes17363 and GCC adds the missing NOP. These are compiler estimates after simplification, not measured execution frequencies. Whole-TU search round81 and strict promotion prove all894 bytes, preserving exact peers and established storage, clean-build repeatability, ordinary link closure and tests. Diagnostic-only probability probes informed the search; the accepted candidate uses the unchanged locked compiler and flags. These source forms are compiler-state witnesses, not evidence of historical source spelling."
+    },
+    {
+      "source": "src/menu.c",
+      "function": "draw_menu",
+      "kind": "compiler-steered",
+      "body_sha256": "a7d91091a644c8184e1d6745d9f76c5a58ea99cc32cc74a363c8bde7cc33df0f",
+      "measured": {
+        "status": "FUNCTION_MATCH",
+        "original_size": 1118
+      },
+      "steering": [
+        "A separate nextpos recurrence starts1 and advances each row. Computing row_delta=pos*h once before build_menu_string keeps current-row uses separate from nextpos*h, allowing GCC to select y-based and h-based derived accumulators after its sinking pass.",
+        "The normal-row bullet condition is (flags & 1) || (unsigned char)(flags & 1). The masked value is0 or1, so the second disjunct is logically redundant and the condition preserves behavior.",
+        "Using unsigned int for the nextpos recurrence preserves the target bytes while restoring the already exact handle_menu peer in the same translation unit."
+      ],
+      "observation": "COMPILER-STEERED, source provenance uncertain. Prior explicit accumulators were sunk after the loop exit test; indexed forms selected a zero-based accumulator and recomputed +h. The separate next-row recurrence plus shared current-row product recovers all28 meaningful blocks, registers and increment-before-exit placement. The redundant Boolean cast is removed after branch prediction but raises normal-row bullet probability50% to75%. Its 256-color sprite block rises from frequency994 to1491, ahead of the return and four other cold sprite traces at1400. All28 blocks then occupy target order and all1118 bytes match. A signed nextpos form disturbed one protected handle_menu block; the unsigned recurrence preserves both functions, and game-menu now has a complete text contribution match. These are compiler estimates, not measured execution counts. Whole-TU search round48 and strict promotion establish exact bytes, clean repeatability, exact-peer and established storage preservation, ordinary source link closure and tests. Diagnostic-only probability probes informed the search; no compiler flags, headers or protected peer bodies changed. The extra recurrence, temporary and redundant guard are compiler-state witnesses, not evidence of historical source spelling."
+    }
+  ],
+  "source_selection": {
+    "archive_pointer": "HEAD:a7bfbb08a031a75133a768043f5daf194b6d4f46; working source imported without edits",
+    "changed_bodies_since_HEAD": [
+      "blit_to_screen",
+      "main_menu_callback",
+      "force_create_profile"
+    ],
+    "exact_set_unchanged": true,
+    "fresh_HEAD_and_working_exact_count": 64,
+    "source": "src/main.c",
+    "source_identity": {
+      "sha256": "2b3c420ac0f7c3a538dce56e71f4ecb3453c4a2db9110afcd3fbb4c76bbd5c56",
+      "size": 311299
+    }
+  }
+}
