@@ -1,6 +1,6 @@
 # play: residual mechanism notes
 
-Accepted state remains DIFFER. Preferred unpromoted joint checkpoint is `candidates/continue22-context/checkpoint.json` (play effective `4dd9171ef613fe51`). Continue16 remains a comparison control. Normalized block equality is diagnostic only.
+Accepted state remains DIFFER. Preferred unpromoted structural checkpoint is `candidates/continue23-context/checkpoint.json` (play effective `30d882d9ff5b18b7`). Continue22 remains the comparison control with more normalized-exact play blocks. Normalized block equality is diagnostic only.
 
 ## Continuations 18-19: distinct ordering mechanisms
 
@@ -37,3 +37,13 @@ The shake update guard adds a redundant byte/short/full-width conjunction under 
 The selected joint checkpoint reaches630 paired/536 normalized-exact play blocks (previous630/523), reducing stack-slot pairs21to3; frame remains209/171. Play has17443 bytes and13275 raw differences, so this is a structural/allocation gain with layout tradeoffs, not an exact function or universal score improvement. Every exact peer is preserved. Fresh play round98 and frame round94 reproduce effective identities; no promotion.
 
 Qualification still has the wrong branch direction. A modest zero implication improves later layout but does not resolve that guard. Relocation-aware comparison also identifies a reversed operand/relation pair at next_aight+0x995; it is equivalent behavior, not a missing computation. The frame .02-to-.2 x87 value lifetime remains real when the correct incoming path is followed. Full predictions, rejected controls, branch anchors and receipts: `build/continue22/RESULTS.md`. Rounds90-97 contain38 unique source candidates across both residuals; generated evidence stays ignored.
+
+## Continuation 23: qualification direction and joint frame lifetime
+
+Widening the qualification predecessor to `!quit || (quit && closeButtonClicked)`, while retaining the existing inner close guard, admits only an extra path that immediately fails that guard. The added tests disappear from the optimized CFG. The measured close-to-qualification probability changes from 50% to 62.5%; emitted play+0x23e8 now has JNE-to-cleanup and qualification fallthrough, matching original+0x2460. The recovered final-menu JNE direction also remains at+0x2593, followed by do_replay_menu. The initial continuation23 attribution of STC BB435/634 to close/cleanup was unsupported and is retracted: numeric IDs were carried across passes without a stable bridge. The measured profile and relocation-resolved emitted branches establish this result; the precise trace-queue cause remains unresolved.
+
+The selected joint patch is `experiments/patches/d1b1084e9d260ddda666a617b10efdd3c0427de863e8cde1773b6dec4d498f1d.json`. It also preserves raw sx from the idle .02 comparison into the frame .2 reset path. Play has 630 paired/532 normalized-exact blocks, 82 register, 3 stack-slot and 13 near pairs; 17419 bytes versus 17420 target and 13285 raw differences. Continue22 had 536 normalized-exact blocks and 13275 raw differences. Thus this checkpoint resolves two concrete branch/lifetime mechanisms with layout tradeoffs; it is not a monotonic score improvement or an exact function.
+
+Independent DWARF/instruction audit identifies the three remaining stack pairs as spills: live scroll_acc/tot_scroll across sound calls, and BITMAP height/width argument temporaries across new_rand before blit. No missing named-local identity was found. Do not add locals merely to force those spill addresses.
+
+Fresh round 102 searches reproduce both effective identities with no exact peer losses. Verify remains 251 FUNCTION_MATCH / 2 DIFFER; no canonical source/header, proof tool or recovery state changed. The remaining next_aight operand/relation reversal and name-entry pairing need separate analysis; an unpaired label alone does not prove missing or duplicated code. Full results: `build/continue23/ROOT_RESULTS.md`; branch anchors: `selected-branch-anchors.json`; audits: `PLAY_PREDECESSOR_RESULT.md` and `PLAY_STACK_AUDIT.md`.
