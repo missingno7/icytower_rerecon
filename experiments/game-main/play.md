@@ -13,3 +13,9 @@ A diagnostic-only stock-compiler branch bias on the update guard raises shake's 
 Round85's separate historical skipDrawing assignments change costs but worsen block correspondence. Round86's inverted/conditional/switch update guards either reproduce the parent or regress. No new checkpoint or exact function was selected. These families are recorded in play.jsonl; generated evidence and validation receipts are in `build/continue19/RESULTS.md`.
 
 Further source hypotheses should distinguish frequency/coalescing changes from out-of-SSA copy order, use relocation-aware branch correspondence, and preserve every exact peer. Initializer placement alone has already failed to fix the spill rotation.
+
+## Continuation 20: corrected branch anchors
+
+Supersedes the branch labels in continuation17-19 scratch reports: original play+0x260f reads **debug**, not recording (COFF address0x4dd160; recording is0x4f8e28). The name-entry close check at+0x2f59 already corresponds to candidate+0x2f8a: both branch to the immediate zero return at+0xb20 and fall through to update_frame. The actual inverted close check is before qualification, original+0x2460 versus candidate+0x23e8. Repeated-global tests must be paired by successors and neighboring operations, not global identity alone.
+
+Round87's duplicated cleanup/early-cleanup variants retain peers but leave extra blocks and reduce play to518 normalized-exact blocks; reject. Frame round91's reset-before-airborne-refinement variants lose frame correspondence and exact peers; reject. The preferred joint checkpoint is unchanged. Details and anchored disassembly evidence: `build/continue20/RESULTS.md` and `anchored-branches.json`. Whole-TU STC replay matches all188 recorded events; this is a diagnostic validation, not a historical-layout claim.
