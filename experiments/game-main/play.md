@@ -218,3 +218,11 @@ lowers the masked distance to 9778 (draw-guard split + doubled name-entry wait) 
 the original's player_id/scroll_acc colouring order and trades instruction fidelity for layout in a
 greedy pass; that family is closed. Data map: every initialized section in all 25 units is
 content-equal; BSS is behaviour-neutral.
+
+Correction and simulation result: the three key-wait loops at 4363, 4734 and 4932 are one-line
+`while (!cycle_count) rest(2);` loops (entry jumps target the tests at +0x1910 and +0x32ec, back edges the
+bodies), not do-while as stated above; frame v17 (round 149) restores them. A lockstep simulation modulo
+register allocation, spill slots and layout (build/rootcause37/linefaithful_play/bisim.py) walks v17 against
+the oracle over 616 states and 5118 instruction pairs with zero divergences and zero unverified instructions
+(13 independent reorders and one narrowed immediate tolerated). The canonical play body is not equivalent
+(47 unexplained lines); v17 is the body to build from for behavioural fidelity.

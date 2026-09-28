@@ -152,3 +152,5 @@ draw_frame has 13 unexplained lines and a 153/68 abstracted-instruction residue 
 the line-faithful N0 body has one unexplained line (the idle-path `p_im = 1` materialisation) plus the
 known x87 compare forms of the sx reuse, everything else register, slot or layout. For a behaviourally
 faithful build use N0, not the canonical body; promotion still requires strict acceptance.
+Lockstep simulation (bisim.py) of N0 verifies 2838 instruction pairs; the unverified residue is the pose/idle
+x87 region (2594-2611) and the stripe order at 2530, previously covered by symbolic x87 replays.
