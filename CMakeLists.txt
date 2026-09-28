@@ -118,4 +118,21 @@ if(ITOWER_BUILD_TESTS)
   add_executable(a4_golden_compat ${GOLDEN_SOURCES})
   target_link_libraries(a4_golden_compat PRIVATE itower_port)
   target_include_directories(a4_golden_compat PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/port/golden)
+
+  # the game's Ogg loader (port/game/logg_port.c) through the compat samples/mixer
+  add_executable(test_logg ${CMAKE_CURRENT_SOURCE_DIR}/tests/port/logg/test_logg.c
+                 ${CMAKE_CURRENT_SOURCE_DIR}/port/game/logg_port.c
+                 ${CMAKE_CURRENT_SOURCE_DIR}/port/game/port_game.c)
+  target_link_libraries(test_logg PRIVATE itower_port)
+  target_include_directories(test_logg PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat/allegro4-sdl3/src)
+
+  # Test scaffolding: until compat/allegro4-sdl3/src/a4_file.c provides
+  # PACKFILE, executables that pull in a4_sound.c link a stdio stand-in.
+  if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/compat/allegro4-sdl3/src/a4_file.c)
+    foreach(t test_sound test_logg a4_golden_compat)
+      if(TARGET ${t})
+        target_sources(${t} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/port/support/packfile_fallback.c)
+      endif()
+    endforeach()
+  endif()
 endif()
