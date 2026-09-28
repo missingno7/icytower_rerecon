@@ -1,0 +1,10 @@
+{
+ "source": "src/fld_adspot.c",
+ "base_sha256": "1288b7a724522636f5fbe1209e413184210c78e647d9a226e78d7f55e4a34905",
+ "edits": [
+  {
+   "old": "pthread_mutex_t gFLDADMutex;\n",
+   "new": "pthread_mutex_t gFLDADMutex = PTHREAD_MUTEX_INITIALIZER;\n"
+  }
+ ]
+}

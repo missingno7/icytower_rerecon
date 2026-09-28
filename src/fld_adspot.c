@@ -27,7 +27,7 @@ extern time_t httpGetLastModified(HTTPResponse *pResponse);
 extern void destroyHTTPResponse(HTTPResponse *pResponse);
 
 pthread_t gFLDADThread;
-pthread_mutex_t gFLDADMutex;
+pthread_mutex_t gFLDADMutex = PTHREAD_MUTEX_INITIALIZER;
 int giAdCacheSize = 0;
 FLDAdSpot *gpAdCache = 0;
 
