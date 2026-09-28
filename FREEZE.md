@@ -16,8 +16,8 @@ faithful bodies and their certificates are:
 
 | function | body | certificate | identical line-table lines | instructions (ours / original) | simulation |
 |---|---|---|---|---|---|
-| play | `candidates/rootcause37/play_linefaithful_v20.c` | `evidence/equivalence/play.json` | 664 of 710 on the canonical TU (672 with the prototype blocks collapsed) | 3687 / 3685 | 602 states, 4887 pairs, 2 divergences (resynchronisation artefacts at cold-tail joins), 0 exact peers changed |
-| draw_frame | `candidates/rootcause37/linefaithful_n2.c` | `evidence/equivalence/draw_frame.json` | 137 of 151 | 1926 / 1927 | 184 states, 2819 pairs, 14 divergences, all in the idle-pose x87 region (lines 2594-2609), covered by symbolic x87 replay |
+| play | `candidates/rootcause37/play_linefaithful_v20.c` | `evidence/equivalence/play.json` | 664 of 710 on the canonical TU (672 with the prototype blocks collapsed) | 3687 / 3685 | 602 states, 4887 pairs, 2 divergences (both a value-id tracking artefact at the doubled guard on line 4814: the same `esi` value under two ids), 0 exact peers changed |
+| draw_frame | `candidates/rootcause37/linefaithful_n2.c` | `evidence/equivalence/draw_frame.json` | 137 of 151 | 1926 / 1927 | 184 states, 2819 pairs, 14 divergences at lines 2530 (stripe offset order) and 2594-2636 (idle-pose x87 forms and the p_im/customFrame copies), covered by symbolic x87 replay |
 
 What differs in `play` (all layout, no missing or extra operation): the order of cold traces after
 the epilogue, four jump polarities, three alignment nops, the PHI-copy order of two initialisations,
