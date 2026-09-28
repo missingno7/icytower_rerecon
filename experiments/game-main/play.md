@@ -166,3 +166,30 @@ Evidence, full metrics and durable patch IDs: build/rootcause36/RESULTS.md and e
 The "context sensitivity" recorded above (532/3 versus 455/60 blocks and stack pairs after frame, prototype, scope or forward-declaration edits) is GCC 4.4.1's `referenced_vars` hash order: PHI insertion, SSA version numbers, operand canonicalization, out-of-SSA copy order and IRA tie-breaks follow DECL_UID modulo the table size, and every declaration, parameter and gimplification temporary before play consumes a UID. The canonical prelude repeats its forward-declaration block sixteen times (lines 491..1752); that repetition acts as fitted UID padding.
 
 A sweep of 256 padding declarations inserted before play on checkpoint23 produces 57 distinct play outputs, all with a masked byte distance between 10544 and 10583 of 17420 and the same first divergence at byte 63, a jump displacement placing the cold `itrcheck` else-block (+0x27f7 originally). Padding at the end of the TU changes nothing. Hence no declaration count makes play exact: the residual is block layout plus a small allocation family, and the hand-explored contexts are members of that family. do_replay_menu changes at 12 of 256 residues, so the fitted count is only right for it modulo collisions. Full tables and receipts: `build/rootcause37/RESULTS.md`, `build/rootcause37/sweeps/`. Recommended next step is the line-table-faithful rebuild that recovered 136 of 152 draw_frame lines, applied to play's 1500 lines, before further allocation reasoning. Canonical 251/2 unchanged; no promotion.
+
+## Independent investigation 37 (play): line-faithful frame
+
+Applying the line-table method to play (`candidates/rootcause37/play_linefaithful_v16.c`, round 147):
+every statement placed on its oracle line (delta 768), the DWARF declaration set and block nesting
+reproduced exactly (`build/rootcause37/linefaithful_play/declcheck.py`), and inline call-site lines
+used as anchors. 582 of 710 attributed lines are instruction-identical, 3686 versus 3685 instructions,
+17428 versus 17420 bytes, all 80 exact main.c peers kept. The frame corrects checkpoint23 in ways the
+line table proves: three `do rest(2); while (cycle_count == 0);` waits (4363, 4734, 4932) where the
+canonical `while` re-tests first; `scrollerY` updated only inside `if (summary_scroller_message[0])`;
+a `while (hy > hyTarget)` results loop with `float hyTarget = 140.0f`; the hint-string branches with
+two crossjumped `strcpy` copies and three unused locals; `int scrollerTargetY = 0` / `rankTargetY = 320`;
+three separate `if`s in the key cascade (reproducing the original's byte move); an else-if duplicate
+`add_floor` body at 3783/3787; block-local `addTime` at 4066/4159/4222/4375 and `fc`/`ca` on their own
+lines; no `initials`, `typed`, `flags` locals. Micro-tests on the locked compiler show `&&`/`||` second
+operands and do-while tests take the statement line, so tags on later lines mean separate statements.
+
+What remains (128 lines) is not hash order: a 96-step DECL_UID sweep on the frame moves only eight
+copy-order lines. The main-loop register family (player_id/tot_scroll in edx/ecx, about 55 lines) is
+constant across the sweep and flips to the original's choice under the diagnostic
+`-fno-guess-branch-probability`, so it is decided by estimated block frequencies. The post-loop layout
+inversions sit on 50/50 guards (GCC 4.4 does not predict comparisons with zero), and the original
+aligns the two rest loops at 4357 and 4932 that the frame leaves below the alignment threshold: the
+original's estimated profile is systematically hotter after the main loop. The source construct that
+changes the predictions is the open question. Full tables, tooling and receipts:
+`build/rootcause37/RESULTS.md` section 6 and `build/rootcause37/linefaithful_play/`. Canonical 251/2
+unchanged; no promotion.
