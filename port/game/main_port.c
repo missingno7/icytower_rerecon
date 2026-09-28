@@ -11,6 +11,7 @@
 #include "port/render/capture.h"
 #include "port/render/render.h"
 #include "port/sim/sched.h"
+#include "port/input/input.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -29,7 +30,7 @@ static const struct { const char *name; int args; } port_opts[] = {
    { "--borderless", 0 }, { "--windowed", 0 }, { "--window", 1 },
    { "--capture", 1 }, { "--capture-ms", 1 }, { "--capture-ticks", 1 },
    { "--exit-after-ms", 1 }, { "--exit-after-ticks", 1 },
-   { "--sim-trace", 1 }, { "--sim-speed", 1 },
+   { "--sim-trace", 1 }, { "--sim-speed", 1 }, { "--keys", 1 },
 };
 
 static int strip_port_args(int argc, char **argv, char **out)
@@ -87,6 +88,8 @@ int main(int argc, char **argv)
             port_sim_trace_configure(argv[i + 1]);
          else if (!strcmp(argv[i], "--sim-speed"))
             sched_set_speed(SDL_atof(argv[i + 1]));
+         else if (!strcmp(argv[i], "--keys"))
+            input_set_script(argv[i + 1]);
       }
    }
    {

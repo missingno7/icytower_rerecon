@@ -19,6 +19,8 @@ extern "C" {
 #endif
 
 void input_init(void);
+/* debug: scripted key presses "MS+CODE,MS-CODE,..." (Allegro scancodes) */
+void input_set_script(const char *spec);
 
 /* ---- keyboard, in Allegro 4.4.1 scancode space (KEY_A .. KEY_CAPSLOCK) */
 #define INPUT_KEY_MAX 128

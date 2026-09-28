@@ -158,6 +158,14 @@ void plat_pump_events(void)
    int i;
    if (!g_inited)
       return;
+   {
+      /* let handlers observe time even when no OS event arrives */
+      SDL_Event tick;
+      SDL_zero(tick);
+      tick.type = SDL_EVENT_USER;
+      for (i = 0; i < g_handler_count; i++)
+         g_handlers[i](&tick);
+   }
    while (SDL_PollEvent(&ev)) {
       switch (ev.type) {
          case SDL_EVENT_QUIT:

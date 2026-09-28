@@ -24,5 +24,7 @@ void capture_configure(int argc, char **argv);
 void capture_frame(struct SDL_Renderer *r);
 /* true once an exit condition fired (polled by the platform pump) */
 bool capture_exit_requested(void);
+/* a capture point is due: render a frame even if nothing changed */
+bool capture_pending(void);
 
 #endif

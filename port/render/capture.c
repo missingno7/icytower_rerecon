@@ -80,3 +80,17 @@ bool capture_exit_requested(void)
       return true;
    return false;
 }
+
+/* true when a capture point has passed but no frame was saved yet */
+bool capture_pending(void)
+{
+   uint64_t ms;
+   if (!g_dir[0])
+      return false;
+   ms = (plat_ticks_ns() - g_start_ns) / 1000000u;
+   if (g_ms_done < g_nms && ms >= g_ms[g_ms_done])
+      return true;
+   if (g_ticks_done < g_nticks && sched_ticks() >= g_ticks[g_ticks_done])
+      return true;
+   return false;
+}

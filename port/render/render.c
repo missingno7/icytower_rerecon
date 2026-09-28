@@ -47,6 +47,8 @@ bool render_frame_due(bool dirty)
 {
    uint64_t now = plat_ticks_ns();
    bool animating = g_cfg.modern && modern_scene_active() && g_cfg.interpolation;
+   if (capture_pending())
+      return true;
    if (!dirty && !animating)
       return false;
    if (g_cfg.max_fps > 0) {

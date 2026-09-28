@@ -21,6 +21,7 @@ struct dl_ctx {
    SDL_Rect bounds;          /* output rectangle this list may draw into */
    float alpha;              /* group opacity 0..1 */
    int masked;               /* inside a masked nested list: mask-colour fills are transparent */
+   int extend_x;             /* full-width fills/lines span the whole output (wide overlays) */
    dl_underlay_fn underlay;
    void *user;
 };

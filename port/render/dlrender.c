@@ -118,10 +118,31 @@ void dl_draw_text(dl_ctx *c, const xform *t, const FONT *f, const char *s, float
    }
 }
 
+/* full-canvas-width horizontal spans extend over the whole output */
+static int spans_width(const dl_ctx *c, int x1, int x2, int cw)
+{
+   if (x2 < x1) { int k = x1; x1 = x2; x2 = k; }
+   return c->extend_x && x1 <= 0 && x2 >= cw - 1;
+}
+
+static void wide_fill(dl_ctx *c, const xform *t, float y, float h, uint32_t rgb, float a)
+{
+   SDL_FRect r = xf_rect(t, 0, y, 1, h);
+   r.x = (float)c->bounds.x;
+   r.w = (float)c->bounds.w;
+   SDL_SetRenderDrawBlendMode(c->r, a < 1.0f ? SDL_BLENDMODE_BLEND : SDL_BLENDMODE_NONE);
+   SDL_SetRenderDrawColor(c->r, (Uint8)(rgb >> 16), (Uint8)(rgb >> 8), (Uint8)rgb, (Uint8)(a * 255.0f + 0.5f));
+   SDL_RenderFillRect(c->r, &r);
+}
+
+static int g_canvas_w = 640;
+
 static void line_op(dl_ctx *c, const xform *t, const a4_dl_op *op, float a)
 {
    int x1 = op->x1, y1 = op->y1, x2 = op->x2, y2 = op->y2;
-   if (y1 == y2) {
+   if (y1 == y2 && spans_width(c, x1, x2, g_canvas_w)) {
+      wide_fill(c, t, (float)y1, 1.0f, op->rgb, a);
+   } else if (y1 == y2) {
       if (x2 < x1) { int k = x1; x1 = x2; x2 = k; }
       fill(c, t, (float)x1, (float)y1, (float)(x2 - x1 + 1), 1.0f, op->rgb, a);
    } else if (x1 == x2) {
@@ -151,14 +172,24 @@ int dl_render(dl_ctx *c, const A4_DL *dl)
    xform t;
    if (!dl || !dl->valid)
       return 0;
+   g_canvas_w = dl->w;
    t = c->t;
    t.ox += (float)dl->shift_x * t.s;
    t.oy += (float)dl->shift_y * t.s;
    for (i = 0; i < dl->n; i++) {
       const a4_dl_op *op = &dl->ops[i];
       float a = c->alpha;
-      if (op->kind != DLOP_UNDERLAY)
-         dl_set_clip(c, &t, op->cl, op->ct, op->cr, op->cb);
+      if (op->kind != DLOP_UNDERLAY) {
+         if (c->extend_x && op->cl == 0 && op->cr >= dl->w) {
+            /* full-width clip: widen to the output for extended spans */
+            SDL_FRect f = xf_rect(&t, 0, (float)op->ct, 1, (float)(op->cb - op->ct));
+            SDL_Rect r;
+            r.x = c->bounds.x; r.w = c->bounds.w; r.y = (int)f.y; r.h = (int)f.h;
+            SDL_SetRenderClipRect(c->r, &r);
+         } else {
+            dl_set_clip(c, &t, op->cl, op->ct, op->cr, op->cb);
+         }
+      }
       switch (op->kind) {
          case DLOP_BITMAP: {
             SDL_FRect src, dst;
@@ -177,8 +208,11 @@ int dl_render(dl_ctx *c, const A4_DL *dl)
                break;
             if (op->blend == DLB_TRANS)
                a *= (float)op->alpha / 255.0f;
-            fill(c, &t, (float)op->x1, (float)op->y1, (float)(op->x2 - op->x1 + 1),
-                 (float)(op->y2 - op->y1 + 1), op->rgb, a);
+            if (spans_width(c, op->x1, op->x2, g_canvas_w) && op->cl == 0 && op->cr >= dl->w)
+               wide_fill(c, &t, (float)op->y1, (float)(op->y2 - op->y1 + 1), op->rgb, a);
+            else
+               fill(c, &t, (float)op->x1, (float)op->y1, (float)(op->x2 - op->x1 + 1),
+                    (float)(op->y2 - op->y1 + 1), op->rgb, a);
             break;
          case DLOP_LINE:
             if (op->blend == DLB_TRANS)

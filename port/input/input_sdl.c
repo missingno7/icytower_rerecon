@@ -3,6 +3,7 @@
  * gamepads (SDL gamepad API, hot-plug) and logical actions.
  */
 #include <string.h>
+#include <stdlib.h>
 #include "port/input/input.h"
 #include "port/platform/plat_internal.h"
 #include "port/render/present.h"
@@ -15,6 +16,7 @@ volatile int input_mouse_x, input_mouse_y, input_mouse_b;
 static int keybuf[KEYBUF_SIZE];
 static int keybuf_head, keybuf_tail;
 
+static void run_script(void);
 static SDL_Gamepad *g_pad;
 static input_pad_state g_pad_state;
 static SDL_Cursor *g_cursor_arrow, *g_cursor_hand;
@@ -212,6 +214,7 @@ const input_pad_state *input_pad(void)
 static void on_event(const SDL_Event *ev)
 {
    int sc, cx, cy;
+   run_script();
    switch (ev->type) {
       case SDL_EVENT_KEY_DOWN:
          sc = map_scancode(ev->key.scancode);
@@ -262,6 +265,50 @@ static void on_event(const SDL_Event *ev)
          break;
       default:
          break;
+   }
+}
+
+/* ---------------------------------------------------------------- script */
+/* --keys "MS+CODE,MS-CODE,...": press (+) / release (-) Allegro scancode
+ * CODE at MS milliseconds after start; for automated end-to-end tests. */
+#define MAX_SCRIPT 512
+static struct { uint64_t ms; int code; int down; } g_script[MAX_SCRIPT];
+static int g_script_n, g_script_pos;
+static uint64_t g_script_t0;
+
+void input_set_script(const char *spec)
+{
+   const char *p = spec;
+   g_script_t0 = SDL_GetTicksNS();
+   while (p && *p && g_script_n < MAX_SCRIPT) {
+      char *e;
+      unsigned long long ms = strtoull(p, &e, 10);
+      int down;
+      if (*e != '+' && *e != '-')
+         break;
+      down = *e == '+';
+      g_script[g_script_n].ms = ms;
+      g_script[g_script_n].down = down;
+      g_script[g_script_n].code = (int)strtol(e + 1, &e, 10);
+      g_script_n++;
+      p = *e == ',' ? e + 1 : NULL;
+   }
+}
+
+static void run_script(void)
+{
+   uint64_t ms;
+   if (g_script_pos >= g_script_n)
+      return;
+   ms = (SDL_GetTicksNS() - g_script_t0) / 1000000u;
+   while (g_script_pos < g_script_n && g_script[g_script_pos].ms <= ms) {
+      int c = g_script[g_script_pos].code;
+      if (c > 0 && c < INPUT_KEY_MAX) {
+         input_key[c] = (char)g_script[g_script_pos].down;
+         if (g_script[g_script_pos].down)
+            input_keybuf_push(c, c == 67 ? 13 : c == 75 ? ' ' : c == 59 ? 27 : 0);
+      }
+      g_script_pos++;
    }
 }
 

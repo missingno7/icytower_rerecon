@@ -654,6 +654,7 @@ bool modern_draw_frame(SDL_Renderer *r)
    c.bounds.h = H;
    c.alpha = 1.0f;
    c.underlay = underlay;
+   c.extend_x = list_has_underlay(dl) && render_get_config()->widescreen;
    if (!list_has_underlay(dl)) {
       /* menus and dialogs: the historical 4:3 design canvas, drawn natively */
       draw_menu_sides(r, dl, &c.t, W, H);
