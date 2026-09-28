@@ -207,3 +207,14 @@ colours scroll_acc first, the original player_id first. Loop-form probes confirm
 (a do-while changes 30 instructions) and a `while (done)` name-entry loop (its test is tagged on
 4792); the results loop's form is indistinguishable. No header attributes and no bypass of the
 particle-loop guard exist, so the profile difference must come from an unidentified construct.
+
+Semantic verdict (build/rootcause37/linefaithful_play/semdiff.py): the canonical play body has 47
+lines the checker cannot explain and 100 differing abstracted instructions against the oracle (real
+behaviour gaps); frame v16 has one unexplained line (a move2add 16-bit immediate form) and a 2/4
+instruction residue (operand order with inverted jump, duplicated latch jumps), everything else being
+register, slot, copy-order or layout differences. The proven redundant-guard idiom
+(`if (debug) if (debug && key[KEY_F2])` in handle_player_collision_vector_2) applied to play's guards
+lowers the masked distance to 9778 (draw-guard split + doubled name-entry wait) but never reproduces
+the original's player_id/scroll_acc colouring order and trades instruction fidelity for layout in a
+greedy pass; that family is closed. Data map: every initialized section in all 25 units is
+content-equal; BSS is behaviour-neutral.

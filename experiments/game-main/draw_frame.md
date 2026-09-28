@@ -146,3 +146,9 @@ Remaining lines: the idle-path sx reuse into the .2 test (2594/2597/2606/2609, u
 ### Investigation 37 addendum: mechanism of the idle-path sx reuse
 
 Pass dumps and two diagnostic flag controls show the original's W entry is produced by RTL gcse1 load motion, not by tree PRE: tree PRE cannot hoist the sx load without also hoisting the `_Bool` sign compare (the V6 control shows the merged `setae`/`test %cl` form the original lacks), while the same body with `-fno-tree-pre` reproduces the original's shape exactly through RTL PRE. The best body fails because gcse1's PRE phase runs while W still has a single predecessor; the range check and guard for the idle-false path are folded only by gcse1's final bypass pass, and at the tree level the idle-false `p_im` is still a PHI of the arm joins at vrp2/dom2. So the original's idle-false constant reached the range check between 084t and 140r. A 264-variant scan of top statement, arm nesting, idle form, extra `p_im = 1` placement and range-check placement finds no form that achieves this while keeping the arms exact and five resets (build/rootcause37/linefaithful/posescan_results.jsonl). The flat form remains the best line-faithful body.
+
+Semantic verdict (build/rootcause37/linefaithful_play/semdiff.py draw_frame OBJ 584): the canonical
+draw_frame has 13 unexplained lines and a 153/68 abstracted-instruction residue against the oracle;
+the line-faithful N0 body has one unexplained line (the idle-path `p_im = 1` materialisation) plus the
+known x87 compare forms of the sx reuse, everything else register, slot or layout. For a behaviourally
+faithful build use N0, not the canonical body; promotion still requires strict acceptance.
