@@ -1166,6 +1166,247 @@ static void scen_synthetic(golden_ctx *g)
    set_color_conversion(0x00ffffff);
 }
 
+/* ------------------------------------------------------------------ */
+/* image files: built-in BMP and PCX                                  */
+/* ------------------------------------------------------------------ */
+
+static void bi32(BUF *b, long v) { bbyte(b, (int)v); bbyte(b, (int)(v >> 8)); bbyte(b, (int)(v >> 16)); bbyte(b, (int)(v >> 24)); }
+
+static void write_buf(const char *path, BUF *b)
+{
+   FILE *fp = fopen(path, "wb");
+   if (fp) {
+      fwrite(b->p, 1, (size_t)b->n, fp);
+      fclose(fp);
+   }
+}
+
+/* BITMAPFILEHEADER + BITMAPINFOHEADER (40 bytes) */
+static void bmp_header(BUF *b, long w, long h, int bits, long compression, long off_bits)
+{
+   bi16(b, 0x4D42);
+   bi32(b, 0);
+   bi16(b, 0);
+   bi16(b, 0);
+   bi32(b, off_bits);
+   bi32(b, 40);
+   bi32(b, w);
+   bi32(b, h);
+   bi16(b, 1);
+   bi16(b, bits);
+   bi32(b, compression);
+   bi32(b, 0);
+   bi32(b, 0);
+   bi32(b, 0);
+   bi32(b, 0);
+   bi32(b, 0);
+}
+
+static void bmp_palette(BUF *b, int n)
+{
+   int i;
+   for (i = 0; i < n; i++) {
+      bbyte(b, (i * 40) & 0xFF);
+      bbyte(b, (i * 90 + 7) & 0xFF);
+      bbyte(b, (i * 13 + 100) & 0xFF);
+      bbyte(b, 0);
+   }
+}
+
+static void load_variants(golden_ctx *g, const char *tag, const char *path, int truecolor)
+{
+   static const int depths[4] = { 32, 8, 16, 24 };
+   static const int convs[4] = { 0x00ffffff, COLORCONV_TOTAL, COLORCONV_NONE, COLORCONV_TOTAL | COLORCONV_KEEP_TRANS };
+   char name[128];
+   int i;
+   for (i = 0; i < 4; i++) {
+      PALETTE pal;
+      BITMAP *b;
+      /* truecolor -> 8 bpp uses Allegro's optimized palette / RGB map,
+       * which the compat layer does not reproduce (documented) */
+      if (truecolor && depths[i] == 8)
+         continue;
+      memset(pal, 0, sizeof(pal));
+      set_color_depth(depths[i]);
+      set_color_conversion(convs[i]);
+      b = load_bitmap(path, i == 3 ? NULL : pal);
+      sprintf(name, "img/%s/load%d", tag, i);
+      golden_bitmap(g, name, b);
+      if (i != 3) {
+         sprintf(name, "img/%s/pal%d", tag, i);
+         golden_bytes(g, name, pal, sizeof(pal));
+      }
+      if (b)
+         destroy_bitmap(b);
+   }
+   set_color_depth(32);
+   set_color_conversion(0x00ffffff);
+}
+
+static void scen_images(golden_ctx *g)
+{
+   static unsigned char raw[200000];
+   static const int depths[5] = { 8, 15, 16, 24, 32 };
+   PALETTE pal;
+   BUF b = { NULL, 0, 0 };
+   char name[128], fname[64];
+   int i, x, y;
+   long n;
+
+   set_palette(desktop_palette);
+   for (i = 0; i < 256; i++) {
+      pal[i].r = (unsigned char)((i * 7) & 63);
+      pal[i].g = (unsigned char)((i * 3 + 5) & 63);
+      pal[i].b = (unsigned char)((255 - i) & 63);
+      pal[i].filler = 0;
+   }
+
+   /* save_bitmap -> bytes -> load_bitmap, both formats, every depth */
+   for (i = 0; i < 5; i++) {
+      int w = 9 + i * 2, h = 5 + i;
+      BITMAP *bm = create_bitmap_ex(depths[i], w, h);
+      int f;
+      for (y = 0; y < h; y++)
+         for (x = 0; x < w; x++) {
+            int v = depths[i] == 8 ? (x * 11 + y * 29) & 0xFF
+                                   : makecol_depth(depths[i], (x * 37) & 0xFF, (y * 53) & 0xFF, ((x + y) * 17) & 0xFF);
+            if (x == 3 && y == 1)
+               v = 0x3F;   /* a run breaker */
+            putpixel(bm, x, y, v);
+         }
+      for (y = 0; y < h; y++)   /* long runs for the PCX RLE */
+         if (y & 1)
+            for (x = 0; x < w; x++)
+               putpixel(bm, x, y, depths[i] == 8 ? 0xC5 : makecol_depth(depths[i], 200, 10, 10));
+      for (f = 0; f < 2; f++) {
+         const char *ext = f ? "pcx" : "bmp";
+         const char *path;
+         sprintf(fname, "img%d.%s", depths[i], ext);
+         path = tmp_path(fname);
+         sprintf(name, "img/%s%d/save", ext, depths[i]);
+         golden_int(g, name, save_bitmap(path, bm, i == 1 ? NULL : pal));
+         n = file_bytes(path, raw, sizeof(raw));
+         sprintf(name, "img/%s%d/file", ext, depths[i]);
+         golden_bytes(g, name, raw, n);
+         sprintf(name, "%s%d", ext, depths[i]);
+         load_variants(g, name, path, depths[i] != 8);
+         delete_file(path);
+      }
+      destroy_bitmap(bm);
+   }
+
+   /* hand made BMP variants */
+   /* 1 bpp, 35 wide (two 32-pixel groups per row) */
+   bmp_header(&b, 35, 3, 1, 0, 54 + 8);
+   bmp_palette(&b, 2);
+   for (i = 0; i < 3 * 8; i++)
+      bbyte(&b, (i * 73) ^ 0xA5);
+   write_buf(tmp_path("h1.bmp"), &b);
+   load_variants(g, "h1", tmp_path("h1.bmp"), 0);
+   bfree(&b);
+   /* 4 bpp, 11 wide */
+   bmp_header(&b, 11, 4, 4, 0, 54 + 64);
+   bmp_palette(&b, 16);
+   for (i = 0; i < 4 * 8; i++)
+      bbyte(&b, i * 37);
+   write_buf(tmp_path("h4.bmp"), &b);
+   load_variants(g, "h4", tmp_path("h4.bmp"), 0);
+   bfree(&b);
+   /* 8 bpp RLE8 */
+   bmp_header(&b, 10, 4, 8, 1, 54 + 1024);
+   bmp_palette(&b, 256);
+   bput(&b, "\x04\x10\x00\x03\x01\x02\x03\x00\x02\x05\x00\x00", 12);  /* run, absolute (odd), run, eol */
+   bput(&b, "\x00\x02\x02\x01\x03\x20\x00\x00", 8);                   /* delta, run, eol */
+   bput(&b, "\x0A\x33\x00\x01", 4);                                   /* run, end of picture */
+   write_buf(tmp_path("r8.bmp"), &b);
+   load_variants(g, "r8", tmp_path("r8.bmp"), 0);
+   bfree(&b);
+   /* 4 bpp RLE4 */
+   bmp_header(&b, 12, 3, 4, 2, 54 + 64);
+   bmp_palette(&b, 16);
+   bput(&b, "\x05\x12\x00\x06\x34\x56\x78\x9A\x00\x00", 10);          /* run, absolute 6, eol */
+   bput(&b, "\x07\xF0\x00\x01", 4);                                   /* run, end */
+   write_buf(tmp_path("r4.bmp"), &b);
+   load_variants(g, "r4", tmp_path("r4.bmp"), 0);
+   bfree(&b);
+   /* bitfields 565, 555 and 888 */
+   for (i = 0; i < 3; i++) {
+      static const long rmask[3] = { 0xF800, 0x7C00, 0xFF0000 };
+      static const long gmask[3] = { 0x07E0, 0x03E0, 0x00FF00 };
+      static const long bmask[3] = { 0x001F, 0x001F, 0x0000FF };
+      int bytes = i == 2 ? 4 : 2, w = 5, h = -3;   /* top-down */
+      bmp_header(&b, w, h, bytes * 8, 3, 54 + 12);
+      bi32(&b, rmask[i]);
+      bi32(&b, gmask[i]);
+      bi32(&b, bmask[i]);
+      for (y = 0; y < 3; y++) {
+         for (x = 0; x < w * bytes; x++)
+            bbyte(&b, (x * 31 + y * 97) & 0xFF);
+         for (x = (w * bytes) % 4; x && x < 4; x++)
+            bbyte(&b, 0xEE);
+      }
+      sprintf(fname, "bf%d.bmp", i);
+      write_buf(tmp_path(fname), &b);
+      sprintf(name, "bf%d", i);
+      load_variants(g, name, tmp_path(fname), 1);
+      delete_file(tmp_path(fname));
+      bfree(&b);
+   }
+   /* 16, 24 (top-down) and 32 bpp BI_RGB */
+   for (i = 0; i < 3; i++) {
+      static const int bits[3] = { 16, 24, 32 };
+      int bytes = bits[i] / 8, w = 7, h = i == 1 ? -4 : 4;
+      bmp_header(&b, w, h, bits[i], 0, 54);
+      for (y = 0; y < 4; y++) {
+         for (x = 0; x < w * bytes; x++)
+            bbyte(&b, (x * 45 + y * 23 + i) & 0xFF);
+         for (x = (w * bytes) % 4; x && x < 4; x++)
+            bbyte(&b, 0x11);
+      }
+      sprintf(fname, "rgb%d.bmp", bits[i]);
+      write_buf(tmp_path(fname), &b);
+      sprintf(name, "rgb%d", bits[i]);
+      load_variants(g, name, tmp_path(fname), 1);
+      delete_file(tmp_path(fname));
+      bfree(&b);
+   }
+   /* OS/2 header, 8 bpp */
+   bi16(&b, 0x4D42);
+   bi32(&b, 0);
+   bi32(&b, 0);
+   bi32(&b, 26 + 3 * 256);
+   bi32(&b, 12);
+   bi16(&b, 6);
+   bi16(&b, 2);
+   bi16(&b, 1);
+   bi16(&b, 8);
+   for (i = 0; i < 256; i++) {
+      bbyte(&b, i);
+      bbyte(&b, 255 - i);
+      bbyte(&b, (i * 5) & 0xFF);
+   }
+   for (i = 0; i < 16; i++)
+      bbyte(&b, i * 15);
+   write_buf(tmp_path("os2.bmp"), &b);
+   load_variants(g, "os2", tmp_path("os2.bmp"), 0);
+   bfree(&b);
+   /* not a BMP */
+   bput(&b, "XX not a bitmap at all", 22);
+   write_buf(tmp_path("bad.bmp"), &b);
+   load_variants(g, "bad", tmp_path("bad.bmp"), 0);
+   bfree(&b);
+
+   delete_file(tmp_path("h1.bmp"));
+   delete_file(tmp_path("h4.bmp"));
+   delete_file(tmp_path("r8.bmp"));
+   delete_file(tmp_path("r4.bmp"));
+   delete_file(tmp_path("os2.bmp"));
+   delete_file(tmp_path("bad.bmp"));
+
+   golden_int(g, "img/unknown_load", load_bitmap(tmp_path("x.xyz"), NULL) != NULL);
+   golden_int(g, "img/missing_load", load_bitmap(tmp_path("missing.bmp"), NULL) != NULL);
+}
+
 void scen_data(golden_ctx *g)
 {
    set_color_depth(32);
@@ -1176,4 +1417,5 @@ void scen_data(golden_ctx *g)
    scen_files(g);
    scen_datafiles(g);
    scen_synthetic(g);
+   scen_images(g);
 }
