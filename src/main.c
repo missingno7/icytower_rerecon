@@ -3072,545 +3072,337 @@ void handle_player_input(Tcontrol *control)
  * oracle's renderer phases in source: floor plane, animated character,
  * particles, rewards, advertising image, and score/status overlays. */
 void draw_frame(BITMAP *bmp)
-{
-    int x;
-    int y;
+{ int x, y;
     int p_im;
     int flip;
-    int cx;
-    int cy;
+
+    int cx, cy;
     int ls;
-    int fo;
-    int so;
-    int max_bg_id;
-    BITMAP *customFrame;
-    int oy;
-    int ox;
+
+    int fo = profile->start_floor * 3 + 17;
+    int so = profile->start_floor + 101;
+
+    frame_count++;
 
 
-    fo = profile->start_floor * 3 + 0x11;              /* 2498 */
-    so = profile->start_floor + 0x65;                  /* 2499 */
+    int max_bg_id = 2;
+    if (ply[player_id]->level > 200) max_bg_id = 3;
+    if (ply[player_id]->level > 350) max_bg_id = 4;
+    if (ply[player_id]->level > 600) max_bg_id = 5;
 
-    frame_count++;                                     /* 2501 */
 
-    if (ply[player_id]->level <= 0xc8) {                /* 2505 */
-        max_bg_id = 2;
-    } else if (ply[player_id]->level <= 0x15e) {        /* 2506 */
-        max_bg_id = 3;
-    } else {
-        max_bg_id = (ply[player_id]->level >= 0x259) + 4; /* 2507: branchless in the
-                                                             * historical binary (cmp/setge/
-                                                             * movzbl/add $0x4), not a
-                                                             * separate else-if/else pair */
-    }
+    while (map.offset / 256 > last_stripe_y) {
+        last_stripe_y++;
 
-    {
-        /* 2510: row = floor(map.offset / 256), rounding toward -inf for negative offsets
-         * (the js/lea 0xff/sar sequence is the historical bias-then-shift idiom). */
-        int row = (map.offset < 0) ? ((map.offset + 0xff) >> 8) : (map.offset >> 8);
-        int i;
 
-        if (row > last_stripe_y) {                      /* 2510 */
-            last_stripe_y++;                             /* 2511 */
+        bg_stripe_ids[4] = bg_stripe_ids[3]; bg_stripe_ids[3] = bg_stripe_ids[2]; bg_stripe_ids[2] = bg_stripe_ids[1]; bg_stripe_ids[1] = bg_stripe_ids[0];
 
-            bg_stripe_ids[4] = bg_stripe_ids[3];         /* 2514 */
-            bg_stripe_ids[3] = bg_stripe_ids[2];
-            bg_stripe_ids[2] = bg_stripe_ids[1];
-            bg_stripe_ids[1] = bg_stripe_ids[0];
 
-            /* 2523: only ONE physical `movl $0x0,bg_stripe_ids` exists (offsets 336..352),
-             * reached both by the >0x28 branch falling straight through and by the
-             * collision-detected branch's own jump (offset 372/380 both target 4093ec,
-             * the same address) -- a genuine control-flow merge, not two compiled copies,
-             * so the reset is written once and reached from both predecessors. */
-            if (new_rand() % 100 > 0x28)                  /* 2517 */
-                goto reset_stripe;
-            bg_stripe_ids[0] = new_rand() % max_bg_id;     /* 2521 */
-            if (bg_stripe_ids[0] != bg_stripe_ids[1] &&    /* 2522 */
-                bg_stripe_ids[0] != bg_stripe_ids[2])
-                goto skip_reset;
-        reset_stripe:
-            bg_stripe_ids[0] = 0;                          /* 2523 */
-        skip_reset:
-            ;
-        }
-
-        for (i = 0; i != 4; i++) {                        /* 2529 */
-            BITMAP *stripe = data[bg_stripe_ids[i + 1] + 1].dat; /* 2530 */
-            blit(stripe, bmp, 0, 0, 0x25,
-                 i * 0x80 + (map.offset % 0x100) / 2,
-                 stripe->w, stripe->h);
-        }
-    }
-
-    if (hurry_y + 0x63 <= 0x242 && options.flash != 2) {  /* 2541 */
-        BITMAP *hspr = data[67].dat;   /* ? historical index 67 (0x4dd23c + 0x430) not named by
-                                         * function_data_refs beyond the generic "data" table */
-        draw_sprite(bmp, hspr, 320 - hspr->w / 2, hurry_y); /* 2542 */
-    }
-
-    {
-        /* 2547: real loop, evidenced by the back-edge test `cmpl $0x1e0,-0x178(%ebp)` (cx)
-         * at offset 1580 sitting AFTER the sign-text block (main.c:2562..2575) but tagged
-         * to line 2547 -- a rotated for-loop whose test/increment sit at the bottom. `esi`
-         * (the per-row Tfloor pointer) is decremented by sizeof(Tfloor)==0x18 each pass
-         * (offset 1570 `sub $0x18,%esi`) in lockstep with cx += 0x10 (offset 1573), for
-         * 0x1e0/0x10 == 30 rows. Field offsets (empty=0, start_tile=4, end_tile=8, level=12,
-         * sign=16, tiles=20) match Tfloor exactly for BOTH the floor body below (2548..2560)
-         * and the sign body carried into D2 (2562..2575): they are the SAME loop over the
-         * SAME `room` pointer, so this loop opens here and its closing brace is in D2.c. */
-        Tfloor *room = &map.room[31]; /* ? starting row; map.room[32], matches the historical sign scan bound */
-
-        for (cx = 0; cx != 0x1e0; cx += 0x10) {      /* 2547 */
-            if (!room->empty) {                       /* 2548 */
-                int f;   /* DWARF: block-scoped int at -0x180(ebp); no separate `rowy`/`tile`
-                          * names are declared by the historical DWARF for this block, so the
-                          * tile index reuses this one slot and the row-y term is recomputed
-                          * inline (cx + (map.offset & 0xf) - 6) at each use, 2552. Each of the
-                          * three draws (2552/2555/2558) is ~20 bytes short of its historical
-                          * count for the same reason as 2606: the line table charges each with
-                          * a `dec/or $0xfffffff0/inc` abs()-style tail duplicated far away from
-                          * its local computation (2552's local copy at 566..623 plus a second
-                          * copy at 2212..2217; 2555's at 740..780 plus 1964..1969; 2558's at
-                          * 826..876 plus 2224..2229) -- one statement, two compiled copies from
-                          * -O2 block layout, not a missing branch. */
-
-                ls = fo + room->tiles * 3;   /* 2549 */
-                if (ls > 0x2c) {
-                    ls = 0x2c;
-                }
-                if (room->level > 0x1387) {  /* 2550 */
-                    ls += 3;
-                }
-
-                f = room->start_tile;     /* 2551 */
-
-                /* left edge tile */
-                cy = f * 16 - 5;          /* 2552, stored at -0x174(%ebp) */
-                x = cy;                      /* ? DWARF tracks a separate `x` over this same span; mirrored here */
-                draw_sprite(bmp, data[ls].dat, x, cx + (map.offset & 0xf) - 6);
-
-                f++;                                  /* 2553 */
-                for (; f < room->end_tile; f++) {      /* 2554 */
-                    cy = f * 16;                        /* 2555 */
-                    x = cy;
-                    draw_sprite(bmp, data[ls + 1].dat, x, cx + (map.offset & 0xf) - 6); /* 2555 */
-                }
-
-                cy = f * 16;                            /* 2558 */
-                x = cy;
-                draw_sprite(bmp, data[ls + 2].dat, x, cx + (map.offset & 0xf) - 6);     /* 2558 */
-
-                if (debug && !key[KEY_F2]) {  /* 2560 */
-                    textprintf_ex(bmp, font, 0x208, cx + (map.offset & 0xf), 15, -1, "%d",
-                                  (room->level - 1) / 10);
-                }
-            }
-
-            /* lines 2562..2575 continue this same per-row loop (sign text) in D2.c;
-             * loop closes and `room` is decremented at the end of D2.c's chunk. */
-    /* still inside the D1 per-row loop for 2562..2575, then combo text / rewards for 2589..2651 */
-            if (room->sign) {                  /* 2562, same `room` row as the floor draw above */
-                int s;
-                int sy;
-                int sw;
-                int c1;
-                int c2;
-
-                s = so + room->tiles;          /* 2563 */
-                if (s > 0x6e) {
-                    s = 0x6e;
-                }
-                if (room->level > 0x1387) {    /* 2564 */
-                    s++;
-                }
-                sy = cx + (map.offset & 0xf) + 10;  /* 2565 */
-                sw = ((BITMAP *)data[s].dat)->w;     /* 2566 */
-                cy = room->start_tile + (room->end_tile - room->start_tile) / 2; /* 2567 */
-                cy *= 16;
-                draw_sprite(bmp, data[s].dat, cy, sy);
-                c1 = makecol(255, 255, 255);   /* 2569 */
-                c2 = makecol(55, 55, 55);      /* 2570 */
-                cy += sw / 2;                  /* 2571 */
-                /* shadowed stripe-number text: four gray offsets then one white on top */
-                textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 7, c2, -1, "%d", room->sign); /* 2571 */
-                textprintf_centre_ex(bmp, data[54].dat, cy + 2, sy + 6, c2, -1, "%d", room->sign); /* 2572 */
-                textprintf_centre_ex(bmp, data[54].dat, cy,     sy + 6, c2, -1, "%d", room->sign); /* 2573 */
-                textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 5, c2, -1, "%d", room->sign); /* 2574 */
-                textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 6, c1, -1, "%d", room->sign); /* 2575 */
-            }
-
-            room--;                            /* offset 1570 `sub $0x18,%esi`, sizeof(Tfloor) */
-        }   /* closes the for (cx = 0; ...) loop opened in D1.c (2547) */
-    }       /* closes the `{ Tfloor *room = ...; ... }` scope opened in D1.c */
-
-    for (fo = 0; fo < 512; fo++) {          /* 2580: loop index reuses fo; not otherwise evidenced as the star-loop counter */
-        if (stars[fo].intensity) {           /* 2581 */
-            draw_sprite(swap_screen, data[stars[fo].color + 0x75].dat, fixtoi(stars[fo].x), fixtoi(stars[fo].y));  /* 2582 */
-        }
-    }
-
-    /* 2589: status==0 branches to a separate narrow-speed check at original offset 2256.
-     * That path reaches the edge sprite directly for -0.02<sx<0.02, or reaches the
-     * ordinary p_im=1 speed/frame route outside that band. Other statuses select
-     * their own pose bases before the 2594 range test. */
-    /* 2590/2591/2595/2597 all show the same shape as 2606's gap: the line table charges each of
-     * these comparisons far more than one `fldl/fucompp/fnstsw/test` sequence costs (2590: 42 vs
-     * our 9; 2591 has its own separate -3.0/6/7 arm so is not the same statement), because -O2
-     * duplicates the fcompp+branch sequence at every predecessor edge that reaches it (status==3's
-     * arm at offsets 1819..1852 plus a second copy at 3356..3365; 2595's inner-band test appears
-     * at 2561..2608 AND again at 3323..3346; 2597's edge==0/-0.2 test appears at 1869..1924,
-     * 2308..2315, 2608..2615 AND 3365..3391) -- one source comparison, several compiled copies from
-     * jump-threading. These duplicated instruction fragments do not by themselves prove
-     * extra source branches; the remaining function difference still needs investigation. */
-    if (ply[player_id]->status) {                       /* 2589 */
-        if (ply[player_id]->status == 3) {                /* 2590 */
-            if (ply[player_id]->sy > 3.0)              /* 2590: fucompp/fnstsw compare direction inferred, not asserted */
-                p_im = 7;
-            else
-                p_im = 6;                                   /* offset 1852's own `mov $0x6,%esi` */
-        }
-        else if (ply[player_id]->status == 2) {           /* 2591 */
-            if (ply[player_id]->sy > 3.0)               /* 2591 */
-                p_im = 7;
-            else
-                p_im = 6;                                   /* offset 2556's own `mov $0x6,%esi` */
-        }
-        else if (ply[player_id]->status == 1) {            /* 2592 */
-            if (ply[player_id]->sy < -3.0)               /* 2592 */
-                p_im = 5;
-            else
-                p_im = 6;
-        }
-    } else {
-        if (ply[player_id]->sx >= 0.0) {
-            if (ply[player_id]->sx < 0.02) {
-                ply[player_id]->frame = 0;
-                customFrame = custom.frame[0];
-                oy = 1 - customFrame->h;
-                goto edge_sprite;
-            }
-        } else if (ply[player_id]->sx > -0.02) {
-            ply[player_id]->frame = 0;
-            customFrame = custom.frame[0];
-            oy = 1 - customFrame->h;
-            goto edge_sprite;
-        }
-        goto p_im_one_path;
-    }
-    /* 2594: the status-zero route bypasses this pose-range check. */
-    if ((unsigned)(p_im - 5) <= 2) {          /* 2594: range test on p_im */
-        if (ply[player_id]->sx < 0.01 && ply[player_id]->sx > -0.01)
-            p_im = 8;                        /* 2595: strict band includes zero */
-    }
-
-    if (p_im != 1) {
-        ply[player_id]->frame = 0;
-    } else {
-p_im_one_path:
-        if (ply[player_id]->sx < 0.2 && ply[player_id]->sx > -0.2)
-            ply[player_id]->frame = 0;
-        if (ply[player_id]->frame > 3)
-            ply[player_id]->frame = 0;
-        p_im = 1;
-    }
-
-    /* 2605: no comparison precedes the custom.frame[0] loads at 2315 and 2615,
-     * so the earlier null-guard guess is dropped. */
-    /* 2606: original `1 - custom.frame[0]->h` fragments appear at offsets 1924,
-     * 2321/2621, 3391, and 6051. The current source emits a different layout;
-     * attribution of the remaining deficit to compiler duplication alone is unproved. */
-    customFrame = custom.frame[0];                                  /* 2605: default for edge==0 */
-    oy = 1 - customFrame->h;                                        /* 2606 */
-
-    /* 2609: offset 2631's `test %esi,%esi; je` enters the edge-sprite path at
-     * 2329 when p_im==0. Edge sprite calls jump to 2819, after the ordinary
-     * rotate/frame draw. The earlier candidate inverted this condition and
-     * drew through both paths. */
-    if (!p_im) {                                         /* 2609 */
-edge_sprite:
-        if (ply[player_id]->edge) {                      /* 2611 */
-            customFrame = (logic_count & 8) ? custom.frame[13] : custom.frame[14]; /* 2612/2615 */
-            oy = (int)ply[player_id]->y + oy;           /* 2624 */
-            if (ply[player_id]->edge == 2) {            /* 2617 */
-                ox = (int)ply[player_id]->x - customFrame->w + 0xb;
-                draw_sprite_h_flip(bmp, customFrame, ox, oy);
-            } else {
-                ox = (int)ply[player_id]->x - 0xb;
-                draw_sprite(bmp, customFrame, ox, oy);
-            }
-        }
-        /* Only edge==0 enters this block at original offset 3115. Both edge==1
-         * and edge==2 sprite calls jump to offset 2819 afterward. */
+        if (new_rand() % 100 > 40)
+            bg_stripe_ids[0] = 0;
         else {
-            if (map.offset > 0xc8 && ply[player_id]->y > 400.0)
-                customFrame = custom.frame[11];         /* 2629 */
-            else if (logic_count <= 0xb)
-                customFrame = custom.frame[9];          /* 2630 */
-            else if (logic_count > 0x18 && logic_count <= 0x24)
-                customFrame = custom.frame[10];         /* 2631/2632 */
-            ox = -(customFrame->w / 2);                 /* 2636 */
-            oy = (int)ply[player_id]->y + oy;
-            ox = (int)ply[player_id]->x + ox;
-            if (ply[player_id]->sx == 0.0)             /* 2638 */
-                draw_sprite(bmp, customFrame, ox, oy);
+
+            bg_stripe_ids[0] = new_rand() % max_bg_id;
+            if (bg_stripe_ids[0] == bg_stripe_ids[1] || bg_stripe_ids[0] == bg_stripe_ids[2])
+                bg_stripe_ids[0] = 0;
+        }
+    }
+
+
+
+    for (ls = -1; ls < 4; ls++)
+        blit(data[bg_stripe_ids[ls + 1] + 1].dat, bmp, 0, 0, 37, ls * 128 + (map.offset % 256) / 2, ((BITMAP *)data[bg_stripe_ids[ls + 1] + 1].dat)->w, ((BITMAP *)data[bg_stripe_ids[ls + 1] + 1].dat)->h);
+
+
+
+
+
+
+
+
+
+
+    if (hurry_y > -100 && hurry_y < 480 && options.flash != 2)
+        draw_sprite(bmp, data[67].dat, 320 - ((BITMAP *)data[67].dat)->w / 2, hurry_y);
+
+
+
+
+    for (y = 31; y >= 0; y--) { cx = 464 - y * 16;
+        if (!map.room[y].empty) {
+            int f = fo + map.room[y].tiles * 3; if (f > 44) f = 44;
+            if (map.room[y].level > 4999) f += 3;
+            x = map.room[y].start_tile;
+            draw_sprite(bmp, data[f].dat, x * 16 - 5, cx + (map.offset % 16) - 6);
+            x++;
+            while (x < map.room[y].end_tile) {
+                draw_sprite(bmp, data[f + 1].dat, x * 16, cx + (map.offset % 16) - 6);
+                x++;
+            }
+            draw_sprite(bmp, data[f + 2].dat, x * 16, cx + (map.offset % 16) - 6);
+
+            if (debug && key[KEY_F2]) textprintf_ex(bmp, font, 520, cx + (map.offset % 16), 15, -1, "%d", (map.room[y].level - 1) / 5);
+        }
+        if (map.room[y].sign) {
+            int s = so + map.room[y].tiles; if (s > 110) s = 110;
+            if (map.room[y].level > 4999) s++;
+            int sy = cx + (map.offset % 16) + 10;
+            int sw = ((BITMAP *)data[s].dat)->w;
+            cy = (map.room[y].start_tile + (map.room[y].end_tile - map.room[y].start_tile) / 2) * 16;
+            draw_sprite(bmp, data[s].dat, cy, sy);
+            int c1 = makecol(255, 255, 255);
+            int c2 = makecol(55, 55, 55);
+            cy += sw / 2; textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 7, c2, -1, "%d", map.room[y].sign);
+            textprintf_centre_ex(bmp, data[54].dat, cy + 2, sy + 6, c2, -1, "%d", map.room[y].sign);
+            textprintf_centre_ex(bmp, data[54].dat, cy, sy + 6, c2, -1, "%d", map.room[y].sign);
+            textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 5, c2, -1, "%d", map.room[y].sign);
+            textprintf_centre_ex(bmp, data[54].dat, cy + 1, sy + 6, c1, -1, "%d", map.room[y].sign);
+        }
+    }
+
+
+    for (fo = 0; fo < 512; fo++)
+        if (stars[fo].intensity)
+            draw_sprite(swap_screen, data[stars[fo].color + 117].dat, fixtoi(stars[fo].x), fixtoi(stars[fo].y));
+
+
+
+
+
+
+    p_im = 6; if (!ply[player_id]->status) p_im = 1;
+    if (ply[player_id]->status == 3 && ply[player_id]->sy > 3.0) p_im = 7;
+    if (ply[player_id]->status == 2 && ply[player_id]->sy > 3.0) p_im = 7;
+    if (ply[player_id]->status == 1 && ply[player_id]->sy < -3.0) p_im = 5;
+
+if (!ply[player_id]->status) if (!ply[player_id]->status) if (!ply[player_id]->status) { if (ABS(ply[player_id]->sx) < 0.02) p_im = 0; }
+    if (p_im >= 5 && p_im <= 7 && ABS(ply[player_id]->sx) < 0.01) p_im = 8;
+
+    if (p_im != 1 || ABS(ply[player_id]->sx) < 0.2) ply[player_id]->frame = 0;
+    else
+    if (ply[player_id]->frame > 3) ply[player_id]->frame = 0;
+
+
+
+
+
+    BITMAP *customFrame = custom.frame[0];
+    int oy = 1 - customFrame->h;
+    int ox = 0;
+
+    if (!p_im) {
+
+        if (ply[player_id]->edge) {
+            if (logic_count & 8) p_im = 13; else p_im = 14;
+
+
+            customFrame = custom.frame[p_im];
+
+            if (ply[player_id]->edge == 2)
+                draw_sprite_h_flip(bmp, customFrame, (int)ply[player_id]->x - customFrame->w + 11, (int)ply[player_id]->y + oy);
+
+
+
+
             else
-                draw_sprite_h_flip(bmp, customFrame, ox, oy);
+                draw_sprite(bmp, customFrame, (int)ply[player_id]->x - 11, (int)ply[player_id]->y + oy);
         }
-    } else {
-        flip = ply[player_id]->rotate;                  /* 2643 */
-        if (flip) {
-        customFrame = custom.frame[12];                 /* 2644: bypasses the p_im+frame index entirely */
-        rotate_sprite(bmp, customFrame, (int)ply[player_id]->x, (int)ply[player_id]->y,
-                       ply[player_id]->angle);            /* draw.inl:345, offset 6639..6852;
-                                                             x/y args not fully traced -- the 200-byte
-                                                             inline body wasn't walked past its w/h loads */
+        else {
+
+
+            if (map.offset > 200 && ply[player_id]->y > 400.0) customFrame = custom.frame[11];
+            else if (logic_count <= 11) if (logic_count <= 11) customFrame = custom.frame[9];
+            else if (logic_count > 24)
+                if (logic_count <= 36) customFrame = custom.frame[10];
+
+
+
+            ox = -(customFrame->w / 2);
+
+            if (ply[player_id]->sx > 0.0) draw_sprite(bmp, customFrame, (int)ply[player_id]->x + ox, (int)ply[player_id]->y + oy); else draw_sprite_h_flip(bmp, customFrame, (int)ply[player_id]->x + ox, (int)ply[player_id]->y + oy);
+        }
+    }
+    else {
+
+        if (ply[player_id]->rotate) {
+            customFrame = custom.frame[12]; cx = customFrame->w / 2;
+            rotate_sprite(bmp, customFrame, (int)ply[player_id]->x - cx, (int)ply[player_id]->y - 8 - custom.frame[0]->h, ply[player_id]->angle);
+
+
         } else {
-        customFrame = custom.frame[p_im + ply[player_id]->frame];   /* 2649/2650: offset 2663 `add 0x3c(%edx),%esi`
-                                                            * adds ply->frame onto the still-live p_im (esi,
-                                                            * location-list range 2561..2666 covers this add),
-                                                            * then offset 2666 indexes custom.frame[] with it --
-                                                            * p_im is not dead, it is the pose base index itself,
-                                                            * so the 2594 range test that keeps it in [5,8] guards
-                                                            * a real array bound, not a provably-redundant compare */
-        ox = -(customFrame->w / 2);
-        /* 2651: fldl 0x10(%edx)/fldz/fucompp guards the draw, then the fistpl-truncated y and x
-         * are added onto the running oy/ox and the draw call issued -- offsets 2686..2786, all one
-         * historical source line per function_lines --source-view. */
-        /* 2651: sx!=0.0 arm (jne target 0x40b189 = offset 7917) reuses this same
-         * ox/oy computation (ecx/edi carry the untruncated oy/ox bases through
-         * unchanged, edx stays &ply[player_id] for both the x/y loads and, after
-         * the vtable reload, esi stays customFrame) and only swaps the call from
-         * *0x44(vtable) (draw_sprite) to *0x50(vtable) (draw_sprite_h_flip,
-         * offset 7917..8024), rejoining the same 409d9f continuation either way. */
-        oy = (int)ply[player_id]->y + oy;            /* 2651 */
-        ox = (int)ply[player_id]->x + ox;            /* 2651 */
-        if (ply[player_id]->sx == 0)                  /* 2651 */
-            draw_sprite(bmp, customFrame, ox, oy);       /* 2651, draw.inl:238 */
-        else
-            draw_sprite_h_flip(bmp, customFrame, ox, oy);  /* 2651, draw.inl:280, offset 7917..8024 */
+            customFrame = custom.frame[p_im + ply[player_id]->frame];
+            ox = -(customFrame->w / 2);
+            if (ply[player_id]->sx > 0.0) draw_sprite(bmp, customFrame, (int)ply[player_id]->x + ox, (int)ply[player_id]->y + oy); else draw_sprite_h_flip(bmp, customFrame, (int)ply[player_id]->x + ox, (int)ply[player_id]->y + oy);
         }
     }
 
 
-    /* lines 2652..2697: no main.c line-table rows in this offset range (the
-     * instructions here -- draw.inl:238/280 inline draw_sprite/draw_sprite_h_flip
-     * calls plus reused fragments of main.c:2560/2590-2606/2629-2638 -- are the
-     * last unrolled iteration of the scroller/background-layer loop whose source
-     * text belongs to D1/D2's declared ranges, not D3's; nothing to add here. */
 
-    /* lines 2698..2699: the scrolling side strips, reconstructed from offsets 2786..3105.
-     * The loop base in %esi runs -124, 0, 124, 248, 372 and exits on `cmp $0x1f0` (496, line
-     * 2698's `cmp`/`je` test, offsets 2970..2982) with a step of 0x7c (124); the second half's
-     * tail jumps back to the first half's entry, so the two physically duplicated halves are one
-     * loop body cross-jumped by -O2. Inside it, the `idiv $0x54` REMAINDER of map.offset is
-     * multiplied by the double 1.476 at 0x4d6d18 and truncated, giving the scroll offset added to
-     * the base (line 2699's own bytes: the divisor setup at 2824..2836 plus the idiv/float-mult/
-     * data[100] lookup at 2982..3063 -- the mirror computation for the other half is credited by
-     * the line table to the inlined draw.inl:280 body instead, an artifact of the cross-jump, not
-     * a separate main.c statement). The sprite is data[100].dat and the two constant arguments in
-     * the third slot (x) are 0x235 (565) and 0xffffffc7 (-57), so the strips are vertical, at the
-     * right and left screen edges, sharing one y per iteration. Resolved by side-by-side reading
-     * of offsets 2786..3110 (aligned_view sbs) against the ORIGINAL's own GFX_VTABLE layout, read
-     * from its DWARF rather than guessed: 0x44 draw_sprite, 0x48 draw_256_sprite, 0x4c
-     * draw_sprite_v_flip, 0x50 draw_sprite_h_flip, 0x54 draw_sprite_vh_flip. So the call reached
-     * with x=0x235 uses 0x44 and 0x48, which is the depth check inside the plain draw_sprite
-     * inline (draw.inl:238), and the call reached with x=0xffffffc7 uses 0x50, which is
-     * draw_sprite_h_flip: the left strip is the right strip mirrored horizontally. An earlier
-     * reading of this block was one vtable slot out and used the vertical flips. */
-    for (cy = -124; cy != 496; cy += 124) {                                    /* 2698 */
-        cx = cy + (int)((map.offset % 84) * 1.476);                             /* 2699 */
-        draw_sprite(bmp, data[100].dat, 565, cx);                                /* 2699 */
-        draw_sprite_h_flip(bmp, data[100].dat, -57, cx);                        /* 2699 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    for (ls = -1; ls < 4; ls++) {
+        draw_sprite(bmp, data[100].dat, 565, ls * 124 + (int)((map.offset % 84) * 1.476)); draw_sprite_h_flip(bmp, data[100].dat, -57, ls * 124 + (int)((map.offset % 84) * 1.476));
     }
 
-    draw_sprite(bmp, data[16].dat, 22, 100);          /* 2705 */
-    /* Machine evidence (offsets 3640..3806 vs 5823..5968, --report comparison.json):
-     * the in_combo branch's own tail (after its own blit+draw_sprite) jumps directly
-     * into offset 3744, which is INSIDE the reward_time branch's argument setup for
-     * textprintf_centre_ex, skipping reward_time's own test (3663) and its own
-     * draw_sprite (3677) entirely. A live combo can therefore never also run the
-     * reward_time body in the same frame, which is only reachable if the two `if`s
-     * are one if/else-if chain, not two independent statements. */
-    if (ply[player_id]->in_combo) {                    /* 2706 */
-        blit(data[15].dat, bmp, 0, 100 - ply[player_id]->in_combo, 33,   /* 2707 */
-             219 - ply[player_id]->in_combo, 16, ply[player_id]->in_combo);
-        draw_sprite(bmp, data[14].dat, -8, 210);         /* 2708 */
-        textprintf_centre_ex(bmp, data[50].dat, 42, 210, -1, -1, "%d",   /* 2709 */
-                              ply[player_id]->acc_level);
-    } else if (reward_time) {                            /* 2711 */
-        draw_sprite(bmp, data[14].dat, -8, 210);           /* 2712 */
-        textprintf_centre_ex(bmp, data[50].dat, 42, 210, -1, -1, "%d",     /* 2713 */
-                              ply[player_id]->latest_combo);
+
+
+
+    draw_sprite(bmp, data[16].dat, 22, 100);
+    if (ply[player_id]->in_combo) {
+        blit(data[15].dat, bmp, 0, 100 - ply[player_id]->in_combo, 33, 219 - ply[player_id]->in_combo, 16, ply[player_id]->in_combo);
+        draw_sprite(bmp, data[14].dat, -8, 210);
+        textprintf_centre_ex(bmp, data[50].dat, 42, 210, -1, -1, "%d", ply[player_id]->acc_level);
+    }
+    else if (reward_time) if (reward_time) if (reward_time) {
+        draw_sprite(bmp, data[14].dat, -8, 210);
+        textprintf_centre_ex(bmp, data[50].dat, 42, 210, -1, -1, "%d", ply[player_id]->latest_combo);
     }
 
-    if (hurry_y < 251 || hurry_y > 479) {                 /* 2717 */
-        x = 6;
-        y = 10;
-        cx = 0;
-        cy = 0;
-    } else {
-        x = logic_count % 3 + 5;
-        y = (logic_count + 1) % 3 + 8;
-        cx = logic_count % 3 - 1;
-        cy = (logic_count + 1) % 3 - 1;
-    }
-    draw_sprite(bmp, data[12].dat, x, y);                  /* 2718 */
 
-    if (hurry_y >= 201 && hurry_y <= 479) {                /* 2719 */
-        cx = (logic_count + 2) % 3 - 1;
-        cy = (logic_count + 3) % 3 - 1;
-    }
-    rotate_sprite(bmp, data[13].dat, cx + 34, cy + 28,      /* 2720 */
-                  clock_angle ? ftofix((clock_angle % 1500) * 0.1706666) : 0);
+    if (hurry_y < 251 || hurry_y > 479) { cx = 0; cy = 0; } else { cx = logic_count % 3 - 1; cy = (logic_count + 1) % 3 - 1; }
+    draw_sprite(bmp, data[12].dat, cx + 6, cy + 10);
+    if (hurry_y >= 201 && hurry_y <= 479) { cx = (logic_count + 2) % 3 - 1; cy = (logic_count + 3) % 3 - 1; }
+    rotate_sprite(bmp, data[13].dat, cx + 34, cy + 28, clock_angle ? ftofix((clock_angle % 1500) * 0.1706666) : 0);
+    if (reward_time)
+        draw_reward(swap_screen);
 
-    if (reward_time) {                                      /* 2721 */
-        draw_reward(swap_screen);                            /* 2722 */
-    }
 
-    textprintf_ex(bmp, data[52].dat, 8, 440, -1, -1, "score: %d",   /* 2739 */
-                  ply[player_id]->level * 10 + ply[player_id]->score);
 
-    if (!recording) {                                        /* 2742 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+    textprintf_ex(bmp, data[52].dat, 8, 440, -1, -1, "score: %d", ply[player_id]->level * 10 + ply[player_id]->score);
+
+
+    if (!recording) {
         char myBuf[256];
+        int myPos = 0;
 
-        if (frame_count & 8) {                                /* 2746 */
-            strcpy(myBuf, "REPLAY");                            /* 2747 */
-            ls = 630 - text_length(data[53].dat, myBuf);         /* 2748 */
-            textprintf_ex(bmp, data[53].dat, ls + 1, 5, makecol(0, 0, 0), -1, "REPLAY");        /* 2749 */
-            textprintf_ex(bmp, data[53].dat, ls, 4, makecol(255, 255, 255), -1, "REPLAY");       /* 2750 */
+        if (frame_count & 8) {
+            strcpy(myBuf, "REPLAY");
+            myPos = 630 - text_length(data[53].dat, myBuf);
+            textprintf_ex(bmp, data[53].dat, myPos + 1, 5, makecol(0, 0, 0), -1, "REPLAY");
+            textprintf_ex(bmp, data[53].dat, myPos, 4, makecol(255, 255, 255), -1, "REPLAY");
         }
 
-        if (is_playing_custom_game) {                          /* 2754 */
-            sprintf(myBuf, "%s Floors", floor_size_selection.caption[demo->floor_size]);  /* 2755 */
-            cx = 630 - text_length(data[53].dat, myBuf);          /* 2756 */
-            textout_ex(bmp, data[53].dat, myBuf, cx + 1, 16, makecol(0, 0, 0), -1);          /* 2757 */
-            textout_ex(bmp, data[53].dat, myBuf, cx, 15, makecol(255, 255, 255), -1);         /* 2758 */
 
-            sprintf(myBuf, "%s Speed", scroll_speed_selection.caption[demo->start_speed]);  /* 2760 */
-            cx = 630 - text_length(data[53].dat, myBuf);           /* 2761 */
-            textout_ex(bmp, data[53].dat, myBuf, cx + 1, 26, makecol(0, 0, 0), -1);           /* 2762 */
-            textout_ex(bmp, data[53].dat, myBuf, cx, 25, makecol(255, 255, 255), -1);          /* 2763 */
+        if (is_playing_custom_game) {
+            sprintf(myBuf, "%s Floors", floor_size_selection.caption[demo->floor_size]);
+            cx = 630 - text_length(data[53].dat, myBuf);
+            textout_ex(bmp, data[53].dat, myBuf, cx + 1, 16, makecol(0, 0, 0), -1);
+            textout_ex(bmp, data[53].dat, myBuf, cx, 15, makecol(255, 255, 255), -1);
 
-            strcpy(myBuf, gravity_selection.caption[demo->gravity]);   /* 2765 */
-            cx = 630 - text_length(data[53].dat, myBuf);              /* 2766 */
-            textout_ex(bmp, data[53].dat, myBuf, cx + 1, 36, makecol(0, 0, 0), -1);            /* 2767 */
-            textout_ex(bmp, data[53].dat, myBuf, cx, 35, makecol(255, 255, 255), -1);           /* 2768 */
+            sprintf(myBuf, "%s Speed", scroll_speed_selection.caption[demo->start_speed]);
+            cx = 630 - text_length(data[53].dat, myBuf);
+            textout_ex(bmp, data[53].dat, myBuf, cx + 1, 26, makecol(0, 0, 0), -1);
+            textout_ex(bmp, data[53].dat, myBuf, cx, 25, makecol(255, 255, 255), -1);
+
+            strcpy(myBuf, gravity_selection.caption[demo->gravity]);
+            myPos = 630 - text_length(data[53].dat, myBuf);
+            textout_ex(bmp, data[53].dat, myBuf, myPos + 1, 36, makecol(0, 0, 0), -1);
+            textout_ex(bmp, data[53].dat, myBuf, myPos, 35, makecol(255, 255, 255), -1);
         }
-        /* DWARF lexical block 124048 (myBuf/myPos/vcr/len/scrollerText) has PC ranges
-         * covering both this REPLAY/custom-game text (main.c:2742..2768) and D4's
-         * scroller/controller-icon code (main.c up to ~2803, ending right before the
-         * unconditional debug F2 overlay): they are one shared `if (!recording) { }`
-         * block, not two separate blocks. This region intentionally leaves that
-         * block open; D4 declares myPos/len/vcr/scrollerText as siblings of myBuf
-         * and closes the brace itself. */
 
-    /* Continues D3's `if (!recording) { ... }` block (DWARF lexical block 124048
-     * covers myBuf through here, up to and including the rect() below, as one
-     * shared block, not a nested one); the brace is closed just before the
-     * unconditional debug F2 overlay. */
-        int myPos;
-        int len;
-        BITMAP *vcr;
+
+
+        BITMAP *vcr = data[127].dat;
+        myPos = rec_pos; int len = demo->size;
+
+        x = 635 - vcr->w;
+        y = 475 - vcr->h;
+        draw_sprite(bmp, vcr, x, y);
+        if (!ply[player_id]->dead) {
+            if (is_left(&ctrl)) draw_sprite(bmp, data[128].dat, x + 97, y + 5);
+            if (is_fire(&ctrl)) draw_sprite(bmp, data[130].dat, x + 107, y + 5);
+            if (is_right(&ctrl)) draw_sprite(bmp, data[129].dat, x + 117, y + 5);
+        }
+        cx = y + 10;
+        cy = x + 10; set_clip_rect(bmp, cy, 0, 623, 479);
         char scrollerText[70];
+        sprintf(scrollerText, "%s%s%s", demo->name, demo->comment[0] ? " - " : "", !demo->comment[0] ? "" : demo->comment);
+        textout_ex(bmp, data[53].dat, demo->name, x + 12 - scroll_count / 2, cx + 4, makecol(150, 150, 160), -1);
+        textout_ex(bmp, data[53].dat, demo->name, x + 13 - scroll_count / 2, cx + 4, makecol(200, 200, 210), -1);
+        if (demo->comment[0]) {
+            textout_ex(bmp, data[53].dat, " - ", x + 12 - scroll_count / 2 + text_length(data[53].dat, demo->name), cx + 4, makecol(200, 200, 210), -1);
+            textout_ex(bmp, data[53].dat, demo->comment, x + 30 - scroll_count / 2 + text_length(data[53].dat, demo->name), cx + 4, makecol(200, 200, 210), -1);
+        }
+        set_clip_rect(bmp, 0, 0, 639, 479);
 
-        vcr = data[127].dat;                            /* 2773 */
-        myPos = rec_pos;                                /* 2774 */
-        len = demo->size;                               /* 2774 */
-        ox = 0x27b - vcr->w;                             /* 2776 */
-        y = 0x1db - vcr->h; /* 2777: DWARF: `y`'s slot (reg edi) is live 4279..4341, exactly this
-                              * assignment through the dead-check below; the D1-owned `x`
-                              * local is NOT live over the matching esi computation here
-                              * (its ranges stop at 2234), so that esi temp stays `ox`. */
-        draw_sprite(bmp, vcr, ox, y); /* offsets 4282..4315, draw.inl:238 -- the only main.c:2778
-                                        * candidate in this range; args are the ox/y just set. */
-        if (!ply[player_id]->dead) {                     /* 2779 */
-            /* `y` stays live (edi) through 7594..7837 for these three: is_left/is_fire/is_right
-             * each build `y + 5` directly in a register (ecx) while the x-argument is spilled
-             * through the `cx` stack slot (-0x178) only as a call-argument temporary. */
-            if (is_left(&ctrl))                          /* 2780 */
-                draw_sprite(bmp, data[128].dat, ox + 0x61, y + 5);
-            if (is_fire(&ctrl))                           /* 2781 */
-                draw_sprite(bmp, data[130].dat, ox + 0x6b, y + 5);
-            if (is_right(&ctrl))                          /* 2782 */
-                draw_sprite(bmp, data[129].dat, ox + 0x75, y + 5);
-        }
-        /* Stack-slot evidence (DW_OP_breg5): cx = -0x178(ebp), cy = -0x174(ebp).
-         * offset 4338 "add $0xa,%edi; mov %edi,-0x178(%ebp)" stores y+0xa into cx (edi holds y).
-         * offset 4347 "lea 0xa(%esi),%edi; mov %edi,-0x174(%ebp)" stores ox+0xa into cy (esi holds ox),
-         * and that same edi is the set_clip_rect x1 argument, i.e. cy, not cx. */
-        cx = y + 0xa;                                     /* 2784 */
-        cy = ox + 0xa;                                     /* 2785 */
-        set_clip_rect(bmp, cy, 0, 0x26f, 0x1df);            /* 2785 */
-        /* Machine evidence (offsets 4392..4451 fallthrough vs 6010..6026 jump-in):
-         * there is exactly one physical call to sprintf; the empty-comment path only
-         * sets up arg3 = "" (esp+0x10) before falling into the shared arg2/arg1/fmt/
-         * dest setup and the single call, and the comment path only sets up
-         * arg3 = demo->comment before jumping into that same shared setup -- so this
-         * is sprintf(scrollerText, "%s%s%s", demo->name, " - ", <arg3>) with a single
-         * call site, arg3 selected by the test at 2787, not two separate sprintf
-         * statements. */
-        sprintf(scrollerText, "%s%s%s", demo->name, " - ",         /* 2787 */
-                !demo->comment[0] ? "" : demo->comment);
-        /* offset 4479 "mov -0x178(%ebp),%edi; add $0x4,%edi" reloads cx (not cy) for the
-         * y-coordinate of every textout_ex below; the x-coordinate keeps using ox. */
-        textout_ex(bmp, data[53].dat, demo->name, ox + 0xc - scroll_count / 2,     /* 2788 */
-            cx + 4, makecol(150, 150, 160), -1);
-        textout_ex(bmp, data[53].dat, demo->name, ox + 0xd - scroll_count / 2,     /* 2789 */
-            cx + 4, makecol(200, 200, 210), -1);
-        if (demo->comment[0]) {                                                    /* 2790 */
-            textout_ex(bmp, data[53].dat, " - ",                                    /* 2791 */
-                ox + 0xc - scroll_count / 2 + text_length(data[53].dat, demo->name),
-                cx + 4, makecol(200, 200, 210), -1);
-            textout_ex(bmp, data[53].dat, demo->comment,                            /* 2792 */
-                ox - scroll_count / 2 + 0x1e + text_length(data[53].dat, demo->name),
-                cx + 4, makecol(200, 200, 210), -1);
-        }
-        set_clip_rect(bmp, 0, 0, 0x27f, 0x1df);              /* 2794 */
-        if (demo->comment[0]) {                               /* 2796 */
-            if (scroll_delay > 0) {                            /* 2797 */
-                scroll_delay--;                                 /* 2798 */
-            }
+        if (demo->comment[0]) {
+            if (scroll_delay > 0)
+                scroll_delay--;
             else {
-                scroll_count++;                                 /* 2801 */
-                if (scroll_count / 2 > text_length(data[53].dat, scrollerText))  /* 2802 */
-                    scroll_count = -250;                          /* 2803 */
+
+                scroll_count++;
+                if (scroll_count / 2 > text_length(data[53].dat, scrollerText))
+                    scroll_count = -250;
             }
         }
-        /* Original offsets 4808 and 4863 add 0x13 and 0x14 to cx at
-         * -0x178(ebp); offsets 4876 and 4853 use cy at -0x174(ebp) for x.
-         * The call through GFX_VTABLE +0xbc is rect (draw.inl:112), not rectfill
-         * (+0x3c). The old candidate also shifted both y coordinates by 10. */
-        rect(bmp, cy, cx + 0x14,                                          /* 2808 */
-            cy + (myPos * 117 / len > 0x74 ? 0x74 : myPos * 117 / len),
-            cx + 0x13, makecol(50, 200, 50));
+
+
+        rect(bmp, cy, cx + 20, cy + (myPos * 117 / len > 116 ? 116 : myPos * 117 / len), cx + 19, makecol(50, 200, 50));
     }
 
-    if (debug && key[KEY_F2]) {                                          /* 2812 */
-            textprintf_ex(bmp, font, 0, 0, 15, -1, "FPS:%6d / %d", fps, lps);  /* 2813 */
-            textprintf_ex(bmp, font, 0, 0xa, 15, -1, "REC:%6d / %d", rec_pos,   /* 2814 */
-                demo->size);
-            textprintf_ex(bmp, font, 0, 0x14, 15, -1, "    %6d  (%d) ",          /* 2815 */
-                demo->data[rec_pos].key_flags, demo->data[rec_pos].cycle_count);
-            textprintf_ex(bmp, font, 0xc8, 0, 15, -1, "POS: %d, %d",              /* 2816 */
-                (int)ply[player_id]->x, (int)ply[player_id]->y);
-            textprintf_ex(bmp, font, 0xc8, 0xa, 15, -1, " dx: %1.2f",              /* 2817 */
-                ply[player_id]->sx);
-            textprintf_ex(bmp, font, 0xc8, 0x14, 15, -1, "rjp: %d",                 /* 2818 */
-                options.jump_hold);
-            textprintf_ex(bmp, font, 0x190, 0, 15, -1, "any: %6d %6d %6d",           /* 2819 */
-                any11, any12, any13);
-            textprintf_ex(bmp, font, 0x190, 0xa, 15, -1, "any: %6d %6d %6d",          /* 2820 */
-                any21, any22, any23);
-        }
-    /* line 2822 tail: fragments at offsets 2246 ("mov $0x2,%edi") and 2556
-     * ("mov $0x6,%esi") are also attributed to this line by the line table,
-     * but they sit far outside this region's byte range and duplicate
-     * register-constant setup that reads as spillover from an earlier
-     * region's block layout; no call is associated with them, so nothing
-     * is written here beyond the implicit function epilogue, which the
-     * closing brace below inherits this annotation for. */
-    /* 2822 */
+
+    if (debug && key[KEY_F2]) {
+        textprintf_ex(bmp, font, 0, 0, 15, -1, "FPS:%6d / %d", fps, lps);
+        textprintf_ex(bmp, font, 0, 10, 15, -1, "REC:%6d / %d", rec_pos, demo->size);
+        textprintf_ex(bmp, font, 0, 20, 15, -1, "    %6d  (%d) ", demo->data[rec_pos].key_flags, demo->data[rec_pos].cycle_count);
+        textprintf_ex(bmp, font, 200, 0, 15, -1, "POS: %d, %d", (int)ply[player_id]->x, (int)ply[player_id]->y);
+        textprintf_ex(bmp, font, 200, 10, 15, -1, " dx: %1.2f", ply[player_id]->sx);
+        textprintf_ex(bmp, font, 200, 20, 15, -1, "rjp: %d", options.jump_hold);
+        textprintf_ex(bmp, font, 400, 0, 15, -1, "any: %6d %6d %6d", any11, any12, any13);
+        textprintf_ex(bmp, font, 400, 10, 15, -1, "any: %6d %6d %6d", any21, any22, any23);
+    }
 }
 
 void update_frame(void)
@@ -4172,1515 +3964,1619 @@ void draw_results(BITMAP *bmp, BITMAP *logo, int y, int *qualified,
 
 int play(void)
 {
-    int playing;
-    int old_map_pos;
-    int level;
-    int diff;
-    int i;
-    int quit;
-    int scroll_acc;
-    int scroll;
-    int max_scroll;
-    int speeds[9] = { 1500, 3000, 4500, 6000, 7500, 9000, 10500, 1800000, 9000000 };
-    int next_speed;
-    int next_aight;
-    int allow_smpl;
-    int game_over;
-    int falling;
-    int shake;
-    int flash;
-    int step_count;
-    int next_floor;
-    int play_again;
-    int tot_scroll;
-    int lastX;
-    int lastY;
-    int midX;
-    int midY;
-    int numComboJumps;
-    int totComboFloors;
-    int startTime;
-    int endTime;
-    int lastJumpLength;
-    int oldUnlockedFloors;
-    int current_rank_id;
-    Tcontrol rec_ctrl;
-    int time_cheat_count;
-    clock_t clockTimeStart;
-    clock_t clockTimeEnd;
-    double clockElapsed;
-    double totClockTimes;
-    int qpc_start;
-    int qpc_end;
-    double qpc_elapsed;
-    double totQPCTimes;
-    int timeTimeStart;
-    int timeTimeEnd;
-    int timeElapsed;
-    double totTimeTimes;
-    int musicCounter;
-    int lastMusicPos;
-    float accMusics;
-    int totMusics;
-    LARGE_INTEGER li;
-    int qpc_freq;
-    /* The -0x928 stack slot holds falling in the game loop; original offset 11240
-     * reloads it into esi for the results animation, where DWARF names it falling. */
+int playing;
+int old_map_pos;
+int level;
+int diff;
+int i;
+int quit; quit = 0;
+int scroll_acc;
+int scroll; scroll = -1;
+int max_scroll;
+int speeds[9] = { 1500, 3000, 4500, 6000, 7500, 9000, 10500, 1800000, 9000000 };
+int next_speed; next_speed = 0;
+int next_aight; next_aight = 50;
+int allow_smpl; allow_smpl = 1;
+int game_over; game_over = 0;
+int falling; falling = 0;
+int shake; shake = 0;
+int flash;
+int step_count; step_count = 0;
+int next_floor; next_floor = -1;
+int play_again;
+int tot_scroll;
+int lastX; int lastY; int midX; int midY;
+int numComboJumps; numComboJumps = 0;
+int totComboFloors; totComboFloors = 0;
+int startTime;
+int endTime; endTime = 0;
+int lastJumpLength; lastJumpLength = 0;
 
-    rec_ctrl = ctrl;                                   /* line 3439 */
-    if (!itrcheck) {                                   /* line 3441 (else-branch placed inline by -O2) */
-        oldUnlockedFloors = profile->best_floor / 100; /* line 3442 */
-        current_rank_id = get_rank_id(profile);        /* line 3443; get_rank_id has no visible prototype
-                                                          * in main.c (declared in profile.c taking
-                                                          * Tprofile_rank *; that type isn't visible here,
-                                                          * so the cast used by other callers is omitted) */
-    } else {
-        current_rank_id = 0;
-        oldUnlockedFloors = 0;
-    }
-    if (recording) {                                   /* line 3473 */
-        demo->tc_posts = 0;                             /* line 3474 */
-        for (i = 0; i < 100; i++) {                     /* line 3475 */
-            demo->tc_c_data[i] = 0.0f;                  /* line 3476 */
-            demo->tc_q_data[i] = 0.0f;                  /* line 3477 */
-            demo->tc_t_data[i] = 0.0f;                  /* line 3478 */
-            demo->tc_s_data[i] = 0.0f;                  /* line 3479 */
-            demo->tc_f_data[i] = 0.0f;                  /* line 3480 */
-        }
-    }
-    log2file(" setting up play data");                 /* line 3485 */
-    fall_count = 0;                                     /* line 3486 */
-    clock_angle = 0;                                    /* line 3487 */
-    map.offset = 0;                                     /* line 3488 */
-    fast_forward = 0;                                   /* line 3490 */
-    fast_fast_forward = 0;                               /* line 3491 */
-    update_frame();                                      /* line 3493 */
-    if (!itrcheck) {                                     /* line 3494 */
-        draw_frame(swap_screen);                         /* line 3495 */
-        fadeIn(swap_screen, 16);                         /* line 3497 */
-        play_sound(custom.yo, 0, 0);                     /* line 3498 */
-        startGameMusic();                                /* line 3499 */
-    }
-    if (!itrcheck && bg_beat) {                          /* line 3502-3503 (compiled as its own re-test
-                                                            * of itrcheck, redundant with the block above) */
-        checkMusicVoiceID = play_sample(bg_beat, 0, 128, 1000, 1); /* line 3504 */
-    }
-    cycle_count = 0;                                     /* line 3510 */
-    log2file(" play started");                           /* line 3512 */
-    startTime = time(NULL);                              /* line 3513 */
-    QueryPerformanceCounter(&li);                        /* line 3519 */
-    qpc_start = li.LowPart;                              /* line 3520 */
-    totMusics = 0;
-    accMusics = 0.0f;
-    lastMusicPos = 0;
-    musicCounter = 0;
-    time_cheat_count = 0;
-    lastJumpLength = 0;
-    endTime = 0;
-    totComboFloors = 0;
-    numComboJumps = 0;
-    next_floor = -1;
-    step_count = 0;
-    shake = 0;
-    falling = 0;
-    game_over = 0;
-    allow_smpl = 1;
-    next_aight = 50;
-    next_speed = 0;
-    scroll = -1;
-    quit = 0;
-    QueryPerformanceFrequency(&li);                      /* line 3522; result unused here (its DWARF
-                                                            * live range only starts at the second QPF
-                                                            * call inside the loop, line 3610) */
-    clockTimeStart = clock();                            /* line 3528 */
-    timeTimeStart = time(NULL);                          /* line 3530 */
-    playing = TRUE;                                       /* line 3533: the original enters the loop
-                                                            * without testing playing (offset 351 jumps
-                                                            * straight to the closeButtonClicked test),
-                                                            * so it is known non-zero here; the value is
-                                                            * constant-folded away and emits no code */
+int oldUnlockedFloors;
+int current_rank_id;
 
-    while (playing) {                          /* 3534 */
-        if (closeButtonClicked)                                 /* 3536 */
-            return 0;
-        {   /* 3536 (3534 tests playing; both tests and both loop
-                                                 * entry/back-edge copies compile to this one physical
-                                                 * line, so its bytes are credited to the larger 3536) */
-        cycle_count = 0;                                 /* line 3540 */
-        logic_count++;                                   /* line 3542 */
-        step_count++;                                    /* line 3543 */
-        fall_count++;                                     /* line 3544 */
-        time_cheat_count++;                               /* line 3545 */
-        musicCounter++;                                   /* line 3546 */
-        if (!itrcheck) {                                  /* line 3549 */
-            if (lastFocus != hasFocus) {                  /* 3550 */
-                if (hasFocus) {                            /* 3551 */
-                    /* line 3552-3559: gaining focus, restart the background track */
-                    if (bg_beat) {                          /* 3552 */
-                        checkMusicVoiceID = play_sample(bg_beat, 0, 128, 1000, 1); /* 3553 */
-                    }
-                    startGameMusic();                       /* 3559 */
-                    totMusics = 0;                          /* 3559 */
-                    accMusics = 0.0f;                       /* 3559 */
-                    musicCounter = 0;                       /* 3559 */
-                } else {
-                    /* line 3562-3567: losing focus, stop the background track */
-                    if (checkMusicVoiceID >= 0) {           /* 3562 */
-                        voice_stop(checkMusicVoiceID);      /* 3563 */
-                    }
-                    checkMusicVoiceID = -1;                 /* 3565 */
-                    stopGameMusic();                        /* 3567 */
-                }
-                lastFocus = hasFocus;                     /* line 3569 */
-            }
-        }
-        if (!itrcheck) {                                  /* line 3574 (compiled as its own re-test of
-                                                             * itrcheck, redundant with the block above) */
-            if (checkMusicVoiceID >= 0) {                 /* line 3574 */
-                int vgp;   /* DWARF block 132257 [760..886]: vgp (int), a (float), b (float) */
-                float a, b;
+Tcontrol rec_ctrl; rec_ctrl = ctrl;
 
-                vgp = voice_get_position(checkMusicVoiceID); /* line 3575 */
-                if (vgp < lastMusicPos) {                 /* line 3576 */
-                    musicCounter = 0;
-                }
-                /* lines 3580-3585: running average of a 44000/vgp "speed" ratio into accMusics,
-                 * gated on that ratio being > 0.01 (x87 fucompp/fnstsw/test $0x45 idiom); see report
-                 * for the derivation of the comparison direction. The two named DWARF temps a/b hold
-                 * the ratio and the scaled increment across lines 3580-3584. */
-                a = vgp / 44000.0;                        /* 3580 */
-                if (a > 0.01) {                           /* line 3583: original fldl */
-                    b = musicCounter / 50.0;              /* line 3584: the original computes the intermediate
-                                                            * musicCounter/50.0 first (fidivrl -0x938, a REVERSE
-                                                            * divide of the int by the ST0-resident 50.0) and then
-                                                            * divides 'a' by that -- algebraically a*50.0f/musicCounter,
-                                                            * but this operand order is what reproduces fidivrl */
-                    accMusics += b / a;
-                    totMusics++;                          /* line 3585 */
-                }
-                lastMusicPos = vgp;                       /* line 3585 (tail) */
-            }
-        }
-        if (recording && map.offset > 100 && !ply[player_id]->dead) { /* line 3595 */
-            if (time_cheat_count == 1000) {                          /* 3597 */
-                /* lines 3604-3661: periodic clock()/QueryPerformanceCounter()/time() cross-check,
-                 * recorded into the demo replay's time-cheat-detection arrays. DWARF lexical block
-                 * 134356 (3604..3661) declares three doubles our source previously never named:
-                 * clockSpeed, qpcSpeed, timeSpeed -- the per-method rate used to gate/derive each
-                 * tot*Times value below. The exact x87 formulas are a best-effort reconstruction
-                 * from the instruction stream (see report); the calls and field targets are
-                 * evidenced directly. */
-                double clockSpeed;  /* DWARF block 134356 [3604..3661] */
-                double qpcSpeed;
-                double timeSpeed;
+if (!itrcheck) {
+oldUnlockedFloors = profile->best_floor / 100;
+current_rank_id = get_rank_id(profile); } else { current_rank_id = 0; oldUnlockedFloors = 0;
+}
 
-                clockTimeEnd = clock();                             /* line 3604 */
-                clockElapsed = clockTimeEnd - clockTimeStart;       /* line 3605 */
-                clockSpeed = (50.0 * clockElapsed) / 1000.0;        /* line 3605 (tail); confirmed against
-                                                                      * the real toolchain: this direction
-                                                                      * (not 1000.0/(50*clockElapsed)) is what
-                                                                      * actually emits fdivr %st,%st(1) -- the
-                                                                      * reciprocal form silently emits the same
-                                                                      * byte count via plain fdiv, which is why
-                                                                      * the swap wasn't caught by bytes alone. */
-                if (clockSpeed > 0.0) {                             /* 3606 */
-                    totClockTimes = 1000.0 / (1000.0 * clockSpeed) / 20.0; /* 3606: reuses the same
-                                                                      * 1000.0 already resident from 3605
-                                                                      * (GCC folds this to a single flds,
-                                                                      * confirmed via the real toolchain) --
-                                                                      * this is 1.0/clockSpeed/20.0, a genuine
-                                                                      * rate (1/clockElapsed), not a constant. */
-                } else {
-                    totClockTimes = -0.05;                          /* 3606 (== -1.0/20.0, guard-fail sentinel) */
-                }
-                QueryPerformanceFrequency(&li);                     /* line 3610 */
-                qpc_freq = li.LowPart;                               /* line 3611 */
-                QueryPerformanceCounter(&li);                       /* line 3612 */
-                qpc_end = li.LowPart;                               /* line 3612 tail */
-                qpc_elapsed = qpc_end - qpc_start;                  /* line 3615 */
-                qpcSpeed = 20.0 / (50.0 * qpc_elapsed / qpc_freq);  /* line 3615 (tail) */
-                totQPCTimes = qpcSpeed;                             /* line 3615 (tail) */
-                timeTimeEnd = time(NULL);                           /* line 3623 */
-                timeElapsed = timeTimeEnd - timeTimeStart;          /* line 3638 */
-                timeSpeed = 20.0 / (50.0 * timeElapsed);            /* line 3638 (tail) */
-                totTimeTimes = timeSpeed;                           /* line 3638 (tail) */
-                demo->tc_c_data[demo->tc_posts] = totClockTimes;    /* line 3636 */
-                demo->tc_q_data[demo->tc_posts] = totQPCTimes;      /* line 3637 */
-                demo->tc_t_data[demo->tc_posts] = totTimeTimes;     /* line 3638 (tail) */
-                demo->tc_f_data[demo->tc_posts] = ply[player_id]->level; /* line 3639 */
-                if (totMusics != 0) {                               /* line 3640 */
-                    demo->tc_s_data[demo->tc_posts] = 50.0 * accMusics / totMusics; /* line 3641 */
-                }
-                if (demo->tc_posts <= 97) {                         /* line 3643 */
-                    demo->tc_posts++;                               /* line 3643 */
-                }
-                clockTimeStart = clock();                           /* line 3654 */
-                QueryPerformanceCounter(&li);                       /* line 3656 */
-                qpc_start = li.LowPart;                             /* line 3657 */
-                timeTimeStart = time(NULL);                         /* line 3661 */
-                totMusics = 0;
-                accMusics = 0.0f;
-                time_cheat_count = 0;
-            }
-        }
-        if (debug) {                                      /* line 3681 */
-            /* lines 3682-3691: ten combo-length reward tiers, keyed to the number-row keys */
-            if (key[KEY_1]) { if (allow_smpl) start_reward(5); }      /* 3682 */
-            if (key[KEY_2]) { if (allow_smpl) start_reward(7); }      /* 3683 */
-            if (key[KEY_3]) { if (allow_smpl) start_reward(15); }     /* 3684 */
-            if (key[KEY_4]) { if (allow_smpl) start_reward(25); }     /* 3685 */
-            if (key[KEY_5]) { if (allow_smpl) start_reward(35); }     /* 3686 */
-            if (key[KEY_6]) { if (allow_smpl) start_reward(50); }     /* 3687 */
-            if (key[KEY_7]) { if (allow_smpl) start_reward(70); }     /* 3688 */
-            if (key[KEY_8]) { if (allow_smpl) start_reward(100); }    /* 3689 */
-            if (key[KEY_9]) { if (allow_smpl) start_reward(140); }    /* 3690 */
-            if (key[KEY_0]) { if (allow_smpl) start_reward(200); }    /* 3691 */
-            /* line 3692 */
-            allow_smpl = !(key[KEY_1] || key[KEY_2] || key[KEY_3] ||
-                           key[KEY_4] || key[KEY_5] || key[KEY_6] ||
-                           key[KEY_7] || key[KEY_8] || key[KEY_9] ||
-                           key[KEY_0]);
-        }
-        midX = (int)ply[player_id]->x;                                  /* 3698 */
-        midY = (int)ply[player_id]->y;                                  /* 3699 */
 
-        handle_player_input(&ctrl);                                     /* 3702 */
-        update_player(ply[player_id]);                                  /* 3703 */
-        if (!itrcheck) {                                                /* 3706 */
-            if (ply[player_id]->rotate && ply[player_id]->in_combo && !options.flash)  /* 3707 */
-                create_particle(stars, (int)ply[player_id]->x, (int)ply[player_id]->y - 16);  /* 3708 */
-            for (i = 0; i < 512; i++)                                   /* 3711 */
-                if (stars[i].intensity)
-                    update_particle(&stars[i]);
-        }
 
-        lastY = midY;
-        old_map_pos = map.offset;                                       /* 3717 */
-        scroll_acc = 0;
-        if (ply[player_id]->y < 160.0) {                                /* 3719 */
-            scroll_acc = (ply[player_id]->y < 140.0) ? 2 : 1;           /* 3721 */
-            if (ply[player_id]->y < 120.0) scroll_acc++;                /* 3722 */
-            if (ply[player_id]->y < 100.0) scroll_acc++;                /* 3723 */
-            if (ply[player_id]->y < 80.0) scroll_acc++;                 /* 3724 */
-            if (ply[player_id]->y < 60.0) scroll_acc++;                 /* 3725 */
-            if (ply[player_id]->y < 40.0) scroll_acc += 2;              /* 3726 */
-            if (ply[player_id]->y < 20.0) scroll_acc += 2;              /* 3727 */
-            if (ply[player_id]->y < 0.0) scroll_acc += 3;               /* 3728 */
-            map.offset = old_map_pos + scroll_acc;                      /* 3729 */
-            ply[player_id]->y += scroll_acc;                            /* 3731 */
-            lastY = midY + scroll_acc;                                  /* 3732 */
-        }
-        tot_scroll = scroll_acc;
-        if (!ply[player_id]->dead)                                      /* 3736 */
-            clock_angle++;
-        if (map.offset > 100 && !ply[player_id]->dead) {                /* 3738 */
-            if (scroll == -1)                                           /* 3739 */
-                scroll = start_speeds[demo->start_speed];               /* 3740 */
-            if (!scroll) {
-                if (step_count & 1) {
-                map.offset++;                                           /* 3744 */
-                tot_scroll++;                                           /* 3745 */
-                ply[player_id]->y += 1.0;                               /* 3746 */
-                lastY++;                                                /* 3747 */
-                }
-            }
-            else {
-                map.offset += scroll;                                   /* 3751 */
-                tot_scroll += scroll;                                   /* 3752 */
-                ply[player_id]->y += scroll;                            /* 3753 */
-                lastY += scroll;                                        /* 3754 */
-            }
-        }
-        else if (!ply[player_id]->dead) {                               /* 3757 */
-            clock_angle = 0;                                            /* 3758 */
-            fall_count = 0;
-        }
-        any13 = tot_scroll;                                             /* 3763 */
-        if (hurry_y > -100 && hurry_y < 480)                            /* 3765 */
-            hurry_y -= 2;
-        if (demo->speed_increase)                                       /* 3766 */
-            if (!ply[player_id]->dead && speeds[next_speed] < fall_count && scroll < 5) {  /* 3767 */
-                ply[player_id]->ccc[next_speed] = ply[player_id]->level;  /* 3768 */
-                next_speed++;                                           /* 3770 */
-                scroll++;                                               /* 3771 */
-                hurry_y = 479;                                          /* 3772 */
-                play_sound(speaker[0], 0, 0);                           /* 3773 */
-                play_sound(sounds[4], 0, 0);                            /* 3774 */
-            }
-        if (scroll == 5) {                                              /* 3778 */
-            fall_count -= 45;                                           /* 3779 */
-            if (!ply[player_id]->dead)                                  /* 3780 */
-                clock_angle -= 45;
-        }
-        if (old_map_pos % 16 > map.offset % 16                          /* 3783 */
-            || tot_scroll > 15)                                         /* 3787 */
-            add_floor(&map);                                            /* 3789 */
 
-        switch (collision_type) {                                       /* 3814 */
-        case 0:
-            handle_player_collision_original(midX, lastY);              /* 3815 */
-            break;
-        case 1:
-            handle_player_collision_old(midX, lastY);                   /* 3817 */
-            break;
-        case 2:
-            handle_player_collision_vector(midX, lastY);                /* 3819 */
-            break;
-        case 3:
-            handle_player_collision_vector_2(midX, lastY);              /* 3821 */
-            break;
-        case 4:
-            handle_player_collision_combo(midX, lastY);                 /* 3823 */
-            break;
-        default:
-            allegro_message("unknown collision type");                  /* 3826 */
-            break;
-        }
+int time_cheat_count; time_cheat_count = 0;
 
-        if (ply[player_id]->rotate)                                     /* 3833 */
-            ply[player_id]->angle += itofix(8);
-        if (ply[player_id]->in_combo) {                                 /* 3837 */
-            ply[player_id]->in_combo--;                                 /* 3838 */
-            if (!ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1) {  /* 3839 */
-                int rewResult;
-                Tgd_combo c;
+clock_t clockTimeStart; clock_t clockTimeEnd;
+double clockElapsed;
+double totClockTimes;
 
-                ply[player_id]->score += ply[player_id]->acc_level * ply[player_id]->acc_level;  /* 3841 */
-                rewResult = start_reward(ply[player_id]->acc_level);    /* 3842 */
-                if (recording && !is_playing_custom_game)               /* 3843 */
-                    profile->rewards[rewResult]++;
-                totComboFloors += ply[player_id]->acc_level;            /* 3844 */
-                numComboJumps++;                                        /* 3845 */
-                c.length = ply[player_id]->acc_level;                   /* 3848 */
-                c.start = gdComboStart;                                 /* 3849 */
-                c.end = c.start + c.length;                             /* 3850 */
-                add_combo(gameData, &c);                                /* 3851 */
-                ply[player_id]->latest_combo = ply[player_id]->acc_level;  /* 3853 */
-                if (ply[player_id]->acc_level > ply[player_id]->best_combo)  /* 3854 */
-                    ply[player_id]->best_combo = ply[player_id]->acc_level;  /* 3855 */
-            }
-        }
 
-        if (!ply[player_id]->status) {                                  /* 3862 */
-            level = (get_level(&map, (int)ply[player_id]->y) - 1) / 5;  /* 3864 */
-            diff = level - ply[player_id]->level;                       /* 3869 */
-            if (diff != 0) {                                            /* 3870 */
-                if (diff == gdLastJumpDiff)                             /* 3871 */
-                    jumpSequence.num++;                                 /* 3882 */
-                else {
-                    jumpSequence.dist = gdLastJumpDiff;                 /* 3874 */
-                    add_jump_sequence(gameData, &jumpSequence);         /* 3875 */
-                    jumpSequence.num = 1;                               /* 3878 */
-                    jumpSequence.start = level - diff;                  /* 3879 */
-                }
-                gdLastJumpDiff = diff;                                  /* 3885 */
-            }
-            if (level >= ply[player_id]->level) {                       /* 3891 */
-                diff = level - ply[player_id]->level;                   /* 3893 */
-                if (diff != lastJumpLength && diff != 0) {              /* 3896 */
-                    for (i = 0; i < 5; i++) {                           /* 3897 */
-                        if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])  /* 3900 */
-                            ply[player_id]->jcTop[i] = ply[player_id]->jc[i];  /* 3901 */
-                        ply[player_id]->jc[i] = 0;                      /* 3904 */
-                    }
-                    lastJumpLength = 0;
-                }
-                if (diff > 0) {                                         /* 3911 */
-                    if (diff <= 5)                                      /* 3912 */
-                        ply[player_id]->jc[diff - 1]++;                 /* 3913 */
-                    if (diff != 1) {                                    /* 3919 */
-                        if (ply[player_id]->in_combo) {                 /* 3920 */
-                            ply[player_id]->acc_level += diff;          /* 3921 */
-                            ply[player_id]->acc_jumps++;                /* 3922 */
-                            ply[player_id]->in_combo = 100;             /* 3923 */
-                        }
-                        else {
-                            ply[player_id]->acc_level = diff;           /* 3926 */
-                            ply[player_id]->acc_jumps = 1;              /* 3927 */
-                            ply[player_id]->in_combo = 100;             /* 3928 */
-                        }
-                    }
-                    lastJumpLength = diff;
-                }
-                if (diff == 1 && ply[player_id]->in_combo)              /* 3932 */
-                    ply[player_id]->in_combo = 1;                       /* 3933 */
-                if (!ply[player_id]->in_combo)                          /* 3936 */
-                    gdComboStart = level;                               /* 3937 */
-            }
-            else {
-                if (ply[player_id]->in_combo)                           /* 3943 */
-                    ply[player_id]->in_combo = 1;
-                for (i = 0; i < 5; i++) {                               /* 3945 */
-                    if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])  /* 3948 */
-                        ply[player_id]->jcTop[i] = ply[player_id]->jc[i];  /* 3949 */
-                    ply[player_id]->jc[i] = 0;                          /* 3952 */
-                }
-                lastJumpLength = 0;
-            }
-            ply[player_id]->level = level;                              /* 3962 */
-            if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)  /* 3967 */
-                ply[player_id]->no_combo_top_floor = gdComboStart;      /* 3969 */
-        }
+int qpc_start; int qpc_end;
 
-        if (ply[player_id]->y > 540.0 && !ply[player_id]->dead) {       /* 3976 */
-            if (itrcheck)                                               /* 3977 */
-                playing = FALSE;
-            if (ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1)  /* 3978 */
-                ply[player_id]->biggest_lost_combo = ply[player_id]->acc_level;  /* 3979 */
-            ply[player_id]->in_combo = 0;                               /* 3981 */
-            ply[player_id]->dead = 1;                                   /* 3982 */
-            play_sound(custom.falling, 0, 1);                           /* 3983 */
-            endTime = time(0);                                          /* 3985 */
-            for (i = 0; i < 5; i++) {                                   /* 3988 */
-                if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])   /* 3991 */
-                    ply[player_id]->jcTop[i] = ply[player_id]->jc[i];   /* 3992 */
-                ply[player_id]->jc[i] = 0;                              /* 3995 */
-            }
-            jumpSequence.dist = gdLastJumpDiff;                         /* 3999 */
-            add_jump_sequence(gameData, &jumpSequence);                 /* 4000 */
-            if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)  /* 4003 */
-                ply[player_id]->no_combo_top_floor = ply[player_id]->level;  /* 4004 */
-            lastJumpLength = 0;
-            falling = 1;
-        }
-        if (ply[player_id]->y > 900.0 && !game_over) {                  /* 4010 */
-            play_sound(speaker[1], 0, 0);                               /* 4012 */
-            game_over = 2;
-        }
-        if (falling)                                                    /* 4015 */
-            falling++;
-        if (falling > ply[player_id]->level * 5 || falling > 250) {     /* 4016 */
-            play_sound(sounds[6], 0, 1);                                /* 4017 */
-            if (custom.falling)                                         /* 4018 */
-                stop_sample(custom.falling);                            /* 4019 */
-            ply[player_id]->shake = 24;                                 /* 4022 */
-            falling = 0;
-        }
-        if (ply[player_id]->level >= next_aight) {                      /* 4027 */
-            play_sound(sounds[2], 0, 0);                                /* 4028 */
-            if (!options.flash)                                         /* 4029 */
-                for (i = 0; i < next_aight / 2; i++) {
-                    int p;
-                    p = create_particle(stars, (new_rand() % 600) + 20, 480);  /* 4030 */
-                    stars[p].sy = -(((new_rand() % 200) << 16) / 10);   /* 4031 */
-                }
-            if (next_aight > 999)                                       /* 4033 */
-                next_aight += 500;                                      /* 4034 */
-            else
-                next_aight += 50;                                       /* 4037 */
-        }
-        if (!ply[player_id]->edge)                                      /* 4042 */
-            ply[player_id]->edge_drawn = 0;
-        if (ply[player_id]->edge_drawn) {                               /* 4043 */
-            if (ply[player_id]->edge_drawn == 11 && !ply[player_id]->status)  /* 4044 */
-                play_sound(custom.edge, 1, 1);
-            if (ply[player_id]->edge_drawn == 50)                       /* 4045 */
-                ply[player_id]->edge_drawn = 0;                         /* 4046 */
-        }
-        if (debug) {                                                    /* 4049 */
-            if (ply[player_id]->dead <= 99)                             /* 4050 */
-                playing = FALSE;
-        }
-        else if (recording && ply[player_id]->dead > 100)               /* 4056 */
-            playing = FALSE;
-        if (!itrcheck && key[KEY_F1]) {                                 /* 4062 */
-            int pauseTime, addTime;
-            pauseTime = time(NULL);                                     /* 4063 */
-            take_screenshot(swap_screen);                               /* 4064 */
-            while (key[KEY_F1]) ;                                       /* 4065 */
-            addTime = time(NULL) - pauseTime;                           /* 4066 */
-            if (addTime > 0)                                            /* 4067 */
-                startTime += addTime;                                   /* 4068 */
-            if (checkMusicVoiceID >= 0) {                               /* 4075 */
-                musicCounter = voice_get_position(checkMusicVoiceID) * 50.0f / 44000.0f;  /* 4077 */
-                totMusics = 0;
-                accMusics = 0.0f;
-            }
-            clockTimeStart = clock();                                   /* 4083 */
-            QueryPerformanceCounter(&li);                               /* 4085 */
-            qpc_start = li.LowPart;                                     /* 4086 */
-            timeTimeStart = time(NULL);                                 /* 4090 */
-            time_cheat_count = 0;
-        }
-        if (ply[player_id]->shake) {                                    /* 4094 */
-            ply[player_id]->shake--;                                    /* 4095 */
-            shake = new_rand() % 8;                                     /* 4097 */
-        }
-        update_frame();                                                 /* 4100 */
-        if (!quit && closeButtonClicked) {                              /* 4104 */
-            quit = 1;
-            playing = FALSE;
-        }
-        if (recording) {                                                      /* 4109 */
-            if (key[KEY_ESC]) {                                               /* 4110 */
-                if (ply[player_id]->dead) {                                   /* 4111 */
-                    log2file("  player quit after dying");                    /* 4112 */
-                    playing = 0;                                              /* 4112 */
-                } else {
-                    /* REGION W3a: ESC pause screen, lines 4117..4182 */
-                    int pauseTime, fc, ca, addTime; /* block-scoped DWARF locals (block 132596), not in the 52-local skeleton */
+double qpc_elapsed;
+double totQPCTimes;
 
-                    pauseTime = time(NULL);                                   /* 4117 */
-                    fc = fall_count;                                          /* 4118 */
-                    ca = clock_angle;                                         /* 4119 */
-                    log2file("  game paused with esc");                      /* 4120 */
-                    for (i = 0; i < 640; i += 2) {                            /* 4122 */
-                        vline(swap_screen, i, 0, 480, 0);                     /* draw.inl:46 */
-                        hline(swap_screen, 0, i, 640, 0);                     /* draw.inl:54 */
-                    }
-                    textout_centre_ex(swap_screen, data[50].dat,               /* 4126: GCC attributes a call's
-                                                                                  bytes to its opening line, so the
-                                                                                  annotation moves here (was on the
-                                                                                  closing line, which left the
-                                                                                  line_budget tool crediting each
-                                                                                  call's bytes to the call above it
-                                                                                  and showing 4128 as 0 bytes even
-                                                                                  though the call is present). */
-                                       "DO YOU REALLY WANT TO EXIT?", 320, 160, -1, -1);
-                    textout_centre_ex(swap_screen, data[52].dat,               /* 4127 */
-                                       "Press any key to resume", 320, 210, -1, -1);
-                    textout_centre_ex(swap_screen, data[52].dat,               /* 4128 */
-                                       "Press ESC to exit", 320, 240, -1, -1);
-                    blit_to_screen(swap_screen);                              /* 4129 */
-                    play_sound(custom.wazup, 0, 1);                           /* 4130 */
-                    /* Two-loop wait, re-derived from the assembly (source-view 4117..4182):
-                     * outer loop's entry jmp lands on its is_any/is_pause/ESC compound test
-                     * (offsets 1717.. no -- offsets 5357/5316 etc, see function_lines source-view),
-                     * a plain bottom-tested `while (cond) body`; the inner "key still held" loop's
-                     * entry jmp lands on keypressed() alone (offset 5490), meaning keypressed() is
-                     * the sole loop condition and the is_any/is_pause/closeButtonClicked/key[ESC]
-                     * checks are an if-break inside its body -- GCC then thread the break's three
-                     * different truth cases into different entry points of the loop that follows
-                     * (closeButtonClicked jumps straight past that loop's own redundant
-                     * closeButtonClicked test; key[ESC] jumps into its is_pause call for the same
-                     * reason), which is why the reconstruction only needs three plain loops. */
-                    poll_control(&ctrl, 0);                                    /* 4132 */
-                    while (is_any(&ctrl) || is_pause(&ctrl)                    /* 4133 */
-                           || (!closeButtonClicked && key[KEY_ESC])) {         /* 4133 */
-                        poll_control(&ctrl, 0);                                /* 4134 */
-                        rest(2);                                               /* 4135 */
-                    }
-                    clear_keybuf();                                            /* 4137 */
-                    while (!keypressed()) {                                    /* 4138 */
-                        if (is_any(&ctrl) || is_pause(&ctrl) ||
-                            closeButtonClicked || key[KEY_ESC])                /* 4138 */
-                            break;                                            /* 4138 */
-                        poll_control(&ctrl, 0);                                /* 4139 */
-                        rest(2);                                               /* 4140 */
-                    }
-                    while (!closeButtonClicked && is_pause(&ctrl)) {           /* 4142 */
-                        poll_control(&ctrl, 0);                                /* 4143 */
-                        rest(2);                                               /* 4144 */
-                    }
-                    if (key[KEY_ESC]) {                                       /* 4146 */
-                        log2file("  game quit from esc pause");               /* 4150 */
-                        profile->games_quit++;                                /* 4151 */
-                        endTime = time(NULL);                                 /* 4152 */
-                        quit = 1;                                             /* 4152 */
-                        playing = 0;                                          /* 4152 */
-                    }
-                    clear_keybuf();                                           /* 4154 */
-                    fall_count = fc;                                          /* 4156 */
-                    clock_angle = ca;                                         /* 4157 */
-                    log2file("  game unpaused");                              /* 4158 */
-                    addTime = time(NULL) - pauseTime;                         /* 4159 */
-                    if (addTime > 0)                                          /* 4160 */
-                        startTime += addTime;                                 /* 4161 */
-                    if (checkMusicVoiceID >= 0)                               /* 4168 */
-                        musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); /* 4170 */
-                    clockTimeStart = clock();                                 /* 4175 */
-                    QueryPerformanceCounter(&li);                             /* 4177 */
-                    qpc_start = li.LowPart;                                   /* 4178 */
-                    timeTimeStart = time(NULL);                               /* 4182 */
-                    lastMusicPos = 0;                                         /* 4170: folded into the
-                                                                                  musicCounter statement's own
-                                                                                  fragment, same shape as 4077 */
-                    accMusics = 0.0;                                          /* 4170 */
-                }
-            }
-            if (is_pause(&ctrl) && ply[player_id]->dead == 0) {               /* 4186 */
-                /* REGION W3b: pause-key screen, lines 4187..4245 (near-identical to W3a) */
-                int pauseTime, fc, ca, addTime; /* block-scoped DWARF locals (block 132838), not in the 52-local skeleton */
+int timeTimeStart; int timeTimeEnd;
+int timeElapsed;
+double totTimeTimes;
 
-                pauseTime = time(NULL);                                       /* 4187 */
-                fc = fall_count;                                              /* 4188 */
-                ca = clock_angle;                                             /* 4189 */
-                log2file("  game paused with pause key");                     /* 4190 */
-                for (i = 0; i < 640; i += 2) {                                /* 4192 */
-                    vline(swap_screen, i, 0, 480, 0);                         /* draw.inl:46 */
-                    hline(swap_screen, 0, i, 640, 0);                         /* draw.inl:54 */
-                }
-                textout_centre_ex(swap_screen, data[50].dat,                  /* 4196 (annotation kept on the
-                                                                                  opening line; see the note above
-                                                                                  the ESC screen's identical calls) */
-                                   "Game Paused", 320, 160, -1, -1);
-                textout_centre_ex(swap_screen, data[52].dat,                  /* 4197 */
-                                   "Press any key to resume", 320, 210, -1, -1);
-                blit_to_screen(swap_screen);                                  /* 4198 */
-                play_sound(custom.wazup, 0, 1);                               /* 4199 */
-                /* Same three-loop shape as the ESC screen (W3a above), but this screen's
-                 * outer wait has no closeButtonClicked term (source-view 4186..4245 never
-                 * loads it before is_any/is_pause/ESC), and its final loop tests
-                 * is_pause() || key[KEY_ESC] directly (continues on either, offset
-                 * 7018/7027 both jump back to the poll_control/rest body) rather than the
-                 * negated-AND the ESC screen's closing loop uses. */
-                poll_control(&ctrl, 0);                                       /* 4200 */
-                while (is_any(&ctrl) || is_pause(&ctrl)) {                    /* 4201 */
-                    poll_control(&ctrl, 0);                                   /* 4202 */
-                    rest(2);                                                  /* 4203 */
-                }
-                clear_keybuf();                                               /* 4206 */
-                while (!keypressed()) {                                       /* 4207 */
-                    if (is_any(&ctrl) || is_pause(&ctrl) || key[KEY_ESC])      /* 4207 */
-                        break;                                                /* 4207 */
-                    poll_control(&ctrl, 0);                                   /* 4208 */
-                    rest(2);                                                  /* 4209 */
-                }
-                poll_control(&ctrl, 0);                                       /* 4212 */
-                while (is_pause(&ctrl) || key[KEY_ESC]) {                     /* 4213 */
-                    poll_control(&ctrl, 0);                                   /* 4214 */
-                    rest(2);                                                  /* 4215 */
-                }
-                fall_count = fc;                                              /* 4219 */
-                clock_angle = ca;                                             /* 4220 */
-                log2file("  game unpaused");                                  /* 4221 */
-                addTime = time(NULL) - pauseTime;                             /* 4222 */
-                if (addTime > 0)                                              /* 4223 */
-                    startTime += addTime;                                     /* 4224 */
-                if (checkMusicVoiceID >= 0)                                   /* 4231 */
-                    musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); /* 4233 */
-                clockTimeStart = clock();                                     /* 4238 */
-                QueryPerformanceCounter(&li);                                 /* 4240 */
-                qpc_start = li.LowPart;                                       /* 4241 */
-                timeTimeStart = time(NULL);                                   /* 4245 */
-                lastMusicPos = 0;                                             /* 4233: folded into the
-                                                                                  musicCounter statement's own
-                                                                                  fragment, same shape as 4077 */
-                accMusics = 0.0;                                              /* 4233 */
-            }
-        }
-        else {
-            if (!itrcheck) {                                                 /* 4249 */
-                poll_control(&rec_ctrl, 0);                                   /* 4251 */
-                if (ply[player_id]->dead) {                                   /* 4253 */
-                    log2file("  replay ended after death");                   /* 4255 */
-                    playing = 0;                                              /* 4255 */
-                }
-                if (key[KEY_ESC]) {                                           /* 4264 */
-                    log2file("  quit from replay");                           /* 4265 */
-                    quit = 1;                                                 /* 4265 */
-                    playing = 0;                                              /* 4265 */
-                }
-                if (key[KEY_SPACE]) {                                        /* 4271 */
-                    if (ply[player_id]->dead == 0) {
-                        log2file("  replay paused");                          /* 4272 */
-                        while (key[KEY_SPACE])                                /* 4273: debounce-wait loop */
-                            poll_control(&rec_ctrl, 1);
-                        while (!key[KEY_SPACE] && !key[KEY_RIGHT] &&          /* 4274: pause-wait loop */
-                               !key[KEY_ESC] && !key[KEY_UP]) {               /* 4274: pause-wait loop */
-                            poll_control(&rec_ctrl, 1);                       /* 4275 */
-                            if (key[KEY_F1]) {                                /* 4276 */
-                                take_screenshot(swap_screen);                 /* 4277 */
-                            /* main.c:4278's own jne loops back to its OWN fragment's start
-                             * (offset 10425 == 0x4142b9 - 0x411a00), with nothing else between --
-                             * a bare debounce spin on key[KEY_F1] alone, no poll_control() call
-                             * (unlike the KEY_SPACE debounce loops at 4273/4281), that was simply
-                             * missing from this block. */
-                                while (key[KEY_F1])                            /* 4278 */
-                                    ;
-                            }
-                        }
-                        while (key[KEY_SPACE])                                /* 4281: debounce-wait loop */
-                            poll_control(&rec_ctrl, 1);
-                        fast_forward = 0;                                     /* 4282 */
-                        fast_fast_forward = 0;                                /* 4283 */
-                        log2file("  replay unpaused");                       /* 4284 */
-                    }
-                }
-                /* NOT an else: main.c:4271's own je (SPACE not pressed) lands at offset 5965,
-                 * exactly the reload that starts main.c:4284's tail; the dead!=0 fallthrough at
-                 * offset 3262 lands exactly at 4287's own first fragment; and 4284's own tail
-                 * falls straight into 4287's SECOND fragment (offsets 5971..5984) after finishing
-                 * the pause/unpause sequence. All three paths -- space not pressed, space pressed
-                 * while dead, and space pressed-and-unpaused -- converge on the same KEY_RIGHT
-                 * test, so 4287..4310 run unconditionally after the block above, not only when it
-                 * was skipped. */
-                if (key[KEY_RIGHT]) {                                     /* 4287 */
-                    fast_forward++;                                       /* 4288 */
-                    fast_fast_forward = 0;                                /* 4289 */
-                }
-                else
-                    fast_forward = 0;                                     /* 4292 */
-                if (key[KEY_UP]) {                                        /* 4295 */
-                    if (!ply[player_id]->dead && ply[player_id]->level < demo->floor - 10) {  /* 4296 */
-                        fast_fast_forward++;                              /* 4297 */
-                        fast_forward = 0;                                 /* 4298 */
-                        next_floor = ((ply[player_id]->level + 100) / 100) * 100;  /* 4299 */
-                        if (next_floor > demo->floor - 10)                /* 4301 */
-                            next_floor = demo->floor - 10;
-                    }
-                    else {
-                        fast_fast_forward = 0;
-                        next_floor = -1;
-                    }
-                }
-                else if (ply[player_id]->level >= next_floor || ply[player_id]->dead) {  /* 4309 */
-                    fast_fast_forward = 0;                                /* 4310 */
-                    next_floor = -1;
-                }
-            }
-        }
-        if (!itrcheck) {                                                     /* 4319 */
-            static int someCounter;
-            int ffstep; /* DWARF block 132354 [2740..2804 6150..6448]: someCounter, ffstep, drew, skipDrawing */
+int musicCounter; musicCounter = 0;
+int lastMusicPos; lastMusicPos = 0;
+float accMusics; accMusics = 0.0f;
+int totMusics; totMusics = 0;
 
-            someCounter++;                                                    /* 4324 */
-            ffstep = fast_forward ? 4 : 1;                                   /* 4327 */
-            if (fast_fast_forward)                                            /* 4330 */
-                ffstep = 32;                                                  /* 4330 */
-            if (!quit && someCounter % ffstep == 0) {                        /* 4337 */
-                draw_frame(swap_screen);                                      /* 4338 */
-                if (ply[player_id]->shake) {                                  /* 4346 */
-                    acquire_screen();                                          /* gfx.inl:221/203 */
-                    blit(swap_screen, swap_screen, 0, shake, 0, 0,             /* 4348: args from
-                                                                                    fragments 6207..6271 (source-view
-                                                                                    4340 4352) -- src=dst=swap_screen,
-                                                                                    src_x=0, src_y=shake (ebp-0x96c),
-                                                                                    dst_x=dst_y=0, w/h read back from
-                                                                                    swap_screen's own struct fields
-                                                                                    (mov (%eax),%edx / mov 0x4(%eax));
-                                                                                    annotation moved to the opening
-                                                                                    line for the same reason as 4126
-                                                                                    above (GCC attributes a call's
-                                                                                    bytes to where it opens). */
-                         swap_screen->w, swap_screen->h);
-                    blit_to_screen(swap_screen);                              /* 4349 */
-                    release_screen();                                         /* gfx.inl:227/212 */
-                } else {
-                    blit_to_screen(swap_screen);                              /* 4353 */
-                }
-                if (!debug) {                                                 /* 4356 */
-                    while (cycle_count == 0)                                  /* 4357 */
-                        rest(2);                                              /* 4357 */
-                } else if (key[KEY_TAB] && key[KEY_LSHIFT]) {                  /* 4360 */
-                    while (cycle_count <= 7) { }                              /* 4361: busy wait */
-                } else {
-                    while (cycle_count == 0)
-                        rest(2);                                              /* 4363 */
-                }
-            }
-        }
-        if (!itrcheck)                                                       /* 4369 */
-            rest(2);
-        }
-    }
 
-    /* lines 4374..4426: recording gates a small profile play-time update vs. the full
-     * gameData stats snapshot + itrcheck-gated XML dump. */
-    if (recording) {                                                           /* 4374 */
-        diff = endTime - startTime;                                            /* 4375 */
-        if (diff > 0)                                                          /* 4376 */
-            profile->seconds_spent_playing += diff;                           /* 4377 */
-    } else {
-        gameData->score = ply[player_id]->level * 10 + ply[player_id]->score;  /* 4389 */
-        gameData->floor = ply[player_id]->level;                               /* 4390 */
-        gameData->combo = ply[player_id]->best_combo;                          /* 4391 */
-        gameData->no_combo_top_floor = ply[player_id]->no_combo_top_floor;     /* 4392 */
-        gameData->biggest_lost_combo = ply[player_id]->biggest_lost_combo;     /* 4393 */
-        for (i = 0; i < 5; i++)                                                /* 4395 */
-            gameData->ccc[i] = ply[player_id]->ccc[i];                        /* 4395 */
-        for (i = 0; i < 5; i++)                                                /* 4398 */
-            gameData->jc[i] = ply[player_id]->jcTop[i];                       /* 4398 */
-        {
-            int keys_pressed[7];
-            int key_flag[7] = { 16, 1, 2, 4, 8, 32, 128 };                     /* 4403 */
-            int last_keys[7];
-            int k;
 
-            for (k = 0; k < 7; k++)                                            /* 4402 */
-                keys_pressed[k] = time_cheat_count;                            /* 4402 */
-            if (demo->size > 0) {                                              /* 4406 */
-                for (k = 0; k < 7; k++)                                        /* 4404: rep stos reuses eax
-                                                                                    * without reloading it from
-                                                                                    * 4402's time_cheat_count
-                                                                                    * read (offset 7805, no mov
-                                                                                    * before it) -- last_keys is
-                                                                                    * seeded with time_cheat_count,
-                                                                                    * not a literal 0. */
-                    last_keys[k] = time_cheat_count;                           /* 4404 */
-                for (i = 0; i < demo->size; i++) {                             /* 4406 */
-                    int flags = demo->data[i].key_flags;                       /* 4406 */
-                    for (k = 0; k < 7; k++) {                                  /* 4408 */
-                        int f = key_flag[k] & flags;                           /* 4409 */
-                        if (!last_keys[k] && f)                                /* 4409 */
-                            keys_pressed[k]++;                                 /* 4410 */
-                        last_keys[k] = f;                                      /* 4412 */
-                    }
-                }
-            }
-            gameData->jump = keys_pressed[0];                                  /* 4416 */
-            gameData->left = keys_pressed[1];                                  /* 4417 */
-            gameData->right = keys_pressed[2];                                 /* 4418 */
-        }
-        if (itrcheck) {                                                       /* 4421 */
-            char *xmlStr = getGameDataXML(gameData);                          /* 4422 */
-            printf("%s", xmlStr);                                             /* 4423 */
-            free(xmlStr);                                                     /* 4424 */
-        }
-        if (itrcheck)                                                         /* 4426 */
-            return 0;
-    }
 
-    /* lines 4456..4458 */
-    log2file(" play ended");                                                  /* 4456 */
-    fast_forward = 0;                                                         /* 4457 */
-    fast_fast_forward = 0;                                                    /* 4458 */
+if (recording) if (recording) {
+demo->tc_posts = 0;
+for (i = 0; i < 100; i++) {
+demo->tc_c_data[i] = 0.0f;
+demo->tc_q_data[i] = 0.0f;
+demo->tc_t_data[i] = 0.0f;
+demo->tc_s_data[i] = 0.0f;
+demo->tc_f_data[i] = 0.0f;
+}
+}
 
-    /* lines 4500..4643: demo/profile stat snapshot (recording && !quit only), then
-     * syncProfileFromOptions()/save_profile() unconditionally, then the quit/closeButtonClicked
-     * guard around highscore qualification. Traced from three save_profile() call sites all
-     * tagged historical line 4641 (offsets 8235, 9307, 10956): the !recording predecessor
-     * (offset 8179) calls sync+save BEFORE ever testing quit (offset 8240's test comes after
-     * the call, not before it); the recording&&quit predecessor jumps straight past the whole
-     * replay-file block to its own sync+save copy (offset 10900, target of the "jne 414494"
-     * at offset 8315); the recording&&!quit predecessor falls through the replay-file block
-     * into a third sync+save copy (offset 9251) whose *own* trailing test reads
-     * closeButtonClicked directly (offset 9312, "cmpl $0x0,closeButtonClicked") rather than
-     * quit -- because on that path quit was already resolved false by the earlier test at
-     * offset 8308. That is only consistent with sync+save being unconditional statements
-     * textually AFTER this whole if/else, not folded into either arm or gated by !quit. */
-    if (recording) {                                                          /* 4500 */
-        if (!quit) {                                                          /* 4500 */
-            demo->score = ply[player_id]->level * 10 + ply[player_id]->score;  /* 4503 */
-            demo->floor = ply[player_id]->level;                               /* 4504 */
-            demo->combo = ply[player_id]->best_combo;                         /* 4505 */
-            demo->rejump = options.jump_hold;                                  /* 4506 */
-            demo->no_combo_top_floor = ply[player_id]->no_combo_top_floor;     /* 4507 */
-            demo->biggest_lost_combo = ply[player_id]->biggest_lost_combo;     /* 4508 */
-            for (i = 0; i < 5; i++)                                            /* 4510 */
-                demo->ccc[i] = ply[player_id]->ccc[i];                        /* 4510 */
-            for (i = 0; i < 5; i++)                                            /* 4513 */
-                demo->jc[i] = ply[player_id]->jcTop[i];                       /* 4513 */
 
-            if (!is_playing_custom_game) {                                    /* 4519 */
-                profile->games_played++;                                      /* 4520 */
-                profile->total_floors += demo->floor;                         /* 4522 */
-                profile->total_score += demo->score;                          /* 4523 */
-                profile->total_combos += numComboJumps;                       /* 4524 */
-                profile->total_combo_floors += totComboFloors;                /* 4525 */
-                for (i = 0; i < 5; i++) {                                      /* 4526 */
-                    if (demo->ccc[i] > 0) {                                    /* 4527 */
-                        profile->cccNum[i]++;                                  /* 4528 */
-                        profile->cccTotal[i] += demo->ccc[i];                  /* 4529 */
-                    }
-                }
-            } else {
-                profile->custom_games_played++;                               /* 4534 */
-            }
+log2file(" setting up play data");
+fall_count = 0;
+clock_angle = 0;
+map.offset = 0;
 
-            /* lines 4541..4624: replay directory + per-category replay files */
-            if (!file_exists(replay_directory, -1, NULL))                     /* 4541 */
-                mkdir(replay_directory);                                      /* 4543 */
+fast_forward = 0;
+fast_fast_forward = 0;
 
-            if (!is_playing_custom_game) {                                    /* 4550 */
-                int rank;
+update_frame();
+if (!itrcheck) {
+draw_frame(swap_screen);
 
-                if (demo->floor > profile->best_floor) {                      /* 4551 */
-                    profile->best_floor = demo->floor;                        /* 4552 */
-                    myDeleteFile(replay_directory, profile->best_replay_names[2]);  /* 4553 */
-                    sprintf(profile->best_replay_names[2], "%s_best_floor_%d.itr",  /* 4554 */
-                            profile->handle, demo->floor);
-                    save_replay(replay_directory, profile->best_replay_names[2], demo,  /* 4555 */
-                                rec_pos + 2, 1);
-                    new_personal_best[2] = 1;                                  /* 4556 */
-                }
-                if (demo->combo > profile->best_combo) {                      /* 4559 */
-                    profile->best_combo = demo->combo;                        /* 4560 */
-                    myDeleteFile(replay_directory, profile->best_replay_names[1]);  /* 4561 */
-                    sprintf(profile->best_replay_names[1], "%s_best_combo_%d.itr",  /* 4562 */
-                            profile->handle, demo->combo);
-                    save_replay(replay_directory, profile->best_replay_names[1], demo,  /* 4563 */
-                                rec_pos + 2, 1);
-                    new_personal_best[1] = 1;                                  /* 4564 */
-                }
-                if (demo->score > profile->best_score) {                      /* 4567 */
-                    profile->best_score = demo->score;                        /* 4568 */
-                    myDeleteFile(replay_directory, profile->best_replay_names[0]);  /* 4569 */
-                    sprintf(profile->best_replay_names[0], "%s_best_score_%d.itr",  /* 4570 */
-                            profile->handle, demo->score);
-                    save_replay(replay_directory, profile->best_replay_names[0], demo,  /* 4571 */
-                                rec_pos + 2, 1);
-                    new_personal_best[0] = 1;                                  /* 4572 */
-                }
-                if (ply[player_id]->no_combo_top_floor > profile->no_combo_top_floor) {  /* 4575 */
-                    profile->no_combo_top_floor = ply[player_id]->no_combo_top_floor;  /* 4576 */
-                    myDeleteFile(replay_directory, profile->best_replay_names[4]);  /* 4577 */
-                    sprintf(profile->best_replay_names[4], "%s_best_no_combo_%d.itr",  /* 4578 */
-                            profile->handle, demo->no_combo_top_floor);
-                    save_replay(replay_directory, profile->best_replay_names[4], demo,  /* 4579 */
-                                rec_pos + 2, 1);
-                    new_personal_best[4] = 1;                                  /* 4580 */
-                }
-                if (ply[player_id]->biggest_lost_combo > profile->biggest_lost_combo) {  /* 4583 */
-                    profile->biggest_lost_combo = ply[player_id]->biggest_lost_combo;  /* 4584 */
-                    myDeleteFile(replay_directory, profile->best_replay_names[3]);  /* 4585 */
-                    sprintf(profile->best_replay_names[3], "%s_best_lost_combo_%d.itr",  /* 4586 */
-                            profile->handle, demo->biggest_lost_combo);
-                    save_replay(replay_directory, profile->best_replay_names[3], demo,  /* 4587 */
-                                rec_pos + 2, 1);
-                    new_personal_best[3] = 1;                                  /* 4588 */
-                }
-                for (rank = 1; rank < 6; rank++) {                             /* 4591 */
-                    if (ply[player_id]->ccc[rank - 1] > profile->ccc[rank - 1]) {  /* 4592 */
-                        profile->ccc[rank - 1] = ply[player_id]->ccc[rank - 1];  /* 4593 */
-                        myDeleteFile(replay_directory, profile->best_replay_names[4 + rank]);  /* 4594 */
-                        sprintf(profile->best_replay_names[4 + rank], "%s_best_cc%d_%d.itr",  /* 4595 */
-                                profile->handle, rank, ply[player_id]->ccc[rank - 1]);
-                        save_replay(replay_directory, profile->best_replay_names[4 + rank],  /* 4596 */
-                                    demo, rec_pos + 2, 1);
-                        new_personal_best[4 + rank] = 1;                       /* 4597 */
-                    }
-                }
-                for (rank = 1; rank < 6; rank++) {                             /* 4601 */
-                    if (ply[player_id]->jcTop[rank - 1] > profile->jc[rank - 1]) {  /* 4602 */
-                        profile->jc[rank - 1] = ply[player_id]->jcTop[rank - 1];  /* 4603 */
-                        myDeleteFile(replay_directory, profile->best_replay_names[9 + rank]);  /* 4604 */
-                        sprintf(profile->best_replay_names[9 + rank], "%s_best_jj%d_%d.itr",  /* 4605 */
-                                profile->handle, rank, ply[player_id]->jcTop[rank - 1]);
-                        save_replay(replay_directory, profile->best_replay_names[9 + rank],  /* 4606 */
-                                    demo, rec_pos + 2, 1);
-                        new_personal_best[9 + rank] = 1;                       /* 4607 */
-                    }
-                }
-            }
+fadeIn(swap_screen, 16);
+play_sound(custom.yo, 0, 0);
+startGameMusic();
+}
 
-            if (save_replay(replay_directory, "last_game.itr", demo, rec_pos + 2, 1) < 0) {  /* 4613 */
-                my_alert("Failed to save replay.", "(last_game.itr)", 0, 1);  /* 4614 */
-                uberChecksum = 0;                                             /* 4615 */
-            } else {
-                char fbuf[2048];
-                Treplay *rr;
+if (!itrcheck)
+if (bg_beat) {
+checkMusicVoiceID = play_sample(bg_beat, 0, 128, 1000, 1);
+}
 
-                sprintf(fbuf, "%slast_game.itr", replay_directory);          /* 4620 */
-                rr = load_replay(fbuf);                                      /* 4621 */
-                if (rr) {                                                    /* 4622 */
-                    uberChecksum = calc_replay_checksum(demo);               /* 4623 */
-                    destroy_replay(rr);                                     /* 4624 */
-                }
-            }
-        }
-    }
 
-    /* lines 4641..4643: unconditional, reached from all three predecessors above */
-    syncProfileFromOptions();                                                /* 4641 */
-    save_profile(profile);                                                   /* 4641 */
 
-    {
-        /* DWARF block 133269 begins after the replay filename buffer's scope. */
-        float hy;
-        int gotHigh;
-        int qualify[15];
-        int qualifyValue[15];
-        int gameover_bmp_id;
 
-    /* lines 4643..4683: highscore qualification, guarded by quit && closeButtonClicked */
-    if (!quit) {                                                             /* 4643 */
-        if (!closeButtonClicked) {                                           /* 4643 */
-            int rank;   /* qualify, qualifyValue, gotHigh and gameover_bmp_id live in the enclosing
-                         * DWARF block 133269, which opens here and runs into REGION W5 */
+cycle_count = 0;
 
-            for (i = 0; i < 15; i++)                                         /* 4650 */
-                qualify[i] = 0;                                             /* 4650 */
-            qualifyValue[0] = ply[player_id]->level * 10 + ply[player_id]->score;  /* 4652 */
-            qualifyValue[2] = ply[player_id]->level;                         /* 4653 */
-            qualifyValue[1] = ply[player_id]->best_combo;                    /* 4654 */
-            qualifyValue[3] = ply[player_id]->biggest_lost_combo;            /* 4655 */
-            qualifyValue[4] = ply[player_id]->no_combo_top_floor;            /* 4656 */
-            for (i = 0; i < 5; i++) {                                        /* 4657 */
-                qualifyValue[5 + i] = ply[player_id]->ccc[i];                /* 4658 */
-                qualifyValue[10 + i] = ply[player_id]->jcTop[i];             /* 4659 */
-            }
-            quit = 0;                                                       /* 4657 */
-            gotHigh = 0;                                                    /* 4657 */
-            for (rank = 0; rank < 15; rank++) {                              /* 4662 */
-                qualify[rank] = qualify_hisc_table(hisc_tables[rank], qualifyValue[rank]);  /* 4663 */
-                gotHigh += qualify[rank];                                    /* 4664 */
-            }
-            quit = gotHigh;                                                 /* 4662: local_slot_trace shows
-                                                                                * THREE writes to quit's slot
-                                                                                * in this stretch (9446/4657
-                                                                                * const 0, 9503/4662 a VALUE,
-                                                                                * 9522/4668 const 0 again) and
-                                                                                * seven reads after them. At
-                                                                                * offset 9503 ("mov %esi,
-                                                                                * -0x93c(%ebp)") esi is the
-                                                                                * gotHigh accumulator, still
-                                                                                * live from "add %eax,%esi"
-                                                                                * at offset 9495 (line 4664) --
-                                                                                * quit is reused from here on
-                                                                                * to carry gotHigh's value
-                                                                                * through the rest of the
-                                                                                * function; the 4670/4673 tests
-                                                                                * below read quit, not gotHigh,
-                                                                                * from this point on. */
+log2file(" play started");
+startTime = time(NULL);
 
-            if (recording) {                                                /* 4668 */
-                gameover_bmp_id = (quit > 0) ? 0x3e : 0x37;                  /* 4670: disasm reads -0x93c
-                                                                                * (quit's slot) here, not
-                                                                                * gotHigh's esi. */
-            } else {
-                quit = 0;                                                   /* 4668: second const-0 write to
-                                                                                * quit's slot (offset 9522),
-                                                                                * distinct from gotHigh (whose
-                                                                                * own DW_OP_reg6/esi location
-                                                                                * list keeps it separately live
-                                                                                * over this same span). */
-                gotHigh = 0;                                                /* 4668 */
-                gameover_bmp_id = 0x37;                                     /* 4668 */
-            }
-            if (is_playing_custom_game)                                     /* 4671 */
-                gameover_bmp_id = 0x37;                                     /* 4671 */
 
-            if (quit) {                                                     /* 4673: disasm reads -0x93c
-                                                                                * (quit) again here, not
-                                                                                * gotHigh. */
-                if (!is_playing_custom_game) {                              /* 4673 */
-                    log2file(" player qualified for highscore");            /* 4674 */
-                    play_sound(sounds[7], 0, 0);                            /* 4675 */
-                }
-            } else {
-                log2file(" player did not qualify for highscore");          /* 4678 */
-                play_sound(speaker[1], 0, 0);                               /* 4679 */
-            }
 
-            /* 4683: the debug path skips the results animation below. */
-        }
-    }
 
-    {
-        /* hy, gotHigh, qualify and qualifyValue are declared in the enclosing DWARF block 133269,
-         * which opens in REGION W4 at main.c:4650 and runs to the end of the function. */
-        if (!debug) {       /* original 9619 branches around the results work */
-        hy = 480.0f;       /* 4704: panel starts off-screen at 480 and eases up toward 130.0f */
-        int alpha_pos;      /* letter-navigation cursor; first write is at 4821 (rank-up reset) */
-        char *initials = NULL;
+LARGE_INTEGER li;
+QueryPerformanceCounter(&li);
+qpc_start = li.LowPart;
 
-        {
-            /* DWARF and instructions separate four name-entry variables: alpha_pos
-             * at stack -0x930 indexes letters[], pos in esi indexes buf[], done at
-             * stack -0x938 controls the loop, and skip_keys in edi delays repeat
-             * input. The previous candidate conflated these states. scrollerY is
-             * not read from the earlier results loop; its DWARF register range
-             * starts at offset 12095 in this inner block. */
-            int scrollerY;   /* ticker-bar Y offset; %ebx from the 4821 reset (-20) through the
-                               * 4831-4838 easing -- was wrongly conflated with alpha_pos before. */
-            char letters[31] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ .\244\0";
-            int len;
-            char buf[8] = { '.', 0, '.', 0, '.', 0, 0, 0 };  /* 4689 */
-            int done;
-            int skip_keys;
-            int pos;
-            int isGuest;
-            int new_rank_id;
-            int rank_bmp_id;
-            int rank_y;
-            int k;
-            char guestName[4];
-            char postName[32];
+QueryPerformanceFrequency(&li);
+int qpc_freq;
 
-            len = strlen(letters) - 1;                                              /* 4688 */
-            isGuest = !stricmp(profile->handle, "guest");                           /* 4692 */
 
-            /* qualify, qualifyValue and gotHigh are NOT recomputed here: they are declared in
-             * the enclosing DWARF block 133269, which opens in REGION W4 at main.c:4650 and
-             * does not close until the end of the function, so W4's own computation (main.c
-             * 4650-4664, and the recording/is_playing_custom_game handling through 4671) is
-             * still in scope and still holds. A prior pass at this region assumed the opposite
-             * ("this region cannot see the values") and inserted an unannotated fourteen-
-             * statement duplicate of W4's block here; function_lines.py --source-view 4650 4687
-             * shows the original computes qualify[]/qualifyValue[]/gotHigh exactly ONCE, entirely
-             * within W4's own address range (offsets 9327-9497), with nothing resembling it
-             * again before 4687. The duplicate also disagreed with W4's real logic (W4 only
-             * zeroes gotHigh when !recording, never when is_playing_custom_game while recording
-             * -- the deleted duplicate zeroed it in both cases). Removed. */
 
-            /* results screen: slide the results panel in and wait for the
-             * highscore chime / fade timer (4695..4737). */
-            for (;;) {
-                cycle_count = 0;                                                     /* 4696 */
-                ply[player_id]->dead -= 16;                                          /* 4697 */
-                hy = hy + (130.0f - hy) * 0.1;                                       /* 4699 */
-                update_frame();                                                      /* 4700 */
-                for (i = 0; i < 512; i++)                                            /* 4701 */
-                    if (stars[i].intensity)
-                        update_particle(&stars[i]);
-                if ((unsigned)(hurry_y + 99) <= 578u)                                 /* 4702 */
-                    hurry_y -= 2;
-                draw_frame(swap_screen);                                             /* 4703 */
-                /* 4704 */
-                draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify,
-                             qualifyValue,
-                             is_playing_custom_game ? 0 : (recording != 0));
-                if (isGuest && gotHigh && !is_playing_custom_game && !recording) { /* 4705 */
-                    /* 4706 */ textout_centre_ex(swap_screen, data[52].dat, "Enter your initials",
-                                       320, (int)(hy * 2.0 + 80.0), -1, -1);
-                }
-                if (falling >= 1)                                                   /* 4709: cmp/sbb */
-                    falling++;
-                if (falling <= ply[player_id]->level * 5 && falling <= 250) {     /* 4710 */
-                    play_sound(sounds[6], 0, 1);                                      /* 4711 */
-                    if (custom.falling)                                               /* 4712 */
-                        stop_sample(custom.falling);
-                    ply[player_id]->shake = 24;                                       /* 4714 */
-                }
-                if (ply[player_id]->shake) {                                          /* 4716 */
-                    acquire_screen();                                                /* 4716: inlined */
-                    /* 4718 */ blit(swap_screen, screen, 0, new_rand() % 8, 0, 0,
-                         swap_screen->w, swap_screen->h);
-                    release_screen();                                                /* 4718: inlined */
-                    ply[player_id]->shake--;                                          /* 4720 */
-                }
-                blit_to_screen(swap_screen);                                          /* 4722 */
-                if (key[KEY_F1]) {                                                    /* 4725 */
-                    take_screenshot(swap_screen);                                     /* 4726 */
-                    while (key[KEY_F1]) { }  /* 4727: wait for release at 13091..13105 */
-                }
-                if (key[KEY_TAB] && key[KEY_LSHIFT]) {                                /* 4731 */
-                    do {
-                        rest(2);                                                      /* 4734 */
-                    } while (cycle_count == 0);
-                }
-                if (hy <= 140.0f)  /* sole original 140.0f comparison at offset 11863 */
-                    break;
-            }
-            ply[player_id]->dead = 0;                                                 /* 4737 */
-            clear_keybuf();                                                           /* 4738 */
 
-            /* summary scroller message: custom/guest/personal-record tip (4742..4775). */
-            if (!recording)
-                summary_scroller_message[0] = 0;                                      /* 4743 */
-            else {
-                if (is_playing_custom_game) {
-                    /* 4746: annotate the statement's FIRST physical line, not just the last --
-                     * an unannotated opening line inherits the previous statement's historical
-                     * line (4743) and misattributes this call's bytes to it. */
-                    memcpy(summary_scroller_message,               /* 4746 */
-                           "Custom mode is crazy fun but does not add to your profile. "
-                           "Play Classic Mode to compete in the highscore lists and "
-                           "climb in rank!", 0x82);                                    /* 4746 */
-                } else {
-                    if (gotHigh)                                                         /* 4749 */
-                        memcpy(summary_scroller_message, "New personal records!    ", 0x1a); /* 4753 */
-                    if (isGuest) {                                                       /* 4770 */
-                        strcpy(summary_scroller_message,
-                               "You're playing in guest mode. Start a profile and "
-                               "record your progress!");
-                    } else {
-                        strcpy(summary_scroller_message, hints[new_rand() % 45]);        /* 4775 */
-                    }
-                }
-            }
+clockTimeStart = clock();
 
-            /* name entry loop: scroller/rank banner setup and per-frame draw + input
-             * (4781..4923). */
-            /* 4781 */ init_scroller(&summary_scroller, data[54].dat, summary_scroller_message,
-                           640, 30, -1);
-            scroll_scroller(&summary_scroller, -150);                                  /* 4782 */
-            new_rank_id = get_rank_id(profile);                                        /* 4787 */
-            rank_bmp_id = new_rank_id + 0x4a;
-            alpha_pos = 0;
-            rank_y = 0x244;
-            scrollerY = -20;
-            skip_keys = 0;
-            pos = 0;
-            done = 20;
+timeTimeStart = time(NULL);
 
-            for (;;) {
-                if (done == 0)                          /* 4792: cmp $0, done slot -0x938 */
-                    break;
-                if (closeButtonClicked)                                                /* 4793 */
-                    break;
-                cycle_count = 0;                                                       /* 4797 */
-                step_count++;                                                          /* 4798 */
-                update_frame();                                                        /* 4800 */
-                if (key[KEY_F1]) {                                                     /* 4802 */
-                    take_screenshot(swap_screen);                                      /* 4803 */
-                    while (key[KEY_F1]) { }                                            /* 4804 */
-                }
-                if ((unsigned)(hurry_y + 99) <= 578u)                                   /* 4808 */
-                    hurry_y -= 2;
-                draw_frame(swap_screen);                                               /* 4809 */
-                /* 4810 */ draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify,
-                             qualifyValue, is_playing_custom_game ? 0 : (recording != 0));
-                if (isGuest && gotHigh && !is_playing_custom_game && !recording) {  /* 4811 */
-                    /* 4812 */ textout_centre_ex(swap_screen, data[52].dat, "Enter your initials",
-                                       320, (int)(hy * 2.0 + 80.0), -1, -1);
-                    if (pos != 0 || (step_count & 4))                                   /* 4814 */
-                        textout_centre_ex(swap_screen, data[52].dat, &buf[0],
-                                           300, (int)(hy * 2.0 + 120.0), -1, -1);
-                    if (pos != 1 || (step_count & 4))                                   /* 4815 */
-                        textout_centre_ex(swap_screen, data[52].dat, &buf[2],
-                                           320, (int)(hy * 2.0 + 120.0), -1, -1);
-                    if (pos != 2 || (step_count & 4))                                   /* 4816 */
-                        textout_centre_ex(swap_screen, data[52].dat, &buf[4],
-                                           340, (int)(hy * 2.0 + 120.0), -1, -1);
-                    if (pos == 3 && (step_count & 4))                                   /* 4817 */
-                        textout_centre_ex(swap_screen, data[52].dat, "%",
-                                           360, (int)(hy * 2.0 + 120.0), -1, -1);
-                }
-                if (new_rank_id != current_rank_id) {                                   /* 4820 */
-                    /* 4821: banner state is initialized before the loop, as in
-                     * original offsets 12034..12075. The rank-change branch
-                     * starts with the bitmap lookup at offset 12351. */
-                    draw_sprite(swap_screen, data[rank_bmp_id].dat, 20, rank_y);         /* 4821 (inlined) */
-                    /* 4822 */ textout_ex(swap_screen, data[52].dat, "rank up!",
-                               20, rank_y + 0x46, -1, -1);
-                    /* 4823 */ rank_y = (int)((320 - rank_y) * 0.1 + rank_y);
-                    /* current_rank_id = new_rank_id was here in an earlier pass, but
-                     * local_slot_trace for current_rank_id shows exactly 3 accesses in the
-                     * whole function -- init at 3441, a write at 3443 (both before region
-                     * W1a), and the single read at 4820 -- with NO write anywhere inside this
-                     * loop. Removed as invented: nothing in the trace supports it, and per
-                     * large-body-reconstruction-pitfalls this makes new_rank_id!=current_rank_id
-                     * loop-invariant-true after the first rank-up, i.e. the block re-triggers
-                     * every frame, which is consistent with the evidence even if it looks like
-                     * a game bug. */
-                    /* Tried: moving this draw_sprite/textout_ex/easing out of the if-block to
-                     * run unconditionally every frame (on the theory that evidence/census/
-                     * line-mappings.json shows exactly two draw.inl:238 sites in the whole
-                     * function, both here, so rank_y should have two readers). Measured worse
-                     * on every axis: play grew 16556->16678 bytes and this line's own delta
-                     * went from +70 (4820) to +168, so reverted. The second draw.inl:238 site
-                     * (offset 0x35b3, historical) is real but is NOT reached by simply hoisting
-                     * this draw out of the if -- its actual source position is still unknown. */
-                }
-                if (summary_scroller_message[0]) {                                       /* 4827 */
-                    scroll_scroller(&summary_scroller, -2);                              /* 4828 */
-                    drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);                              /* 4829 */
-                    set_trans_blender(0, 0, 0, 110);                                     /* 4830 */
-                    /* 4831-4833: original computes these through draw.inl's inlined rectfill,
-                     * with y1=scrollerY and y2=scrollerY+20/+18/+16 (confirmed via
-                     * `lea 0x14(%ebx),%eax` / `lea 0x12(%ebx),%eax` / `lea 0x10(%ebx),%eax`
-                     * at offsets 13301/13375/13449, all inside scrollerY's DWARF-register
-                     * range) -- not the constants this used to hardcode. */
-                    rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 20, makecol(0, 0, 0)); /* 4831 */
-                    rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 18, makecol(0, 0, 0)); /* 4832 */
-                    rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 16, makecol(0, 0, 0)); /* 4833 */
-                    solid_mode();                                                         /* 4834 */
-                    /* 4835/4836: the draw_scroller 4th argument is 0xc(%esp)=%ebx at offsets
-                     * 13519/13584, both inside scrollerY's register range -- not alpha_pos. */
-                    draw_scroller(&summary_scroller, swap_screen, 1, scrollerY,          /* 4835 */
-                                   makecol(150, 150, 150));
-                    if (!draw_scroller(&summary_scroller, swap_screen, 0, scrollerY,     /* 4836 */
-                                        makecol(200, 200, 200)))
-                        restart_scroller(&summary_scroller);
-                }
-                /* 4838: this easing computation (ebx=ebx+(int)(-ebx*0.1)) sits at offset
-                 * 13633-13707, inside scrollerY's DWARF register range (13150-13795), not
-                 * alpha_pos's (alpha_pos's own local_slot_trace has no access at 4838 at all).
-                 * scrollerTargetY has no DWARF location (eliminated), consistent with the
-                 * target being the constant 0 folded into this formula, the same way
-                 * hyTarget==130.0f and rankTargetY==320 are already folded into hy/rank_y. */
-                scrollerY = scrollerY + (int)(-scrollerY * 0.1);  /* 4838 */
 
-                if (falling <= ply[player_id]->level * 5 && falling <= 250) {         /* 4844 */
-                    play_sound(sounds[6], 0, 1);                                          /* 4845 */
-                    if (custom.falling)                                                   /* 4846 */
-                        stop_sample(custom.falling);
-                    ply[player_id]->shake = 24;                                           /* 4850 */
-                    falling = 0;
-                }
-                if (ply[player_id]->shake) {                                              /* 4852 */
-                    acquire_screen();                                                    /* 4852: inlined */
-                    /* 4855 */ blit(swap_screen, screen, 0, new_rand() % 8, 0, 0,
-                         swap_screen->w, swap_screen->h);
-                    release_screen();                                                    /* 4855: inlined */
-                    ply[player_id]->shake--;                                              /* 4857 */
-                }
-                blit_to_screen(swap_screen);                                              /* 4860 */
+playing = TRUE;
+while (playing) {
 
-                if (isGuest && gotHigh && !is_playing_custom_game && recording) {      /* 4863 */
-                    poll_control(&ctrl, 0);                                                /* 4864 */
-                    if (keypressed()) {                                                     /* 4865 */
-                        if (done == 20) {                                                    /* 4865 */
-                            k = readkey() & 0xff;                                            /* 4866 */
-                            k -= 0x20;
-                            if (k == -24)                                                    /* 4867 */
-                                k = (signed char)0xa4;
-                            else if (k == 14)                                               /* 4868 */
-                                k = '.';
-                            else if (k == 1)                                                /* 4869 */
-                                k = '!';
-                            if (k != 0x20) {                                                /* 4870 */
-                                for (i = 0; i < len; i++) {                                 /* 4871 */
-                                    char typed = letters[i];
-                                    if ((signed char)typed == k) {                          /* 4872 */
-                                        buf[pos * 2] = typed;                               /* 4875 */
-                                        pos++;                                              /* 4876 */
-                                        alpha_pos = i;
-                                        skip_keys = 100;
-                                        if (pos == 3)                                      /* 4877 */
-                                            done = 19;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (skip_keys) {
-                        skip_keys--;
-                    } else {
-                    if (is_right(&ctrl)) {                                                 /* 4884 */
-                        alpha_pos++;                                                        /* 4885 */
-                        skip_keys = 8;
-                        if (alpha_pos > len)                                                /* 4886 */
-                            alpha_pos = 0;
-                    }
-                    if (is_left(&ctrl)) {                                                  /* 4889 */
-                        skip_keys = 8;
-                        alpha_pos--;                                                        /* 4891 */
-                        if (alpha_pos < 0)
-                            alpha_pos = len;
-                    }
-                    if (is_fire(&ctrl)) {                                                  /* 4894 */
-                        if (letters[alpha_pos] == (char)0xa4) {                            /* 4895: blank slot confirmed */
-                            if (pos != 0) {                                                 /* 4895 */
-                                buf[pos * 2] = '.';                                         /* 4896 */
-                                pos--;                                                      /* 4897 */
-                            }
-                            skip_keys = 100;
-                        } else if (pos <= 1) {                                              /* 4899 */
-                            pos++;
-                            skip_keys = 100;
-                        } else {
-                            if (done == 20) {                                               /* 4900 */
-                                pos++;                                                      /* 4902 */
-                                done = 19;
-                            }
-                            skip_keys = 100;
-                        }
-                    }
-                    if (key[KEY_DEL] || key[KEY_BACKSPACE]) {                               /* 4906 */
-                        buf[pos * 2] = '.';                                                 /* 4907 */
-                        skip_keys = 7;
-                        if (pos != 0)                                                       /* 4908 */
-                            pos--;
-                    } else if (skip_keys > 0) {
-                        skip_keys--;                                                        /* 4912 */
-                    }
-                    }
-                    if (!is_any(&ctrl) && !key[KEY_DEL] && !key[KEY_BACKSPACE])             /* 4913 */
-                        skip_keys = 0;
-                    if (pos <= 2)
-                        buf[pos * 2] = letters[alpha_pos];                                  /* 4915 */
-                }
-                if (done != 20)                                                             /* 4918 */
-                    done--;  /* original 12918..12930, reached from both paths */
-                poll_control(&ctrl, 0);                                                     /* 4920 */
-                if (isGuest && gotHigh && is_playing_custom_game) {                         /* 4921 */
-                    if (keypressed() || is_fire(&ctrl)) {                                   /* 4922 */
-                        if (done == 20)                                                     /* 4923 */
-                            done = 14;  /* original 12956..13003, 13732 */
-                    }
-                }
-                if (key[KEY_LSHIFT] && key[KEY_TAB]) {           /* 4929: operand order swapped
-                     * from the 4731 occurrence -- function_lines.py source-view shows 4929 testing
-                     * key[KEY_LSHIFT] first (4731 tests key[KEY_TAB] first), so the two blocks are
-                     * not byte-identical in the original and the compiler does not fold them. */
-                    do {
-                        rest(2);                                                             /* 4932 */
-                    } while (cycle_count == 0);
-                    continue;
-                }
-            }
+if (closeButtonClicked) return 0; {
 
-            /* highscore entry: commit the typed initials into every qualified table
-             * (4940..4951). */
-            if (!is_playing_custom_game && recording) {                                  /* 4940 */
-                guestName[0] = buf[0];                                                       /* 4941 */
-                guestName[1] = buf[2];
-                guestName[2] = buf[4];
-                guestName[3] = 0;
-                if (isGuest) {                                                               /* 4943 */
-                    initials = guestName;
-                } else {
-                    strcpy(postName, profile->handle);
-                    initials = postName;
-                }
-                for (k = 0; k < 15; k++) {                                                   /* 4948 */
-                    if (qualify[k] > 0) {                                                    /* 4949 */
-                        enter_hisc_table(hisc_tables[k], qualifyValue[k], initials);          /* 4950 */
-                        sort_hisc_table(hisc_tables[k]);                                      /* 4951 */
-                    }
-                }
-            }
 
-        } /* original debug route rejoins before the unlock check */
 
-            /* post-game "new start floor unlocked" message (4963..4987). */
-            if (recording && !debug && !is_playing_custom_game) {                        /* 4963 */
-                int f = ply[player_id]->level / 100;                                          /* 4964 */
-                if (f > oldUnlockedFloors && f <= 9) {                                        /* 4966 */
-                    fadeOut(16);                                                              /* 4968 */
-                    blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);                   /* 4971 */
-                    set_trans_blender(0, 0, 0, 158);                                          /* 4974 */
-                    drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);                                   /* 4975 */
-                    {                                                                           /* 4976 */
-                        int black = makecol(0, 0, 0);
-                        int width = 0;
-                        int height = 0;
-                        GFX_DRIVER *driver = gfx_driver;
-                        if (driver) {
-                            width = driver->w;
-                            height = driver->h;
-                        }
-                        rectfill(swap_screen, 0, 0, width, height, black);
-                    }
-                    solid_mode();                                                             /* 4977 */
-                    draw_sprite(swap_screen, data[58].dat,
-                                320 - ((BITMAP *)data[58].dat)->w / 2, 20);                    /* 4980 (inlined) */
-                    /* 4981 */ textout_centre_ex(swap_screen, data[54].dat, "A new start floor",
-                                       320, 0x12c, -1, -1);
-                    /* 4982 */ textout_centre_ex(swap_screen, data[54].dat, "has been unlocked!",
-                                       320, 0x15e, -1, -1);
-                    /* 4983 */ textout_centre_ex(swap_screen, data[54].dat,
-                                       "(Get it in the options menu)",
-                                       320, 0x1b8, -1, -1);
-                    play_sound(sounds[2], 0, 0);                                                /* 4984 */
-                    fadeIn(swap_screen, 16);                                                   /* 4985 */
-                    while (key[KEY_ESC] || key[KEY_ENTER] || key[KEY_SPACE]) {  /* 4986 */
-                    }
-                    while (!key[KEY_ESC] && !key[KEY_ENTER] && !key[KEY_SPACE]) {  /* 4986 */
-                    }
-                }
-            }
-        }
+cycle_count = 0;
 
-        /* epilogue: save config, stop music, offer the replay menu (4994..5021). */
-        save_config();                                                                        /* 4994 */
-        stopGameMusic();                                                                       /* 4997 */
-        if (checkMusicVoiceID >= 0)                                                            /* 4998 */
-            voice_stop(checkMusicVoiceID);                                                     /* 4999 */
+logic_count++;
+step_count++;
+fall_count++;
+time_cheat_count++;
+musicCounter++;
 
-        play_again = 0;                                                                        /* 5002 */
-        if (recording) {                                                                        /* 5002 */
-            int wasDebug = debug;  /* original checks debug before do_replay_menu */
-            if (!wasDebug) {                                                                    /* 5002 */
-                in_replay_menu = 1;                                                              /* 5003 */
-                play_again = do_replay_menu();                                                   /* 5004 */
-                in_replay_menu = 0;                                                              /* 5005 */
-            }
-            if (wasDebug || recording)                                                           /* 5011 */
-                play_sound(speaker[2], 0, 0);
-            stopGameMusic();                                                                     /* 5013 */
-            if (checkMusicVoiceID >= 0)                                                           /* 5014 */
-                voice_stop(checkMusicVoiceID);                                                    /* 5015 */
-            clear_bitmap(screen);                                                                 /* inlined */
-        }
-    }
 
-    }   /* end of DWARF block 133269, opened in REGION W4 */
+if (!itrcheck) {
+if (lastFocus != hasFocus) {
+if (hasFocus) {
+if (bg_beat) {
+checkMusicVoiceID = play_sample(bg_beat, 0, 128, 1000, 1);
+}
 
-    return play_again;
+
+
+
+startGameMusic(); totMusics = 0; accMusics = 0.0f; musicCounter = 0;
+} else {
+
+if (checkMusicVoiceID >= 0) {
+voice_stop(checkMusicVoiceID);
+}
+checkMusicVoiceID = -1;
+
+stopGameMusic();
+}
+lastFocus = hasFocus;
+}
+}
+
+
+if (!itrcheck) { if (checkMusicVoiceID >= 0) {
+int vgp; vgp = voice_get_position(checkMusicVoiceID);
+if (vgp < lastMusicPos) { musicCounter = 0;
+}
+
+
+float a = vgp / 44000.0;
+float b;
+
+if (a > 0.01) {
+b = musicCounter / 50.0; accMusics += b / a;
+totMusics++; } lastMusicPos = vgp;
+}
+}
+
+
+
+
+
+
+
+if (recording && map.offset > 100 && !ply[player_id]->dead) {
+
+if (time_cheat_count == 1000) {
+
+
+
+double clockSpeed; double qpcSpeed; double timeSpeed;
+
+
+clockTimeEnd = clock();
+clockElapsed = clockTimeEnd - clockTimeStart; clockSpeed = (50.0 * clockElapsed) / 1000.0;
+if (clockSpeed > 0.0) { totClockTimes = (1000.0 * clockSpeed) / clockSpeed / 20.0; } else { totClockTimes = -0.05;
+}
+
+
+QueryPerformanceFrequency(&li);
+qpc_freq = li.LowPart;
+QueryPerformanceCounter(&li); qpc_end = li.LowPart;
+
+
+qpc_elapsed = qpc_end - qpc_start; qpcSpeed = (50.0 * qpc_elapsed / qpc_freq) / 20.0; totQPCTimes = qpcSpeed;
+
+
+
+
+
+
+
+timeTimeEnd = time(NULL);
+
+
+
+
+
+
+
+
+
+timeElapsed = timeTimeEnd - timeTimeStart;
+timeSpeed = (50.0 * timeElapsed) / 20.0;
+totTimeTimes = timeSpeed;
+demo->tc_c_data[demo->tc_posts] = 0.0 + totClockTimes;
+demo->tc_q_data[demo->tc_posts] = 0.0 + totQPCTimes;
+demo->tc_t_data[demo->tc_posts] = 0.0 + totTimeTimes;
+demo->tc_f_data[demo->tc_posts] = ply[player_id]->level;
+if (totMusics != 0) {
+demo->tc_s_data[demo->tc_posts] = 50.0 * accMusics / totMusics;
+}
+demo->tc_posts = demo->tc_posts < 98 ? demo->tc_posts + 1 : 99;
+
+
+
+
+
+
+
+
+
+
+clockTimeStart = clock();
+
+QueryPerformanceCounter(&li);
+qpc_start = li.LowPart;
+
+
+
+timeTimeStart = time(NULL); totMusics = 0; accMusics = 0.0f; time_cheat_count = 0;
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (debug) {
+if (key[KEY_1]) { if (allow_smpl) start_reward(5); }
+if (key[KEY_2]) { if (allow_smpl) start_reward(7); }
+if (key[KEY_3]) { if (allow_smpl) start_reward(15); }
+if (key[KEY_4]) { if (allow_smpl) start_reward(25); }
+if (key[KEY_5]) { if (allow_smpl) start_reward(35); }
+if (key[KEY_6]) { if (allow_smpl) start_reward(50); }
+if (key[KEY_7]) { if (allow_smpl) start_reward(70); }
+if (key[KEY_8]) { if (allow_smpl) start_reward(100); }
+if (key[KEY_9]) { if (allow_smpl) start_reward(140); }
+if (key[KEY_0]) { if (allow_smpl) start_reward(200); }
+allow_smpl = !(key[KEY_1] || key[KEY_2] || key[KEY_3] || key[KEY_4] || key[KEY_5] || key[KEY_6] || key[KEY_7] || key[KEY_8] || key[KEY_9] || key[KEY_0]);
+}
+
+
+
+
+midX = (int)ply[player_id]->x;
+midY = (int)ply[player_id]->y;
+
+
+handle_player_input(&ctrl);
+update_player(ply[player_id]);
+
+
+if (!itrcheck) {
+if (ply[player_id]->rotate && ply[player_id]->in_combo && !options.flash)
+create_particle(stars, (int)ply[player_id]->x, (int)ply[player_id]->y - 16);
+
+
+for (i = 0; i < 512; i++) if (stars[i].intensity) update_particle(&stars[i]); } lastY = midY;
+
+
+
+
+
+old_map_pos = map.offset; scroll_acc = 0;
+
+if (ply[player_id]->y < 160.0) { scroll_acc = 1;
+
+if (ply[player_id]->y < 140.0) if (ply[player_id]->y < 140.0) scroll_acc++;
+if (ply[player_id]->y < 120.0) if (ply[player_id]->y < 120.0) scroll_acc++;
+if (ply[player_id]->y < 100.0) if (ply[player_id]->y < 100.0) scroll_acc++;
+if (ply[player_id]->y < 80.0) if (ply[player_id]->y < 80.0) scroll_acc++;
+if (ply[player_id]->y < 60.0) if (ply[player_id]->y < 60.0) scroll_acc++;
+if (ply[player_id]->y < 40.0) if (ply[player_id]->y < 40.0) scroll_acc += 2;
+if (ply[player_id]->y < 20.0) if (ply[player_id]->y < 20.0) scroll_acc += 2;
+if (ply[player_id]->y < 0.0) if (ply[player_id]->y < 0.0) scroll_acc += 3;
+map.offset = old_map_pos + scroll_acc;
+
+ply[player_id]->y += scroll_acc;
+lastY = midY + scroll_acc; } tot_scroll = scroll_acc;
+
+
+
+if (!ply[player_id]->dead) clock_angle++;
+
+if (map.offset > 100 && !ply[player_id]->dead) {
+if (scroll == -1)
+scroll = start_speeds[demo->start_speed];
+
+if (!scroll) {
+if (step_count & 1) {
+map.offset++;
+tot_scroll++;
+ply[player_id]->y += 1.0;
+lastY++;
+}
+}
+else {
+map.offset += scroll;
+tot_scroll += scroll;
+ply[player_id]->y += scroll;
+lastY += scroll;
+}
+}
+else if (!ply[player_id]->dead) {
+clock_angle = 0; fall_count = 0;
+}
+
+
+
+any13 = tot_scroll;
+
+if (hurry_y > -100 && hurry_y < 480) hurry_y -= 2;
+if (demo->speed_increase)
+if (!ply[player_id]->dead && speeds[next_speed] < fall_count && scroll < 5) {
+ply[player_id]->ccc[next_speed] = ply[player_id]->level;
+
+next_speed++;
+scroll++;
+hurry_y = 479;
+play_sound(speaker[0], 0, 0);
+play_sound(sounds[4], 0, 0);
+}
+
+
+if (scroll == 5) {
+fall_count -= 45;
+if (!ply[player_id]->dead) clock_angle -= 45;
+}
+
+if (old_map_pos % 16 > map.offset % 16) {
+add_floor(&map);
+
+} else
+if (tot_scroll > 15) {
+
+add_floor(&map);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+switch (collision_type) { case 0:
+handle_player_collision_original(midX, lastY);
+break; case 1:
+handle_player_collision_old(midX, lastY);
+break; case 2:
+handle_player_collision_vector(midX, lastY);
+break; case 3:
+handle_player_collision_vector_2(midX, lastY);
+break; case 4:
+handle_player_collision_combo(midX, lastY);
+break; default:
+
+allegro_message("unknown collision type"); break;
+}
+
+
+
+
+
+if (ply[player_id]->rotate) ply[player_id]->angle += itofix(8);
+
+
+
+if (ply[player_id]->in_combo) {
+ply[player_id]->in_combo--;
+if (!ply[player_id]->in_combo)
+if (ply[player_id]->acc_jumps > 1) {
+ply[player_id]->score += ply[player_id]->acc_level * ply[player_id]->acc_level;
+int rewResult; rewResult = start_reward(ply[player_id]->acc_level);
+if (recording && !is_playing_custom_game) profile->rewards[rewResult]++;
+totComboFloors += ply[player_id]->acc_level;
+numComboJumps++;
+
+Tgd_combo c;
+c.length = ply[player_id]->acc_level;
+c.start = gdComboStart;
+c.end = c.start + c.length;
+add_combo(gameData, &c);
+
+ply[player_id]->latest_combo = ply[player_id]->acc_level;
+if (ply[player_id]->acc_level > ply[player_id]->best_combo)
+ply[player_id]->best_combo = ply[player_id]->acc_level;
+}
+}
+
+
+
+
+if (!ply[player_id]->status) {
+
+level = (get_level(&map, (int)ply[player_id]->y) - 1) / 5;
+
+
+
+
+diff = level - ply[player_id]->level;
+if (diff != 0) {
+if (diff != gdLastJumpDiff) {
+
+
+jumpSequence.dist = gdLastJumpDiff;
+add_jump_sequence(gameData, &jumpSequence);
+
+
+jumpSequence.num = 1;
+jumpSequence.start = level - diff;
+
+
+} else jumpSequence.num++;
+
+
+gdLastJumpDiff = diff;
+}
+
+
+
+
+if (level >= ply[player_id]->level) {
+
+diff = level - ply[player_id]->level;
+
+
+if (diff != lastJumpLength && diff != 0) {
+for (i = 0; i < 5; i++) {
+
+
+if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])
+ply[player_id]->jcTop[i] = ply[player_id]->jc[i];
+
+
+ply[player_id]->jc[i] = 0; } lastJumpLength = 0;
+}
+
+
+
+
+
+if (diff > 0) {
+if (diff <= 5)
+ply[player_id]->jc[diff - 1]++; lastJumpLength = diff;
+}
+
+
+
+
+if (diff > 0 && diff != 1) {
+if (ply[player_id]->in_combo) {
+ply[player_id]->acc_level += diff;
+ply[player_id]->acc_jumps++;
+ply[player_id]->in_combo = 100;
+}
+else {
+ply[player_id]->acc_level = diff;
+ply[player_id]->acc_jumps = 1;
+ply[player_id]->in_combo = 100;
+}
+}
+
+if (diff == 1 && ply[player_id]->in_combo)
+ply[player_id]->in_combo = 1;
+
+
+if (!ply[player_id]->in_combo)
+gdComboStart = level;
+}
+else {
+
+
+
+if (ply[player_id]->in_combo) ply[player_id]->in_combo = 1;
+
+for (i = 0; i < 5; i++) {
+
+
+if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])
+ply[player_id]->jcTop[i] = ply[player_id]->jc[i];
+
+
+ply[player_id]->jc[i] = 0; } lastJumpLength = 0;
+}
+
+
+
+
+
+
+
+
+ply[player_id]->level = level;
+
+
+
+
+if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)
+
+ply[player_id]->no_combo_top_floor = gdComboStart;
+}
+
+
+
+
+
+if (ply[player_id]->y > 540.0 && !ply[player_id]->dead) {
+if (itrcheck) playing = FALSE;
+if (ply[player_id]->in_combo && ply[player_id]->acc_jumps > 1)
+ply[player_id]->biggest_lost_combo = ply[player_id]->acc_level;
+
+ply[player_id]->in_combo = 0;
+ply[player_id]->dead = 1;
+play_sound(custom.falling, 0, 1);
+
+endTime = time(0);
+
+
+for (i = 0; i < 5; i++) {
+
+
+if (ply[player_id]->jc[i] > ply[player_id]->jcTop[i])
+ply[player_id]->jcTop[i] = ply[player_id]->jc[i];
+
+
+ply[player_id]->jc[i] = 0;
+}
+
+
+jumpSequence.dist = gdLastJumpDiff;
+add_jump_sequence(gameData, &jumpSequence);
+
+
+if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level) if (!numComboJumps && ply[player_id]->no_combo_top_floor < ply[player_id]->level)
+ply[player_id]->no_combo_top_floor = ply[player_id]->level; lastJumpLength = 0; falling = 1;
+}
+
+
+
+
+if (ply[player_id]->y > 900.0 && !game_over) {
+
+play_sound(speaker[1], 0, 0); game_over = 2;
+}
+
+if (falling) falling++;
+if (falling > ply[player_id]->level * 5 || falling > 250) {
+play_sound(sounds[6], 0, 1);
+if (custom.falling)
+stop_sample(custom.falling);
+
+
+ply[player_id]->shake = 24; falling = 0;
+}
+
+
+
+if (ply[player_id]->level >= next_aight) {
+play_sound(sounds[2], 0, 0);
+if (!options.flash) for (i = 0; i < next_aight / 2; i++) {
+int p; p = create_particle(stars, (new_rand() % 600) + 20, 480);
+stars[p].sy = -(((new_rand() % 200) << 16) / 10);
+}
+if (next_aight > 999)
+next_aight += 500;
+else
+
+next_aight += 50;
+}
+
+
+
+if (!ply[player_id]->edge) ply[player_id]->edge_drawn = 0;
+if (ply[player_id]->edge_drawn) {
+if (ply[player_id]->edge_drawn == 11 && !ply[player_id]->status) play_sound(custom.edge, 1, 1);
+if (ply[player_id]->edge_drawn == 50)
+ply[player_id]->edge_drawn = 0;
+}
+
+if (debug) {
+if (ply[player_id]->dead <= 99) playing = FALSE;
+}
+
+
+
+
+else if (recording && ply[player_id]->dead > 100) playing = FALSE;
+
+
+
+
+
+if (!itrcheck && key[KEY_F1]) {
+int pauseTime = time(NULL);
+take_screenshot(swap_screen);
+while (key[KEY_F1]) ;
+int addTime = time(NULL) - pauseTime;
+if (addTime > 0)
+startTime += addTime;
+
+
+
+
+
+
+if (checkMusicVoiceID >= 0) {
+
+musicCounter = voice_get_position(checkMusicVoiceID) * 50.0f / 44000.0f; totMusics = 0; accMusics = 0.0f;
+}
+
+
+
+
+clockTimeStart = clock();
+
+QueryPerformanceCounter(&li);
+qpc_start = li.LowPart;
+
+
+
+timeTimeStart = time(NULL); time_cheat_count = 0;
+}
+
+
+if (ply[player_id]->shake || ((unsigned char)ply[player_id]->shake && (unsigned short)ply[player_id]->shake && ply[player_id]->shake)) {
+ply[player_id]->shake--;
+
+shake = new_rand() % 8;
+}
+
+update_frame();
+
+
+
+if (!quit && closeButtonClicked) { quit = 1; playing = FALSE;
+}
+
+
+
+if (recording) {
+if (key[KEY_ESC]) {
+if (ply[player_id]->dead) {
+log2file("  player quit after dying"); playing = 0;
+} else {
+
+
+
+int pauseTime = time(NULL);
+int fc = fall_count;
+int ca = clock_angle;
+log2file("  game paused with esc");
+
+for (i = 0; i < 640; i += 2) {
+vline(swap_screen, i, 0, 480, 0);
+hline(swap_screen, 0, i, 640, 0);
+}
+textout_centre_ex(swap_screen, data[50].dat, "DO YOU REALLY WANT TO EXIT?", 320, 160, -1, -1);
+textout_centre_ex(swap_screen, data[52].dat, "Press any key to resume", 320, 210, -1, -1);
+textout_centre_ex(swap_screen, data[52].dat, "Press ESC to exit", 320, 240, -1, -1);
+blit_to_screen(swap_screen);
+play_sound(custom.wazup, 0, 1);
+
+poll_control(&ctrl, 0);
+while (is_any(&ctrl) || is_pause(&ctrl) || (!closeButtonClicked && key[KEY_ESC])) {
+poll_control(&ctrl, 0);
+rest(2);
+}
+clear_keybuf();
+while (!keypressed() && !is_any(&ctrl) && !is_pause(&ctrl) && !closeButtonClicked && !key[KEY_ESC]) {
+poll_control(&ctrl, 0);
+rest(2);
+}
+while (!closeButtonClicked && is_pause(&ctrl)) {
+poll_control(&ctrl, 0);
+rest(2);
+}
+if (key[KEY_ESC]) {
+
+
+
+log2file("  game quit from esc pause");
+profile->games_quit++;
+endTime = time(NULL); quit = 1; playing = 0;
+}
+clear_keybuf();
+
+fall_count = fc;
+clock_angle = ca;
+log2file("  game unpaused");
+int addTime = time(NULL) - pauseTime;
+if (addTime > 0)
+startTime += addTime;
+
+
+
+
+
+
+if (checkMusicVoiceID >= 0) {
+
+musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); totMusics = 0; accMusics = 0.0f;
+}
+
+
+
+clockTimeStart = clock();
+
+QueryPerformanceCounter(&li);
+qpc_start = li.LowPart;
+
+
+
+timeTimeStart = time(NULL); time_cheat_count = 0;
+}
+}
+
+if (is_pause(&ctrl) && ply[player_id]->dead == 0) {
+int pauseTime = time(NULL);
+int fc = fall_count;
+int ca = clock_angle;
+log2file("  game paused with pause key");
+
+for (i = 0; i < 640; i += 2) {
+vline(swap_screen, i, 0, 480, 0);
+hline(swap_screen, 0, i, 640, 0);
+}
+textout_centre_ex(swap_screen, data[50].dat, "Game Paused", 320, 160, -1, -1);
+textout_centre_ex(swap_screen, data[52].dat, "Press any key to resume", 320, 210, -1, -1);
+blit_to_screen(swap_screen);
+play_sound(custom.wazup, 0, 1);
+poll_control(&ctrl, 0);
+while (is_any(&ctrl) || is_pause(&ctrl)) {
+poll_control(&ctrl, 0);
+rest(2);
+}
+
+clear_keybuf();
+while (!keypressed()) { if (is_any(&ctrl) || is_pause(&ctrl) || key[KEY_ESC]) break;
+poll_control(&ctrl, 0);
+rest(2);
+}
+
+poll_control(&ctrl, 0);
+while (is_pause(&ctrl) || key[KEY_ESC]) {
+poll_control(&ctrl, 0);
+rest(2);
+}
+
+
+fall_count = fc;
+clock_angle = ca;
+log2file("  game unpaused");
+int addTime = time(NULL) - pauseTime;
+if (addTime > 0)
+startTime += addTime;
+
+
+
+
+
+
+if (checkMusicVoiceID >= 0) {
+
+musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); totMusics = 0; accMusics = 0.0f;
+}
+
+
+
+clockTimeStart = clock();
+
+QueryPerformanceCounter(&li);
+qpc_start = li.LowPart;
+
+
+
+timeTimeStart = time(NULL); time_cheat_count = 0;
+}
+}
+else {
+if (!itrcheck) {
+
+poll_control(&rec_ctrl, 0);
+
+if (ply[player_id]->dead) {
+
+log2file("  replay ended after death"); playing = 0;
+}
+
+
+
+
+
+
+
+if (key[KEY_ESC]) {
+log2file("  quit from replay"); quit = 1; playing = 0;
+}
+
+
+
+
+if (key[KEY_SPACE]) { if (ply[player_id]->dead == 0) {
+log2file("  replay paused");
+while (key[KEY_SPACE]) poll_control(&rec_ctrl, 1);
+while (!key[KEY_SPACE] && !key[KEY_RIGHT] && !key[KEY_ESC] && !key[KEY_UP]) {
+poll_control(&rec_ctrl, 1);
+if (key[KEY_F1]) {
+take_screenshot(swap_screen);
+while (key[KEY_F1]) ;
+}
+}
+while (key[KEY_SPACE]) poll_control(&rec_ctrl, 1);
+fast_forward = 0;
+fast_fast_forward = 0;
+log2file("  replay unpaused");
+}
+}
+if (key[KEY_RIGHT]) {
+fast_forward++;
+fast_fast_forward = 0;
+}
+else
+fast_forward = 0;
+
+
+if (key[KEY_UP]) {
+if (!ply[player_id]->dead && ply[player_id]->level < demo->floor - 10) {
+fast_fast_forward++;
+fast_forward = 0;
+next_floor = ((ply[player_id]->level + 100) / 100) * 100;
+
+next_floor = MIN(next_floor, demo->floor - 10); } else { fast_fast_forward = 0; next_floor = -1;
+}
+}
+
+
+
+
+
+else if (ply[player_id]->level >= next_floor || ply[player_id]->dead) {
+fast_fast_forward = 0; next_floor = -1;
+}
+}
+}
+
+
+
+
+
+if (!itrcheck) {
+static int someCounter;
+int ffstep;
+int drew;
+
+someCounter++;
+
+
+ffstep = fast_forward ? 4 : 1;
+
+
+if (fast_fast_forward) ffstep = 32;
+
+
+
+int skipDrawing;
+
+
+if (!quit && someCounter % ffstep == 0) {
+draw_frame(swap_screen);
+
+
+
+
+
+
+
+if (ply[player_id]->shake) { acquire_screen();
+
+blit(swap_screen, swap_screen, 0, shake, 0, 0, swap_screen->w, swap_screen->h);
+blit_to_screen(swap_screen); release_screen();
+} else {
+
+
+blit_to_screen(swap_screen);
+}
+
+if (!debug) {
+while (cycle_count == 0) rest(2);
+
+
+} else if (key[KEY_TAB] && key[KEY_LSHIFT]) {
+while (cycle_count <= 7) { }
+} else {
+while (!cycle_count) rest(2);
+}
+}
+}
+
+
+if (!itrcheck) rest(2);
+}
+}
+
+
+if (recording) {
+int addTime = endTime - startTime;
+if (addTime > 0)
+profile->seconds_spent_playing += addTime;
+} else {
+
+
+
+
+
+
+
+
+
+
+gameData->score = ply[player_id]->level * 10 + ply[player_id]->score;
+gameData->floor = ply[player_id]->level;
+gameData->combo = ply[player_id]->best_combo;
+gameData->no_combo_top_floor = ply[player_id]->no_combo_top_floor;
+gameData->biggest_lost_combo = ply[player_id]->biggest_lost_combo;
+
+for (i = 0; i < 5; i++) gameData->ccc[i] = ply[player_id]->ccc[i];
+
+
+for (i = 0; i < 5; i++) gameData->jc[i] = ply[player_id]->jcTop[i];
+{
+
+
+int keys_pressed[7] = {0};
+int key_flag[7] = { 16, 1, 2, 4, 8, 32, 128 };
+int last_keys[7] = {0};
+
+if (demo->size > 0) { for (i = 0; i < demo->size; i++) {
+int k;
+for (k = 0; k < 7; k++) {
+if (!last_keys[k] && (key_flag[k] & demo->data[i].key_flags))
+keys_pressed[k]++;
+
+last_keys[k] = key_flag[k] & demo->data[i].key_flags;
+}
+}
+}
+gameData->jump = keys_pressed[0];
+gameData->left = keys_pressed[1];
+gameData->right = keys_pressed[2];
+
+
+if (itrcheck) {
+char *xmlStr = getGameDataXML(gameData);
+printf("%s", xmlStr);
+free(xmlStr);
+}
+} if (itrcheck) if (itrcheck) return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+log2file(" play ended");
+fast_forward = 0;
+fast_fast_forward = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (recording) { if (!quit) {
+
+
+demo->score = ply[player_id]->level * 10 + ply[player_id]->score;
+demo->floor = ply[player_id]->level;
+demo->combo = ply[player_id]->best_combo;
+demo->rejump = options.jump_hold;
+demo->no_combo_top_floor = ply[player_id]->no_combo_top_floor;
+demo->biggest_lost_combo = ply[player_id]->biggest_lost_combo;
+
+for (i = 0; i < 5; i++) demo->ccc[i] = ply[player_id]->ccc[i];
+
+
+for (i = 0; i < 5; i++) demo->jc[i] = ply[player_id]->jcTop[i];
+
+
+
+
+
+if (!is_playing_custom_game) {
+profile->games_played++;
+
+profile->total_floors += demo->floor;
+profile->total_score += demo->score;
+profile->total_combos += numComboJumps;
+profile->total_combo_floors += totComboFloors;
+for (i = 0; i < 5; i++) {
+if (demo->ccc[i] > 0) {
+profile->cccNum[i]++;
+profile->cccTotal[i] += demo->ccc[i];
+}
+}
+} else {
+
+profile->custom_games_played++;
+}
+
+
+
+
+
+if (!file_exists(replay_directory, -1, NULL))
+
+mkdir(replay_directory);
+
+
+
+
+
+
+if (!is_playing_custom_game) {
+if (profile->best_floor < demo->floor) {
+profile->best_floor = demo->floor;
+myDeleteFile(replay_directory, profile->best_replay_names[2]);
+sprintf(profile->best_replay_names[2], "%s_best_floor_%d.itr", profile->handle, demo->floor);
+save_replay(replay_directory, profile->best_replay_names[2], demo, rec_pos + 2, 1);
+new_personal_best[2] = 1;
+}
+
+if (profile->best_combo < demo->combo) {
+profile->best_combo = demo->combo;
+myDeleteFile(replay_directory, profile->best_replay_names[1]);
+sprintf(profile->best_replay_names[1], "%s_best_combo_%d.itr", profile->handle, demo->combo);
+save_replay(replay_directory, profile->best_replay_names[1], demo, rec_pos + 2, 1);
+new_personal_best[1] = 1;
+}
+
+if (profile->best_score < demo->score) {
+profile->best_score = demo->score;
+myDeleteFile(replay_directory, profile->best_replay_names[0]);
+sprintf(profile->best_replay_names[0], "%s_best_score_%d.itr", profile->handle, demo->score);
+save_replay(replay_directory, profile->best_replay_names[0], demo, rec_pos + 2, 1);
+new_personal_best[0] = 1;
+}
+
+if (profile->no_combo_top_floor < ply[player_id]->no_combo_top_floor) {
+profile->no_combo_top_floor = ply[player_id]->no_combo_top_floor;
+myDeleteFile(replay_directory, profile->best_replay_names[4]);
+sprintf(profile->best_replay_names[4], "%s_best_no_combo_%d.itr", profile->handle, demo->no_combo_top_floor);
+save_replay(replay_directory, profile->best_replay_names[4], demo, rec_pos + 2, 1);
+new_personal_best[4] = 1;
+}
+
+if (profile->biggest_lost_combo < ply[player_id]->biggest_lost_combo) {
+profile->biggest_lost_combo = ply[player_id]->biggest_lost_combo;
+myDeleteFile(replay_directory, profile->best_replay_names[3]);
+sprintf(profile->best_replay_names[3], "%s_best_lost_combo_%d.itr", profile->handle, demo->biggest_lost_combo);
+save_replay(replay_directory, profile->best_replay_names[3], demo, rec_pos + 2, 1);
+new_personal_best[3] = 1;
+}
+
+for (i = 1; i < 6; i++) {
+if (profile->ccc[i - 1] < ply[player_id]->ccc[i - 1]) {
+profile->ccc[i - 1] = ply[player_id]->ccc[i - 1];
+myDeleteFile(replay_directory, profile->best_replay_names[4 + i]);
+sprintf(profile->best_replay_names[4 + i], "%s_best_cc%d_%d.itr", profile->handle, i, ply[player_id]->ccc[i - 1]);
+save_replay(replay_directory, profile->best_replay_names[4 + i], demo, rec_pos + 2, 1);
+new_personal_best[4 + i] = 1;
+}
+}
+
+for (i = 1; i < 6; i++) {
+if (profile->jc[i - 1] < ply[player_id]->jcTop[i - 1]) {
+profile->jc[i - 1] = ply[player_id]->jcTop[i - 1];
+myDeleteFile(replay_directory, profile->best_replay_names[9 + i]);
+sprintf(profile->best_replay_names[9 + i], "%s_best_jj%d_%d.itr", profile->handle, i, ply[player_id]->jcTop[i - 1]);
+save_replay(replay_directory, profile->best_replay_names[9 + i], demo, rec_pos + 2, 1);
+new_personal_best[9 + i] = 1;
+}
+}
+}
+
+
+if (save_replay(replay_directory, "last_game.itr", demo, rec_pos + 2, 1) < 0) {
+my_alert("Failed to save replay.", "(last_game.itr)", 0, 1);
+uberChecksum = 0;
+} else {
+
+
+char fbuf[2048];
+sprintf(fbuf, "%slast_game.itr", replay_directory);
+Treplay *rr; rr = load_replay(fbuf);
+if (rr) {
+uberChecksum = calc_replay_checksum(demo);
+destroy_replay(rr);
+}
+}
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+syncProfileFromOptions();
+save_profile(profile);
+play_again = 0;
+if (!quit && !closeButtonClicked) {
+float hy;
+int gotHigh; gotHigh = 0;
+
+
+int qualify[15];
+int qualifyValue[15];
+for (i = 0; i < 15; i++) qualify[i] = 0;
+
+qualifyValue[0] = ply[player_id]->level * 10 + ply[player_id]->score;
+qualifyValue[2] = ply[player_id]->level;
+qualifyValue[1] = ply[player_id]->best_combo;
+qualifyValue[3] = ply[player_id]->biggest_lost_combo;
+qualifyValue[4] = ply[player_id]->no_combo_top_floor;
+for (i = 0; i < 5; i++) {
+qualifyValue[5 + i] = ply[player_id]->ccc[i];
+qualifyValue[10 + i] = ply[player_id]->jcTop[i];
+}
+
+for (i = 0; i < 15; i++) {
+qualify[i] = qualify_hisc_table(hisc_tables[i], qualifyValue[i]);
+gotHigh += qualify[i];
+}
+
+
+if (!recording) gotHigh = 0;
+
+int gameover_bmp_id; gameover_bmp_id = gotHigh > 0 ? 62 : 55;
+if (is_playing_custom_game) gameover_bmp_id = 0x37;
+
+if (gotHigh && !is_playing_custom_game) {
+log2file(" player qualified for highscore");
+play_sound(sounds[7], 0, 0);
+} else {
+
+log2file(" player did not qualify for highscore");
+play_sound(speaker[1], 0, 0);
+}
+
+
+if (!debug) {
+int done = 20;
+int alpha_pos = 0;
+int pos = 0;
+char letters[31] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ .\244\0";
+int len = strlen(letters) - 1;
+char buf[8] = { '.', 0, '.', 0, '.', 0, 0, 0 };
+int skip_keys = 0;
+
+int isGuest = !stricmp(profile->handle, "guest");
+hy = 480.0f;
+float hyTarget = 140.0f;
+while (hy > hyTarget) {
+cycle_count = 0;
+ply[player_id]->dead -= 16;
+
+hy = hy + (130.0f - hy) * 0.1;
+update_frame();
+for (i = 0; i < 512; i++) if (stars[i].intensity) update_particle(&stars[i]);
+if (hurry_y > -100 && hurry_y < 480) hurry_y -= 2;
+draw_frame(swap_screen);
+draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify, qualifyValue, is_playing_custom_game ? 0 : (recording != 0));
+if (isGuest && gotHigh && !is_playing_custom_game && recording) {
+textout_centre_ex(swap_screen, data[52].dat, "Enter your initials", 320, (int)(hy * 2 + 80), -1, -1);
+}
+
+if (falling) falling++;
+if (falling > ply[player_id]->level * 5 || falling > 250) {
+play_sound(sounds[6], 0, 1);
+if (custom.falling) stop_sample(custom.falling);
+
+ply[player_id]->shake = 24; falling = 0;
+}
+if (ply[player_id]->shake) { acquire_screen();
+
+blit(swap_screen, screen, 0, new_rand() % 8, 0, 0, swap_screen->w, swap_screen->h); release_screen();
+
+ply[player_id]->shake--; } else
+
+blit_to_screen(swap_screen);
+
+
+if (key[KEY_F1]) {
+take_screenshot(swap_screen);
+while (key[KEY_F1]) { }
+}
+
+
+if (!key[KEY_TAB] || !key[KEY_LSHIFT])
+
+
+while (!cycle_count) rest(2);
+}
+
+ply[player_id]->dead = 0;
+clear_keybuf();
+
+
+
+if (!recording)
+summary_scroller_message[0] = 0;
+else {
+if (is_playing_custom_game) {
+strcpy(summary_scroller_message, "Custom mode is crazy fun but does not add to your profile. " "Play Classic Mode to compete in the highscore lists and " "climb in rank!");
+} else {
+
+if (gotHigh) {
+int skipCategories[5];
+int h;
+int achs;
+strcpy(summary_scroller_message, "New personal records!    ");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+strcpy(summary_scroller_message, isGuest ? "You're playing in guest mode. Start a profile and record your progress!" : hints[new_rand() % 45]);
+
+
+
+} else {
+strcpy(summary_scroller_message, isGuest ? "You're playing in guest mode. Start a profile and record your progress!" : hints[new_rand() % 45]);
+}
+}
+}
+
+
+init_scroller(&summary_scroller, data[54].dat, summary_scroller_message, 640, 30, -1);
+scroll_scroller(&summary_scroller, -150);
+int scrollerTargetY = 0;
+int scrollerY = -20;
+
+
+int new_rank_id; new_rank_id = get_rank_id(profile);
+int rank_bmp_id; rank_bmp_id = new_rank_id + 0x4a;
+int rank_y; rank_y = 0x244;
+int rankTargetY = 320;
+
+while (done) {
+if (closeButtonClicked) return 0;
+
+
+
+cycle_count = 0;
+step_count++;
+
+update_frame();
+
+if (key[KEY_F1]) {
+take_screenshot(swap_screen);
+while (key[KEY_F1]) { }
+}
+
+
+if (hurry_y > -100 && hurry_y < 480) hurry_y -= 2;
+draw_frame(swap_screen);
+draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify, qualifyValue, is_playing_custom_game ? 0 : (recording != 0));
+if (isGuest && gotHigh && !is_playing_custom_game && recording) {
+textout_centre_ex(swap_screen, data[52].dat, "Enter your initials", 320, (int)(hy * 2 + 80), -1, -1);
+
+if (pos != 0 || (step_count & 4)) if (pos != 0 || (step_count & 4)) textout_centre_ex(swap_screen, data[52].dat, &buf[0], 300, (int)(hy * 2 + 120), -1, -1);
+if (pos != 1 || (step_count & 4)) textout_centre_ex(swap_screen, data[52].dat, &buf[2], 320, (int)(hy * 2 + 120), -1, -1);
+if (pos != 2 || (step_count & 4)) textout_centre_ex(swap_screen, data[52].dat, &buf[4], 340, (int)(hy * 2 + 120), -1, -1);
+if (pos == 3 && (step_count & 4)) textout_centre_ex(swap_screen, data[52].dat, "%", 360, (int)(hy * 2 + 120), -1, -1);
+}
+
+if (new_rank_id != current_rank_id) {
+draw_sprite(swap_screen, data[rank_bmp_id].dat, 20, rank_y);
+textout_ex(swap_screen, data[52].dat, "rank up!", 20, rank_y + 0x46, -1, -1);
+rank_y = (int)((rankTargetY - rank_y) * 0.1 + rank_y);
+}
+
+
+if (summary_scroller_message[0]) {
+scroll_scroller(&summary_scroller, -2);
+drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+set_trans_blender(0, 0, 0, 110);
+rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 20, makecol(0, 0, 0));
+rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 18, makecol(0, 0, 0));
+rectfill(swap_screen, 0, scrollerY, 639, scrollerY + 16, makecol(0, 0, 0));
+solid_mode();
+draw_scroller(&summary_scroller, swap_screen, 1, scrollerY, makecol(150, 150, 150));
+if (!draw_scroller(&summary_scroller, swap_screen, 0, scrollerY, makecol(200, 200, 200))) restart_scroller(&summary_scroller);
+
+scrollerY = (int)((scrollerTargetY - scrollerY) * 0.1 + scrollerY);
+}
+
+
+
+if (falling) falling++;
+if (falling > ply[player_id]->level * 5 || falling > 250) {
+play_sound(sounds[6], 0, 1);
+if (custom.falling)
+stop_sample(custom.falling);
+
+
+ply[player_id]->shake = 24; falling = 0;
+}
+if (ply[player_id]->shake) { acquire_screen();
+
+
+blit(swap_screen, screen, 0, new_rand() % 8, 0, 0, swap_screen->w, swap_screen->h); release_screen();
+
+ply[player_id]->shake--; } else
+
+
+blit_to_screen(swap_screen);
+
+
+if (isGuest && gotHigh && !is_playing_custom_game && recording) {
+poll_control(&ctrl, 0);
+if (keypressed()) { if (done == 20) {
+int k; k = readkey() & 0xff; k -= 0x20;
+if (k == -24) k = (signed char)0xa4;
+if (k == 14) k = '.';
+if (k == 1) k = '!';
+if (k != 0x20) {
+for (i = 0; i < len; i++) {
+if (letters[i] == k) {
+
+
+buf[pos * 2] = letters[i];
+pos++; alpha_pos = i; skip_keys = 100;
+if (pos == 3) done = 19;
+}
+}
+}
+}
+}
+if (skip_keys) { skip_keys--; } else {
+if (is_right(&ctrl)) {
+alpha_pos++; skip_keys = 8;
+if (alpha_pos > len) alpha_pos = 0;
+}
+
+if (is_left(&ctrl)) { skip_keys = 8;
+
+alpha_pos--; if (alpha_pos < 0) alpha_pos = len;
+}
+
+if (is_fire(&ctrl)) {
+if (letters[alpha_pos] == (char)0xa4) { if (pos != 0) {
+buf[pos * 2] = '.';
+pos--; } skip_keys = 100;
+
+} else if (pos <= 1) { pos++; skip_keys = 100; } else {
+if (done == 20) {
+
+pos++; done = 19; } skip_keys = 100;
+}
+}
+
+if (key[KEY_DEL] || key[KEY_BACKSPACE]) {
+buf[pos * 2] = '.'; skip_keys = 7;
+if (pos != 0) pos--; } else if (skip_keys) {
+
+
+
+skip_keys--; } }
+if (!is_any(&ctrl) && !key[KEY_DEL] && !key[KEY_BACKSPACE]) skip_keys = 0;
+
+if (pos <= 2) buf[pos * 2] = letters[alpha_pos];
+}
+
+if (done != 20) done--;
+
+poll_control(&ctrl, 0);
+if (!isGuest || !gotHigh || is_playing_custom_game) {
+if (keypressed() || is_fire(&ctrl)) {
+if (done == 20) done = 14;
+}
+}
+
+
+
+if (!key[KEY_TAB] || !key[KEY_LSHIFT])
+
+
+while (!cycle_count) rest(2);
+
+}
+
+
+
+
+
+if (!is_playing_custom_game && recording) {
+char guestName[4]; guestName[0] = buf[0]; guestName[1] = buf[2]; guestName[2] = buf[4]; guestName[3] = 0;
+char postName[32];
+strcpy(postName, isGuest ? guestName : profile->handle);
+
+
+
+
+for (i = 0; i < 15; i++) {
+if (qualify[i] > 0) {
+enter_hisc_table(hisc_tables[i], qualifyValue[i], postName);
+sort_hisc_table(hisc_tables[i]);
+}
+}
+}
+
+}
+
+
+
+
+
+
+if (recording && !debug && !is_playing_custom_game) {
+int f = ply[player_id]->level / 100;
+
+if (f > oldUnlockedFloors && f <= 9) {
+
+fadeOut(16);
+
+
+blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);
+
+
+set_trans_blender(0, 0, 0, 158);
+drawing_mode(DRAW_MODE_TRANS, 0, 0, 0);
+rectfill(swap_screen, 0, 0, SCREEN_W, SCREEN_H, makecol(0, 0, 0));
+solid_mode();
+
+
+draw_sprite(swap_screen, data[58].dat, 320 - ((BITMAP *)data[58].dat)->w / 2, 20);
+textout_centre_ex(swap_screen, data[52].dat, "A new start floor", 320, 0x12c, -1, -1);
+textout_centre_ex(swap_screen, data[52].dat, "has been unlocked!", 320, 0x15e, -1, -1);
+textout_centre_ex(swap_screen, data[52].dat, "(Get it in the options menu)", 320, 0x1b8, -1, -1);
+play_sound(sounds[2], 0, 0);
+fadeIn(swap_screen, 16);
+while (key[KEY_ESC] || (key[KEY_ENTER] | key[KEY_SPACE])) { }
+while (!key[KEY_ESC] && !key[KEY_ENTER] && !key[KEY_SPACE]) { }
+}
+}
+
+
+
+
+save_config();
+
+
+stopGameMusic();
+if (checkMusicVoiceID >= 0)
+voice_stop(checkMusicVoiceID);
+
+
+if (recording) { if (!debug) if (!debug) {
+in_replay_menu = 1;
+play_again = do_replay_menu();
+in_replay_menu = 0;
+}
+}
+}
+
+
+if (recording) play_sound(speaker[2], 0, 0);
+
+stopGameMusic();
+if (checkMusicVoiceID >= 0)
+voice_stop(checkMusicVoiceID);
+
+
+clear(screen);
+
+return play_again;
 }
 
 void show_credits(void)

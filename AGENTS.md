@@ -20,8 +20,10 @@ Normal work:
 Scratch candidates may be wrong. Only fresh strict acceptance changes canonical
 source. Exact peers and established data/BSS ownership cannot regress. The gate
 also requires repeatable clean emission, ordinary source link closure, tests and
-stable inputs. Masked/effective equality never grants FUNCTION_MATCH. All current
-claims are function-level; object/CU/executable/runtime recovery remains incomplete.
+stable inputs. Masked/effective equality never grants FUNCTION_MATCH. The equivalence tier (FREEZE.md;
+promote.py --equivalent with a tools/equivalence certificate) records a non-exact body as
+EQUIVALENT, never as a match; play and draw_frame are frozen there. All current claims are
+function-level; object/CU/executable/runtime recovery remains incomplete.
 
 Do not mutate canonical src/ or include/ to experiment. Header or cross-TU changes
 need a reviewed gate extension. Source/header identities are pinned in recovery.json;

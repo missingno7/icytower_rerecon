@@ -13,7 +13,7 @@ def canonical_inputs(root=ROOT):
             for p in sorted((Path(root)/folder).rglob('*')) if p.is_file()}
 def proof_context(overrides=None):
     # overrides: {relative path: bytes} for a configuration file about to be published atomically.
-    proof_modules='common build binary dwarf compare data_owners type_graph control_transfers instructions evidence verify link source_scope scratch promote transaction storage test'.split()
+    proof_modules='common build binary dwarf compare data_owners type_graph control_transfers instructions evidence verify link source_scope scratch promote transaction storage test equivalence/objfun equivalence/bisim equivalence/certify'.split()
     files=[*sorted((ROOT/'tests').glob('*.py')),*[ROOT/'tools'/(name+'.py') for name in proof_modules],
            *sorted((ROOT/'evidence').glob('*.json')),*sorted((ROOT/'toolchain').glob('*.json')),*sorted((ROOT/'third_party').glob('*.json'))]
     context={p.relative_to(ROOT).as_posix():identity(p) for p in files}
@@ -100,11 +100,26 @@ def protect(before,after):
     if common(before)!=common(after) and not (storage_promotion and commons_moved_to_proven_owners(before,after)):
         raise ValueError('Common/BSS allocations changed')
 
-def state_from(reports,link,source_root=ROOT):
+def carry_equivalence(prior_units,units):
+    """Equivalence-tier records survive a refresh only while the accepted body is unchanged and the
+    fresh proof still says DIFFER; a fresh FUNCTION_MATCH upgrades the record, anything else is refused.
+    EQUIVALENT is never granted here, only by promote.py --equivalent with a bound certificate."""
+    for target,unit in units.items():
+        old=(prior_units or {}).get(target,{}).get('functions',{})
+        for name,rec in unit['functions'].items():
+            was=old.get(name)
+            if not was or was.get('status')!='EQUIVALENT':continue
+            if rec['status']=='FUNCTION_MATCH':continue
+            if rec['status']!='DIFFER' or rec.get('body_sha256')!=was.get('body_sha256'):
+                raise ValueError('Equivalent function changed outside promotion: '+target+'::'+name)
+            unit['functions'][name]=dict(was)
+    return units
+def state_from(reports,link,source_root=ROOT,prior=None):
+    units={target:{'functions':{f['name']:{'status':f['status'],'body_sha256':f.get('body_sha256')} for f in r['functions']},
+                   'whole_text_equal':r['whole_text_contribution_equal'],'object_match':False,'cu_match':False}
+           for target,r in reports.items()}
     return {'schema':1,'inputs':canonical_inputs(source_root),'proof_context':proof_context(),
-      'units':{target:{'functions':{f['name']:{'status':f['status'],'body_sha256':f.get('body_sha256')} for f in r['functions']},
-                       'whole_text_equal':r['whole_text_contribution_equal'],'object_match':False,'cu_match':False}
-               for target,r in reports.items()},'link':link}
+      'units':carry_equivalence(prior['units'] if prior else None,units),'link':link}
 def load_state(check=True):
     from transaction import ensure_consistent
     ensure_consistent()
@@ -148,7 +163,7 @@ def main():
             from link import protect_link
             protect_link(old['link'],link)
         if before!=canonical_inputs() or context!=proof_context():raise ValueError('Inputs changed during verification')
-        write_json(STATE,state_from(reports,link))
+        write_json(STATE,state_from(reports,link,prior=old))
         print('Published freshly verified recovery.json')
     write_json(BUILD/'verification-summary.json',{'counts':summary(reports),'targets':chosen})
 if __name__=='__main__':main()

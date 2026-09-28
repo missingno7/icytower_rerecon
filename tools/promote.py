@@ -1,5 +1,10 @@
 """Fresh strict acceptance and atomic publication of a body-only candidate.
 
+--equivalent CERT.json publishes a body that is NOT byte-exact under the equivalence tier (approved
+2026-09-28, see FREEZE.md): the certificate must bind to the candidate body hash and report the
+lockstep simulation with no exact peer changed; every other protection (exact peers, data/BSS owners,
+reproducibility, ordinary link, tests) still applies, and the record is EQUIVALENT, never FUNCTION_MATCH.
+
 --flags '[...]' additionally replaces the target TU's per-unit compiler flags in
 evidence/units.json in the same accepted transaction (a unit-configuration
 promotion): the new configuration must keep every exact function, proven
@@ -8,7 +13,7 @@ import argparse, copy, json, re, sys
 from pathlib import Path
 from common import ROOT, BUILD, identity, read_json, json_bytes, digest, exclusive, run
 from scratch import resolve_function, fragment, materialized, acceptance_syntax, patched_source
-from verify import load_state, fresh, protect, canonical_inputs, proof_context, STATE
+from verify import load_state, fresh, protect, canonical_inputs, proof_context, STATE, carry_equivalence
 from build import compile_target, targets
 from link import ordinary_link, protect_link
 from storage import protect_storage
@@ -41,7 +46,25 @@ def unit_configuration(target,flags):
     if json.loads(new)!=expected:raise ValueError('Unit configuration edit is not minimal')
     return raw,new.encode('utf-8'),config
 
-def promote(name,path,target=None,verify_only=False,patch=False,flags=None):
+def check_certificate(cert,name,target,row,exact_names):
+    """An equivalence certificate (tools/equivalence/certify.py) is accepted only for this function
+    and TU, bound to the fresh candidate body hash, produced by the lockstep simulation, and reporting
+    no exact peer changed. The record it yields is EQUIVALENT, never FUNCTION_MATCH."""
+    if cert.get('function')!=name or cert.get('target')!=target:raise ValueError('Certificate is for another function')
+    if cert.get('candidate_body_sha256')!=row.get('body_sha256'):raise ValueError('Certificate does not bind to the candidate body')
+    sim=cert.get('simulation') or {}
+    for k in ('states','pairs','divergences','unverified_skipped'):
+        if not isinstance(sim.get(k),int):raise ValueError('Certificate lacks simulation field '+k)
+    if 'lockstep simulation' not in str(cert.get('method','')):raise ValueError('Certificate method is not the lockstep simulation')
+    changed=[p for p in cert.get('exact_peers_changed',['?']) if p in exact_names]
+    if changed:raise ValueError('Certificate reports exact peers changed: '+', '.join(changed))
+    lt=cert.get('line_table') or {}
+    return {'status':'EQUIVALENT','body_sha256':row.get('body_sha256'),'equivalence':{'certificate':cert.get('_path'),'method':cert.get('method'),
+      'divergences':sim['divergences'],'unverified_skipped':sim['unverified_skipped'],'states':sim['states'],'pairs':sim['pairs'],
+      'identical_lines':lt.get('identical_lines'),'differing_lines':lt.get('differing_lines'),
+      'candidate_instructions':lt.get('candidate_instructions'),'oracle_instructions':lt.get('oracle_instructions'),'note':str(cert.get('note',''))[:600]}}
+
+def promote(name,path,target=None,verify_only=False,patch=False,flags=None,equivalent=None):
     ensure_consistent()
     if (BUILD/'promotion-recovery.lock').exists():raise ValueError('Promotion recovery in progress')
     with exclusive(LOCK):
@@ -62,7 +85,14 @@ def promote(name,path,target=None,verify_only=False,patch=False,flags=None):
             candidate_source=(shadow/config['source']).read_bytes()
             candidate=fresh(target,shadow/'verified',shadow,new_config)
             row=next(f for f in candidate['functions'] if f['name']==name)
-            if row['status']!='FUNCTION_MATCH':raise ValueError('Target is '+row['status']+'; first mismatch '+str(row.get('first_difference')))
+            record=None
+            if equivalent is not None:
+                if row['status']=='FUNCTION_MATCH':raise ValueError('Candidate is byte-exact; promote it strictly instead of under the equivalence tier')
+                if row['status']!='DIFFER':raise ValueError('Target is '+row['status'])
+                cert=read_json(equivalent);cert['_path']=Path(equivalent).resolve().relative_to(ROOT).as_posix()
+                exact_names={n for u in state['units'].values() for n,f in u['functions'].items() if f['status']=='FUNCTION_MATCH'}
+                record=check_certificate(cert,name,target,row,exact_names)
+            elif row['status']!='FUNCTION_MATCH':raise ValueError('Target is '+row['status']+'; first mismatch '+str(row.get('first_difference')))
             protect(baseline,candidate)
             protect_storage(baseline,candidate,BUILD/"acceptance/baseline"/target/"unit.o",shadow/"verified/unit.o")
             with materialized(target,name,body,source_override=complete) as second:
@@ -80,24 +110,29 @@ def promote(name,path,target=None,verify_only=False,patch=False,flags=None):
             if identity(obj)!=candidate['build']['object']:raise ValueError('Candidate object changed during acceptance')
             updated=copy.deepcopy(state)
             updated['inputs'][config['source']]=identity(shadow/config['source'])
-            updated['units'][target]={'functions':{f['name']:{'status':f['status'],'body_sha256':f.get('body_sha256')} for f in candidate['functions']},
-              'whole_text_equal':candidate['whole_text_contribution_equal'],'object_match':False,'cu_match':False}
+            functions={f['name']:{'status':f['status'],'body_sha256':f.get('body_sha256')} for f in candidate['functions']}
+            if record:functions[name]=record
+            prior_units=copy.deepcopy(state['units'])
+            prior_units[target]['functions'].pop(name,None)   # this function is decided by this promotion
+            updated['units'][target]={'functions':functions,'whole_text_equal':candidate['whole_text_contribution_equal'],'object_match':False,'cu_match':False}
+            carry_equivalence(prior_units,updated['units'])
             updated['link']=link
             if units:updated['proof_context']=proof_context({UNITS:units[1]})
             if verify_only:
                 print('Strict acceptance passed; --verify-only leaves canonical state unchanged.')
                 return updated
             publish(ROOT/config['source'],candidate_source,json_bytes(updated),original,old_state,units=units[:2] if units else None)
-            print('PROMOTED',target+'::'+name,'FUNCTION_MATCH; exact peers, data/BSS, fresh-build reproducibility and ordinary link protected.')
+            print('PROMOTED',target+'::'+name,('EQUIVALENT (not byte-exact; certificate '+record['equivalence']['certificate']+')' if record else 'FUNCTION_MATCH')+'; exact peers, data/BSS, fresh-build reproducibility and ordinary link protected.')
             return updated
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('function',nargs='?');ap.add_argument('candidate',nargs='?',type=Path)
     ap.add_argument('--target');ap.add_argument('--patch',action='store_true');ap.add_argument('--verify-only',action='store_true');ap.add_argument('--recover',action='store_true')
-    ap.add_argument('--flags',type=json.loads,help='JSON list replacing the target unit flags (unit-configuration promotion)');a=ap.parse_args()
+    ap.add_argument('--flags',type=json.loads,help='JSON list replacing the target unit flags (unit-configuration promotion)')
+    ap.add_argument('--equivalent',type=Path,help='Equivalence certificate (tools/equivalence/certify.py) for a body that is not byte-exact');a=ap.parse_args()
     if a.recover:
         if a.function or a.candidate:ap.error('--recover takes no candidate')
         recover();return
     if not a.function or not a.candidate:ap.error('Supply function and braced candidate body')
-    promote(a.function,a.candidate,a.target,a.verify_only,a.patch,a.flags)
+    promote(a.function,a.candidate,a.target,a.verify_only,a.patch,a.flags,a.equivalent)
 if __name__=='__main__':main()

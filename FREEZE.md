@@ -9,14 +9,14 @@ different, so that a later correction can start from facts. The oracle (the orig
 | status | count | meaning |
 |---|---|---|
 | FUNCTION_MATCH | 251 | byte-identical to the original after relocation masking; whole `.text` contribution equal in 24 of 25 units |
-| EQUIVALENT (pending publication) | 2 | `play`, `draw_frame`: not byte-exact; behaviour verified by lockstep simulation and by runtime replay |
+| EQUIVALENT | 2 | `play`, `draw_frame`: not byte-exact; behaviour verified by lockstep simulation and by runtime replay; published 2026-09-28 through `promote.py --equivalent` |
 
-`recovery.json` still records `play` and `draw_frame` as DIFFER with the canonical bodies. The
-faithful bodies and their certificates are:
+`recovery.json` records both as EQUIVALENT with the certificate summaries; `src/main.c` carries the
+faithful bodies. Bodies and certificates:
 
 | function | body | certificate | identical line-table lines | instructions (ours / original) | simulation |
 |---|---|---|---|---|---|
-| play | `candidates/rootcause37/play_linefaithful_v20.c` | `evidence/equivalence/play.json` | 664 of 710 on the canonical TU (672 with the prototype blocks collapsed) | 3687 / 3685 | 602 states, 4887 pairs, 2 divergences (both a value-id tracking artefact at the doubled guard on line 4814: the same `esi` value under two ids), 0 exact peers changed |
+| play | `candidates/rootcause37/play_linefaithful_v21.c` (round 155) | `evidence/equivalence/play.json` | 672 of 710 | 3687 / 3685 | 616 states, 5118 pairs, 0 divergences, 0 unverified instructions, all 251 exact peers preserved |
 | draw_frame | `candidates/rootcause37/linefaithful_n2.c` | `evidence/equivalence/draw_frame.json` | 137 of 151 | 1926 / 1927 | 184 states, 2819 pairs, 14 divergences at lines 2530 (stripe offset order) and 2594-2636 (idle-pose x87 forms and the p_im/customFrame copies), covered by symbolic x87 replay |
 
 What differs in `play` (all layout, no missing or extra operation): the order of cold traces after
@@ -28,11 +28,13 @@ spill-slot order. Sections 6-13 of `build/rootcause37/RESULTS.md` (ignored, rege
 full residue analysis; the tracked experiment log is `experiments/game-main/play.jsonl` and
 `draw_frame.jsonl`, rounds 147-154.
 
-The canonical `src/main.c` bodies of `play` and `draw_frame` carry real semantic gaps (results-loop
-form, scroller update, key cascade, sprite placement) and must not be used for a faithful build.
-`build/faithful/icytower-faithful.exe` (tools: `link.ordinary_link` on a scratch tree with the two
-faithful bodies) is the verified runnable: it plays normally and original replays do not desync
-(user test, 2026-09-28).
+The previous canonical bodies of `play` and `draw_frame` carried real semantic gaps (results-loop
+form, scroller update, key cascade, sprite placement); they were replaced by the faithful frames on
+2026-09-28, so the ordinary source link of the canonical tree now produces the verified runnable
+(`build/faithful/icytower-faithful.exe` was its scratch precursor: plays normally, original replays
+do not desync, user test 2026-09-28). Note: draw_frame's declarations shift play's DECL_UIDs, and
+play's gimplification temporaries shift do_replay_menu's; v21 adds one code-neutral doubled guard
+(line 3473) purely to keep do_replay_menu byte-exact next to draw_frame N2.
 
 ## Data
 
@@ -55,11 +57,10 @@ Every rebuilt executable crashed before the main menu until the `gFLDADMutex` in
 restored (pthreads-win32 `pthread_mutex_unlock` on a NULL mutex). After that fix the faithful build
 plays and replays correctly on the user's machine.
 
-## Equivalence tier (gate extension, awaiting approval)
+## Equivalence tier (gate extension, approved and applied 2026-09-28)
 
 `tools/equivalence/` holds the tracked simulator (`bisim.py`), the listing/comparison helpers
-(`objfun.py`) and the certifier (`certify.py`). The intended gate extension, not yet applied because
-it modifies the shared verification tools:
+(`objfun.py`) and the certifier (`certify.py`). The gate extension:
 
 - `verify.py`: `carry_equivalence` keeps an EQUIVALENT record across `--all --refresh` only while
   the accepted body hash is unchanged and the fresh proof is DIFFER; a fresh FUNCTION_MATCH upgrades
@@ -68,8 +69,9 @@ it modifies the shared verification tools:
   the fresh candidate body hash, names the lockstep simulation, and reports no exact peer changed;
   all other protections (exact peers, data/BSS owners, reproducibility, ordinary link, tests) stay.
   The record is EQUIVALENT with the certificate's summary; it never grants FUNCTION_MATCH.
-- Publication order: `draw_frame` first, then `play` (draw_frame's declarations shift play's
-  DECL_UIDs), then re-certify play on the published TU.
+- Publication order used: `draw_frame` (N2) first, then `play` (v21) certified on the published TU.
+  `tests/test_equivalence.py` covers carry-over and certificate binding; `tools/test.py` 57 OK,
+  `tools/audit.py` 251 FUNCTION_MATCH + 2 EQUIVALENT, `verify.py --all` reproduces the state.
 
 Correcting later: a strict promotion of a byte-exact body for either function replaces the
 EQUIVALENT record through the ordinary gate.
