@@ -693,6 +693,479 @@ static void scen_config(golden_ctx *g)
    delete_file(path);
 }
 
+/* ------------------------------------------------------------------ */
+/* synthetic datafiles: every object reader, nesting, packed chunks,  */
+/* old V1 format                                                      */
+/* ------------------------------------------------------------------ */
+
+typedef struct BUF {
+   unsigned char *p;
+   long n, cap;
+} BUF;
+
+static void bput(BUF *b, const void *d, long n)
+{
+   if (b->n + n > b->cap) {
+      b->cap = (b->n + n) * 2 + 256;
+      b->p = (unsigned char *)realloc(b->p, (size_t)b->cap);
+   }
+   memcpy(b->p + b->n, d, (size_t)n);
+   b->n += n;
+}
+
+static void bbyte(BUF *b, int c) { unsigned char x = (unsigned char)c; bput(b, &x, 1); }
+static void bm16(BUF *b, int v) { bbyte(b, v >> 8); bbyte(b, v); }
+static void bi16(BUF *b, int v) { bbyte(b, v); bbyte(b, v >> 8); }
+static void bm32(BUF *b, long v) { bbyte(b, (int)(v >> 24)); bbyte(b, (int)(v >> 16)); bbyte(b, (int)(v >> 8)); bbyte(b, (int)v); }
+static void bfree(BUF *b) { free(b->p); b->p = NULL; b->n = b->cap = 0; }
+
+static void bprop(BUF *b, const char *id, const char *s)
+{
+   bm32(b, DAT_PROPERTY);
+   bm32(b, DAT_ID(id[0], id[1], id[2], id[3]));
+   bm32(b, (long)strlen(s));
+   bput(b, s, (long)strlen(s));
+}
+
+static void bobj(BUF *b, int type, BUF *body)
+{
+   bm32(b, type);
+   bm32(b, body->n);
+   bm32(b, body->n);
+   bput(b, body->p, body->n);
+}
+
+/* a packed chunk: the LZSS stream of a "wp" file (without its magic) */
+static void bobj_packed(BUF *b, int type, BUF *body)
+{
+   static unsigned char raw[200000];
+   const char *path = tmp_path("chunk.lz");
+   PACKFILE *f;
+   long n;
+   packfile_password(NULL);
+   f = pack_fopen(path, F_WRITE_PACKED);
+   if (!f)
+      return;
+   pack_fwrite(body->p, body->n, f);
+   pack_fclose(f);
+   n = file_bytes(path, raw, sizeof(raw));
+   delete_file(path);
+   bm32(b, type);
+   bm32(b, n - 4);
+   bm32(b, -body->n);
+   bput(b, raw + 4, n - 4);
+}
+
+static int pix(int x, int y, int k) { return (x * 37 + y * 91 + k * 53 + ((x ^ y) & 7) * 11) & 0xFF; }
+
+static void bbitmap(BUF *b, int bits, int w, int h)
+{
+   int x, y, rgba = bits < 0, ab = rgba ? -bits : bits;
+   bm16(b, bits);
+   bm16(b, w);
+   bm16(b, h);
+   for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+         int magenta = ((x + y) % 7) == 0;
+         switch (ab) {
+            case 8:
+               bbyte(b, (x + y) % 5 == 0 ? 0 : pix(x, y, 0));
+               break;
+            case 15:
+            case 16:
+               bi16(b, magenta ? 0xF81F : (pix(x, y, 1) << 8) | pix(x, y, 2));
+               break;
+            default:
+               bbyte(b, magenta ? 255 : pix(x, y, 3));
+               bbyte(b, magenta ? 0 : pix(x, y, 4));
+               bbyte(b, magenta ? 255 : pix(x, y, 5));
+               if (rgba)
+                  bbyte(b, pix(x, y, 6));
+               break;
+         }
+      }
+   }
+}
+
+static void bmono_glyph(BUF *b, int w, int h, int k)
+{
+   int i, n = ((w + 7) / 8) * h;
+   bm16(b, w);
+   bm16(b, h);
+   for (i = 0; i < n; i++)
+      bbyte(b, (i * 29 + k * 71) ^ 0x5A);
+}
+
+static void build_objects(BUF *d, int with_nested, int pack_some)
+{
+   BUF o = { NULL, 0, 0 };
+   /* (24 bpp with alpha is exercised separately: it fails at most depths) */
+   int i, depths[8] = { 8, 15, 16, 24, 32, -32, 16, 8 };
+
+   /* bitmaps of every depth */
+   for (i = 0; i < 8; i++) {
+      char nm[16];
+      sprintf(nm, "BMP%d", i);
+      bprop(d, "NAME", nm);
+      bbitmap(&o, depths[i], depths[i] == 4 ? 16 : 13, depths[i] == 4 ? 2 : 9);
+      if (pack_some && (i & 1))
+         bobj_packed(d, DAT_BITMAP, &o);
+      else
+         bobj(d, DAT_BITMAP, &o);
+      bfree(&o);
+   }
+
+   /* old fixed font (height > 0): 224 glyphs of 8 x height */
+   bm16(&o, 7);
+   for (i = 0; i < 224 * 7; i++)
+      bbyte(&o, (i * 13) ^ (i >> 3));
+   bprop(d, "NAME", "FIXEDFONT");
+   bobj(d, DAT_FONT, &o);
+   bfree(&o);
+
+   /* old proportional font (height < 0): a few 8-bit bitmaps, rest blank */
+   bm16(&o, -1);
+   for (i = 0; i < 5; i++) {
+      int x, y, w = 3 + i, h = 6 + (i & 1);
+      bm16(&o, w);
+      bm16(&o, h);
+      for (y = 0; y < h; y++)
+         for (x = 0; x < w; x++)
+            bbyte(&o, ((x + y + i) % 3) ? pix(x, y, i) : 0);
+   }
+   bobj(d, DAT_FONT, &o);
+   bfree(&o);
+
+   /* 4.x mono font, two ranges, glyphs wider than 8 */
+   bm16(&o, 0);
+   bm16(&o, 2);
+   bbyte(&o, 1);
+   bm32(&o, 0x20);
+   bm32(&o, 0x5A);
+   for (i = 0x20; i <= 0x5A; i++)
+      bmono_glyph(&o, 5 + (i % 9), 7 + (i % 3), i);
+   bbyte(&o, 255);
+   bm32(&o, 0x100);
+   bm32(&o, 0x104);
+   for (i = 0x100; i <= 0x104; i++)
+      bmono_glyph(&o, 11, 12, i);
+   bprop(d, "NAME", "MONORANGES");
+   bobj(d, DAT_FONT, &o);
+   bfree(&o);
+
+   /* 4.x colour font: an 8-bit range (depth 0) and a 16-bit range */
+   bm16(&o, 0);
+   bm16(&o, 2);
+   bbyte(&o, 0);
+   bm32(&o, 0x20);
+   bm32(&o, 0x5E);
+   for (i = 0x20; i <= 0x5E; i++) {
+      int x, y, w = 4 + (i % 6), h = 9 + (i % 2);
+      bm16(&o, w);
+      bm16(&o, h);
+      for (y = 0; y < h; y++)
+         for (x = 0; x < w; x++)
+            bbyte(&o, ((x * y + i) % 4) ? pix(x, y, i) : 0);
+   }
+   bbyte(&o, 16);
+   bm32(&o, 0x100);
+   bm32(&o, 0x101);
+   for (i = 0; i < 2; i++) {
+      int x, y;
+      bm16(&o, 6);
+      bm16(&o, 11);
+      for (y = 0; y < 11; y++)
+         for (x = 0; x < 6; x++)
+            bi16(&o, ((x + y) % 3) ? (pix(x, y, 9) << 8) | pix(x, y, 10) : 0xF81F);
+   }
+   bprop(d, "NAME", "COLORRANGES");
+   if (pack_some)
+      bobj_packed(d, DAT_FONT, &o);
+   else
+      bobj(d, DAT_FONT, &o);
+   bfree(&o);
+
+   /* samples: 8-bit mono and 16-bit stereo */
+   bm16(&o, 8);
+   bm16(&o, 11025);
+   bm32(&o, 300);
+   for (i = 0; i < 300; i++)
+      bbyte(&o, pix(i, 1, 2));
+   bobj(d, DAT_SAMPLE, &o);
+   bfree(&o);
+   bm16(&o, -16);
+   bm16(&o, 22050);
+   bm32(&o, 100);
+   for (i = 0; i < 200; i++)
+      bi16(&o, (pix(i, 3, 4) << 8) | pix(i, 5, 6));
+   bobj(d, DAT_SAMPLE, &o);
+   bfree(&o);
+
+   /* MIDI: divisions + 32 tracks */
+   bm16(&o, 96);
+   for (i = 0; i < 32; i++) {
+      bm32(&o, i == 3 ? 5 : 0);
+      if (i == 3)
+         bput(&o, "\x00\x90\x3C\x40\x00", 5);
+   }
+   bobj(d, DAT_MIDI, &o);
+   bfree(&o);
+
+   /* palette and unknown types as raw data */
+   for (i = 0; i < 256 * 4; i++)
+      bbyte(&o, (i & 3) == 3 ? 0 : (i * 7) & 63);
+   bprop(d, "NAME", "PAL");
+   bobj(d, DAT_PALETTE, &o);
+   bfree(&o);
+   bput(&o, "OggS fake payload", 17);
+   bprop(d, "NAME", "UNKNOWN");
+   bprop(d, "ORIG", "c:\\x\\y.ogg");
+   bprop(d, "DATE", "");
+   bobj(d, DAT_ID('O', 'G', 'G', ' '), &o);
+   bfree(&o);
+   bobj(d, DAT_DATA, &o);   /* empty object */
+
+   if (with_nested) {
+      BUF n = { NULL, 0, 0 };
+      bm32(&n, 3);
+      bprop(&n, "NAME", "INNER_A");
+      bput(&o, "inner", 5);
+      bobj(&n, DAT_DATA, &o);
+      bfree(&o);
+      bbitmap(&o, 24, 5, 4);
+      bobj_packed(&n, DAT_BITMAP, &o);
+      bfree(&o);
+      bm32(&o, 1);
+      bput(&o, "deep", 4);
+      {
+         BUF deep = { NULL, 0, 0 };
+         bm32(&deep, 1);
+         bprop(&deep, "NAME", "DEEPEST");
+         bobj(&deep, DAT_DATA, &o);
+         bfree(&o);
+         bprop(&n, "NAME", "DEEP");
+         bobj(&n, DAT_FILE, &deep);
+         bfree(&deep);
+      }
+      bprop(d, "NAME", "NESTED");
+      bobj(d, DAT_FILE, &n);
+      bfree(&n);
+   }
+   bprop(d, "NAME", "DANGLING");   /* property without an object: dropped */
+}
+
+static int count_objects(int with_nested)
+{
+   return 8 + 4 + 2 + 1 + 3 + (with_nested ? 1 : 0);
+}
+
+static void render_font_sample(golden_ctx *g, const char *name, FONT *f)
+{
+   static const int depths[2] = { 32, 16 };
+   char full[256];
+   int i;
+   for (i = 0; i < 2; i++) {
+      BITMAP *b = create_bitmap_ex(depths[i], 160, 3 * (text_height(f) + 1) + 2);
+      clear_to_color(b, makecol_depth(depths[i], 30, 60, 90));
+      textout_ex(b, f, "AZ !\"#09 \xC4\x80\xC4\x81\xC4\x84 ~", -2, 0, -1, -1);
+      textout_ex(b, f, "Hello \xC4\x81", 3, text_height(f) + 1, makecol_depth(depths[i], 250, 250, 0),
+                 makecol_depth(depths[i], 90, 0, 0));
+      textout_right_ex(b, f, "[mono]\xC4\x82", 163, 2 * (text_height(f) + 1), -1,
+                       makecol_depth(depths[i], 0, 80, 0));
+      sprintf(full, "%s/render%d", name, depths[i]);
+      golden_bitmap(g, full, b);
+      destroy_bitmap(b);
+   }
+}
+
+static void synth_dump(golden_ctx *g, const char *prefix, DATAFILE *d)
+{
+   int i;
+   char name[128];
+   dump_datafile(g, prefix, d);
+   if (!d)
+      return;
+   for (i = 0; d[i].type != DAT_END; i++) {
+      if (d[i].type == DAT_FONT) {
+         sprintf(name, "%s/%d", prefix, i);
+         render_font_sample(g, name, (FONT *)d[i].dat);
+      }
+   }
+}
+
+static void scen_synthetic(golden_ctx *g)
+{
+   BUF d = { NULL, 0, 0 };
+   BUF v1 = { NULL, 0, 0 };
+   PACKFILE *f;
+   DATAFILE *dat;
+   int i;
+
+   set_palette(desktop_palette);
+
+   /* 1: whole file LZSS packed with a password, nested file, packed chunks */
+   bm32(&d, DAT_MAGIC);
+   bm32(&d, count_objects(1));
+   build_objects(&d, 1, 1);
+   packfile_password("S3cret \xC3\xA9");
+   f = pack_fopen(tmp_path("synth1.dat"), F_WRITE_PACKED);
+   if (f) {
+      pack_fwrite(d.p, d.n, f);
+      pack_fclose(f);
+   }
+   set_color_depth(32);
+   set_color_conversion(0x00ffffff);
+   cb_n = 0;
+   dat = load_datafile_callback(tmp_path("synth1.dat"), dat_callback);
+   dump_cb_log(g, "synth1/callbacks");
+   synth_dump(g, "synth1", dat);
+   unload_datafile(dat);
+
+   /* the same at 16 bpp with COLORCONV_KEEP_TRANS */
+   set_color_depth(16);
+   set_color_conversion(COLORCONV_TOTAL | COLORCONV_KEEP_TRANS);
+   dat = load_datafile(tmp_path("synth1.dat"));
+   synth_dump(g, "synth1_16k", dat);
+   unload_datafile(dat);
+
+   /* the same at 24 bpp without conversion */
+   set_color_depth(24);
+   set_color_conversion(COLORCONV_NONE);
+   dat = load_datafile(tmp_path("synth1.dat"));
+   synth_dump(g, "synth1_24n", dat);
+   unload_datafile(dat);
+   packfile_password(NULL);
+   bfree(&d);
+
+   /* 2: "w!" (slh. + plain) without nesting, 8 bpp target */
+   bm32(&d, DAT_MAGIC);
+   bm32(&d, count_objects(0));
+   build_objects(&d, 0, 0);
+   f = pack_fopen(tmp_path("synth2.dat"), F_WRITE_NOPACK);
+   if (f) {
+      pack_fwrite(d.p, d.n, f);
+      pack_fclose(f);
+   }
+   set_color_depth(8);
+   set_color_conversion(COLORCONV_TOTAL);
+   dat = load_datafile(tmp_path("synth2.dat"));
+   synth_dump(g, "synth2_8", dat);
+   unload_datafile(dat);
+   bfree(&d);
+
+   /* 3: truncated datafile (count larger than the content) */
+   bm32(&d, DAT_MAGIC);
+   bm32(&d, count_objects(0) + 2);
+   build_objects(&d, 0, 0);
+   f = pack_fopen(tmp_path("synth3.dat"), F_WRITE_PACKED);
+   if (f) {
+      pack_fwrite(d.p, d.n / 2, f);
+      pack_fclose(f);
+   }
+   set_color_depth(32);
+   set_color_conversion(0x00ffffff);
+   dat = load_datafile(tmp_path("synth3.dat"));
+   golden_int(g, "synth3/loaded", dat != NULL);
+   unload_datafile(dat);
+   bfree(&d);
+
+   /* 4: old (V1) datafile format */
+   bm32(&v1, 0x616C6C2EL);
+   bm16(&v1, 6);
+   bm16(&v1, 4);                      /* V1_DAT_SPRITE_16: Atari ST planes */
+   bm16(&v1, 0);
+   bm16(&v1, 16);
+   bm16(&v1, 2);
+   for (i = 0; i < 16; i++)
+      bbyte(&v1, i * 37 + 5);
+   bm16(&v1, 8);                      /* V1_DAT_FONT_8x8 */
+   for (i = 0; i < 95 * 8; i++)
+      bbyte(&v1, (i * 5) ^ 0x33);
+   bm16(&v1, 3);                      /* V1_DAT_BITMAP_256 */
+   bm16(&v1, 7);
+   bm16(&v1, 3);
+   for (i = 0; i < 21; i++)
+      bbyte(&v1, i * 11);
+   bm16(&v1, 6);                      /* V1_DAT_PALETTE_16 */
+   for (i = 0; i < 48; i++)
+      bbyte(&v1, i * 5);
+   bm16(&v1, 12);                     /* V1_DAT_SAMPLE */
+   bm16(&v1, 8);
+   bm16(&v1, 8000);
+   bm32(&v1, 10);
+   bput(&v1, "0123456789", 10);
+   bm16(&v1, 0);                      /* V1_DAT_DATA */
+   bm32(&v1, 6);
+   bput(&v1, "v1data", 6);
+   f = pack_fopen(tmp_path("synth4.dat"), F_WRITE_PACKED);
+   if (f) {
+      pack_fwrite(v1.p, v1.n, f);
+      pack_fclose(f);
+   }
+   cb_n = 0;
+   dat = load_datafile_callback(tmp_path("synth4.dat"), dat_callback);
+   dump_cb_log(g, "synth4/callbacks");
+   synth_dump(g, "synth4", dat);
+   unload_datafile(dat);
+   bfree(&v1);
+
+   /* 5: a 24 bpp bitmap with alpha: _color_load_depth() has no rule for
+    * it unless the colour depth is 24 */
+   bm32(&d, DAT_MAGIC);
+   bm32(&d, 2);
+   bbitmap(&v1, -24, 6, 5);
+   bobj(&d, DAT_BITMAP, &v1);
+   bfree(&v1);
+   bput(&v1, "after", 5);
+   bobj(&d, DAT_DATA, &v1);
+   bfree(&v1);
+   f = pack_fopen(tmp_path("synth5.dat"), F_WRITE_PACKED);
+   if (f) {
+      pack_fwrite(d.p, d.n, f);
+      pack_fclose(f);
+   }
+   bfree(&d);
+   for (i = 0; i < 4; i++) {
+      static const int dd[4] = { 32, 24, 16, 8 };
+      char name[64];
+      set_color_depth(dd[i]);
+      set_color_conversion(COLORCONV_TOTAL);
+      dat = load_datafile(tmp_path("synth5.dat"));
+      sprintf(name, "synth5_%d", dd[i]);
+      synth_dump(g, name, dat);
+      unload_datafile(dat);
+   }
+   delete_file(tmp_path("synth5.dat"));
+   set_color_depth(32);
+
+   /* nested objects through file#object names */
+   packfile_password("S3cret \xC3\xA9");
+   {
+      char obj[1200];
+      unsigned char buf[64];
+      long n;
+      sprintf(obj, "%s#NESTED/DEEP/DEEPEST", tmp_path("synth1.dat"));
+      golden_int(g, "synth1/special_size", (long)file_size_ex(obj));
+      f = pack_fopen(obj, F_READ);
+      golden_int(g, "synth1/special_open", f != NULL);
+      if (f) {
+         n = pack_fread(buf, sizeof(buf), f);
+         golden_bytes(g, "synth1/special_bytes", buf, n);
+         pack_fclose(f);
+      }
+      sprintf(obj, "%s#bmp3", tmp_path("synth1.dat"));
+      golden_int(g, "synth1/special_case", (long)file_size_ex(obj));
+   }
+   packfile_password(NULL);
+
+   delete_file(tmp_path("synth1.dat"));
+   delete_file(tmp_path("synth2.dat"));
+   delete_file(tmp_path("synth3.dat"));
+   delete_file(tmp_path("synth4.dat"));
+   set_color_depth(32);
+   set_color_conversion(0x00ffffff);
+}
+
 void scen_data(golden_ctx *g)
 {
    set_color_depth(32);
@@ -702,4 +1175,5 @@ void scen_data(golden_ctx *g)
    scen_packfiles(g);
    scen_files(g);
    scen_datafiles(g);
+   scen_synthetic(g);
 }

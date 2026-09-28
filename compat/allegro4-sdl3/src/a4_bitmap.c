@@ -512,5 +512,5 @@ int _color_load_depth(int depth, int hasalpha)
             return depth;
       }
    }
-   return depth;
+   return 0;   /* Allegro: ASSERT(FALSE); return 0; (e.g. 24 bpp with alpha) */
 }
