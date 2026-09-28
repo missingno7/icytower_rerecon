@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include "port/game/port_game.h"
 #include "port/platform/platform.h"
+#include "port/sim/sched.h"
 
 FILE *port_fopen(const char *path, const char *mode)
 {
@@ -50,3 +51,8 @@ int port_qpc_low(void) { return (int)(uint32_t)plat_perf_counter(); }
 int port_qpf_low(void) { return (int)(uint32_t)plat_perf_frequency(); }
 
 void port_open_url(const char *url) { plat_open_url(url); }
+
+void port_wait_tick(void)
+{
+   sched_wait_tick();
+}

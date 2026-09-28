@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -989,8 +990,7 @@ Treplay *replay_selector(Tcontrol *ctrl, char *path)
         solid_mode();
         draw_replay_selector(swap_screen, rep, itr_file_list, curr_file_id, offset, page_size, 120, pageY);
         blit_to_screen(swap_screen);
-        while (cycle_count <= 0)
-            rest(2);
+        port_wait_tick();
     }
 
     if (!rep) {
@@ -1004,8 +1004,7 @@ Treplay *replay_selector(Tcontrol *ctrl, char *path)
             solid_mode();
             draw_replay_selector(swap_screen, NULL, itr_file_list, curr_file_id, offset, page_size, 120, pageY);
             blit_to_screen(swap_screen);
-            while (cycle_count <= 0)
-                rest(2);
+            port_wait_tick();
         }
     }
 

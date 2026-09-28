@@ -48,6 +48,8 @@ uint64_t sched_ticks(void);
 uint64_t sched_dropped_ticks(void);
 /* Headless/virtual time (tests, replay checking, bots). */
 void     sched_set_virtual(bool on);
+/* debug: run the simulation `speed` times faster than real time */
+void     sched_set_speed(double speed);
 bool     sched_is_virtual(void);
 
 #ifdef __cplusplus

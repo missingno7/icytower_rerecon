@@ -673,8 +673,7 @@ int view_profile(Tprofile *profile)
         poll_control(get_controls(), 0);
         done = is_fire(get_controls());
         done = keypressed() || done;
-        while (cycle_count <= 0)
-            rest(2);
+        port_wait_tick();
     }
 
     targetY = 500;
@@ -690,8 +689,7 @@ int view_profile(Tprofile *profile)
         draw_sprite(swap_screen, bmp, 70, pageY);
         pageY += (targetY - pageY) * 0.2;
         blit_to_screen(swap_screen);
-        while (cycle_count <= 0)
-            rest(2);
+        port_wait_tick();
     }
 
     free(data_basic);
@@ -915,8 +913,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                               profiles, numProfiles, profileIndex, offset,
                               page_size, 140, pageY);
         blit_to_screen(swap_screen);
-        while (cycle_count <= 0)
-            rest(2);
+        port_wait_tick();
     }
 
     if (selectedProfile) {
@@ -939,8 +936,7 @@ Tprofile_create *select_profile(Tprofile_create *current_profile, Tavailable_pro
                               profiles, numProfiles, profileIndex, offset,
                               page_size, 140, pageY);
         blit_to_screen(swap_screen);
-        while (cycle_count <= 0)
-            rest(2);
+        port_wait_tick();
     }
     destroy_bitmap(bgbmp);
     font = old_font;

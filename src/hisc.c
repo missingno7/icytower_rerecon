@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 #include "recovered/Thisc_table.h"
 #include <allegro.h>
 #include "control.h"
@@ -250,7 +251,7 @@ void view_scores(Thisc_table **tables,char **names)
         done = is_fire(get_controls()) ? 1 : 0;
         if ((key[KEY_ESC] || key[KEY_ENTER] || key[KEY_SPACE]) && canDone) done = 1;
         if (!key[KEY_ESC] && !key[KEY_ENTER] && !key[KEY_SPACE]) canDone = 1;
-        while (cycle_count <= 0) rest(2);
+        port_wait_tick();
     }
 
 
@@ -279,7 +280,7 @@ void view_scores(Thisc_table **tables,char **names)
         blit_to_screen(swap_screen);
 
         keypressed();
-        while (cycle_count <= 0) rest(2);
+        port_wait_tick();
     }
 
 

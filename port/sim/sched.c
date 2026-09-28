@@ -10,6 +10,9 @@ void a4_service(void);   /* compat: pump events + run due timers */
 
 static bool g_inited, g_virtual;
 static uint64_t g_last_ns, g_acc_ns, g_ticks, g_dropped;
+static double g_speed = 1.0;
+
+void sched_set_speed(double speed) { g_speed = speed > 0.01 ? speed : 1.0; }
 
 void sched_init(void)
 {
@@ -25,7 +28,7 @@ static void advance(void)
 {
    const uint64_t max_backlog = (uint64_t)SCHED_MAX_CATCHUP_TICKS * SIMULATION_DT_NS;
    uint64_t now = plat_ticks_ns();
-   g_acc_ns += now - g_last_ns;
+   g_acc_ns += (uint64_t)((double)(now - g_last_ns) * g_speed);
    g_last_ns = now;
    if (g_acc_ns > max_backlog + SIMULATION_DT_NS) {
       uint64_t excess = g_acc_ns - max_backlog;
@@ -40,20 +43,28 @@ void sched_resync(void)
    g_acc_ns = 0;
 }
 
+#define SCHED_PAUSE_GAP_NS 250000000ull   /* a longer gap between waits is a pause, not lag */
+
 void sched_wait_tick(void)
 {
+   static uint64_t last_return_ns;
    if (!g_inited)
       sched_init();
    if (sched_is_virtual()) {
       g_ticks++;
       return;
    }
+   /* The game blocked outside the simulation (modal dialog, pause screen,
+    * loading): start timing afresh instead of replaying the gap. */
+   if (last_return_ns && plat_ticks_ns() - last_return_ns > SCHED_PAUSE_GAP_NS)
+      sched_resync();
    for (;;) {
       a4_service();
       advance();
       if (g_acc_ns >= SIMULATION_DT_NS) {
          g_acc_ns -= SIMULATION_DT_NS;
          g_ticks++;
+         last_return_ns = plat_ticks_ns();
          return;
       }
       if (present_service(false))

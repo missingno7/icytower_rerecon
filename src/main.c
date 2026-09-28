@@ -22,6 +22,10 @@ extern void handle_player_collision_combo(int, int);
 /* port: render snapshots around draw_frame (port/game/snapshot_capture.c) */
 void port_snapshot_pre(void);
 void port_snapshot_post(void);
+/* port: simulation fingerprint for regression tests (port/game/sim_trace.c) */
+void port_sim_trace_begin(void);
+void port_sim_trace_tick(void);
+void port_sim_trace_end(void);
 #include "loadpng.h"
 #include "beta.h"
 #include "control.h"
@@ -1874,7 +1878,7 @@ int my_alert(char *func, char *txt, int choice, int enter_hint)
             draw_sprite(screen, data[status ? 11 : 10].dat, 240, 220); /* 527 */
             draw_sprite(screen, data[status ? 7 : 8].dat, 365, 220);   /* 529 */
         }
-        while (!cycle_count) rest(2);                         /* 532 */
+        port_wait_tick();                         /* 532 */
     }
     poll_control(&ctrl, 0);                                    /* 535 */
     poll_control(menu_ctrl, 0);                                 /* 536 */
@@ -2638,7 +2642,9 @@ int init_game(int argc, char **argv)
     log2file("Initiating player"); /* 1835 */
     draw_progress_bar(); /* 1836 */
     player_id=hist_rand()%1000; /* 1837 */
-    ply[player_id]=malloc(sizeof(*ply[player_id])); /* 1838 */
+    /* port: zeroed; the historical malloc left `angle` (drawing only)
+     * as heap garbage until the first jump */
+    ply[player_id]=calloc(1,sizeof(*ply[player_id])); /* 1838 */
     if (!ply[player_id]) { /* 1839 */
         log2file(" *** failed"); /* 1840 */
         set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1841 */
@@ -3923,7 +3929,7 @@ void fadeIn(BITMAP *bmp, int speed)
         rectfill(mybmp,0,0,SCREEN_W,SCREEN_H,makecol(0,0,0));
         solid_mode();
         blit_to_screen(mybmp);
-        while (cycle_count <= 0) rest(2);
+        port_wait_tick();
     }
     destroy_bitmap(mybmp);
 }
@@ -3943,7 +3949,7 @@ void fadeOut(int speed)
         rectfill(swap_screen,0,0,SCREEN_W,SCREEN_H,makecol(0,0,0));
         solid_mode();
         blit_to_screen(swap_screen);
-        while (cycle_count<=0) rest(2);
+        port_wait_tick();
     }
     destroy_bitmap(bmp);
     rectfill(screen,0,0,SCREEN_W,SCREEN_H,makecol(0,0,0));
@@ -4111,6 +4117,7 @@ clockTimeStart = clock();
 timeTimeStart = time(NULL);
 
 
+port_sim_trace_begin();
 playing = TRUE;
 while (playing) {
 
@@ -4679,7 +4686,7 @@ shake = new_rand() % 8;
 }
 
 update_frame();
-
+port_sim_trace_tick();
 
 
 if (!quit && closeButtonClicked) { quit = 1; playing = FALSE;
@@ -4935,23 +4942,23 @@ blit_to_screen(swap_screen);
 }
 
 if (!debug) {
-while (cycle_count == 0) rest(2);
+port_wait_tick();
 
 
 } else if (key[KEY_TAB] && key[KEY_LSHIFT]) {
-while (cycle_count <= 7) { rest(0); }
+{ int k_; for (k_ = 0; k_ < 8; k_++) port_wait_tick(); }
 } else {
-while (!cycle_count) rest(2);
+port_wait_tick();
 }
 }
 }
 
 
-if (!itrcheck) rest(2);
 }
 }
 
 
+port_sim_trace_end();
 if (recording) {
 int addTime = endTime - startTime;
 if (addTime > 0)
@@ -5312,7 +5319,7 @@ while (key[KEY_F1]) { }
 if (!key[KEY_TAB] || !key[KEY_LSHIFT])
 
 
-while (!cycle_count) rest(2);
+port_wait_tick();
 }
 
 ply[player_id]->dead = 0;
@@ -5510,7 +5517,7 @@ if (done == 20) done = 14;
 if (!key[KEY_TAB] || !key[KEY_LSHIFT])
 
 
-while (!cycle_count) rest(2);
+port_wait_tick();
 
 }
 
@@ -5622,15 +5629,14 @@ void show_credits(void)
     fadeIn(swap_screen, 16);
 
     closeButtonClicked = 0;
-    cycle_count = 0;
-    while (!closeButtonClicked && !key[KEY_ESC] && cycle_count <= 149) {
-        gc = cycle_count;
-
+    gc = 0;
+    while (!closeButtonClicked && !key[KEY_ESC] && gc <= 149) {
         checkMenuFocus();
 
         if (bg_menu) adjust_sample(bg_menu, (int)vol, 128, 1000, 1);
         vol -= vol_step;
-        while (gc == cycle_count) rest(2);
+        port_wait_tick();
+        gc++;
     }
 
 
@@ -5654,8 +5660,7 @@ void show_instructions(void)
         done=is_fire(&ctrl)!=0;
         if (key[KEY_ESC] || key[KEY_ENTER])
             done=1;
-        while (!cycle_count)
-            rest(2);
+        port_wait_tick();
     }
     fadeOut(16);
 }
@@ -5981,7 +5986,7 @@ int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
 
 
 
-        while (!cycle_count) rest(2);
+        port_wait_tick();
     }
 
 
@@ -6195,7 +6200,7 @@ void force_create_profile(void)
     blit(screen,bg,0,0,0,0,SCREEN_W,SCREEN_H);
     memset(new_name,0,sizeof(new_name));
     done = 0;
-    while (!done) {
+    while (!done && !closeButtonClicked) { /* port: leave when the window is closed */
         int res;
         char buf[129];
 

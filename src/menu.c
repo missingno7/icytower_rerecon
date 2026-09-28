@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 #include "recovered/Tprofile.h"
 extern int my_alert(char*, char*, int, int);
 /* Historical CU: menu.c; current status: src/recovery.json.
@@ -401,7 +402,7 @@ int handle_menu(Tmenu *menu, Tmenu_params *mp, Tcontrol *ctrl, BITMAP *bmp,
         if (!(key[KEY_TAB] && key[KEY_LSHIFT]))
 
 
-            while (!cycle_count) rest(2);
+            port_wait_tick();
     }
 
 

@@ -13,6 +13,7 @@ static SDL_Texture *g_canvas_tex;
 static BITMAP *g_canvas;
 static int g_canvas_w = 640, g_canvas_h = 480;
 static uint32_t g_uploaded_gen = 0xFFFFFFFFu, g_uploaded_serial;
+static uint32_t g_presented_gen = 0xFFFFFFFFu, g_presented_serial;
 static bool g_need_repaint = true;
 static SDL_FRect g_canvas_dst;
 static char g_title[256] = "Icy Tower";
@@ -125,6 +126,7 @@ void present_set_canvas(BITMAP *canvas)
 {
    g_canvas = canvas;
    g_uploaded_gen = 0xFFFFFFFFu;
+   g_presented_gen = 0xFFFFFFFFu;
    g_need_repaint = true;
 }
 
@@ -201,7 +203,15 @@ void present_draw_canvas(SDL_FRect *dst_out)
 
 static bool canvas_changed(void)
 {
-   return g_canvas && (g_canvas->generation != g_uploaded_gen || g_canvas->serial != g_uploaded_serial);
+   return g_canvas && (g_canvas->generation != g_presented_gen || g_canvas->serial != g_presented_serial);
+}
+
+static void mark_presented(void)
+{
+   if (g_canvas) {
+      g_presented_gen = g_canvas->generation;
+      g_presented_serial = g_canvas->serial;
+   }
 }
 
 bool present_service(bool force)
@@ -211,6 +221,7 @@ bool present_service(bool force)
    if (!render_frame_due(force || canvas_changed() || g_need_repaint))
       return false;
    g_need_repaint = false;
+   mark_presented();
    render_frame();
    return true;
 }
@@ -228,6 +239,7 @@ void present_service_idle(void)
    if (now - render_last_frame_ns() < 50000000ull)
       return;
    g_need_repaint = false;
+   mark_presented();
    render_frame();
 }
 

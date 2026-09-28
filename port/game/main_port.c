@@ -9,12 +9,15 @@
 #include "port/platform/platform.h"
 #include "port/config/port_config.h"
 #include "port/render/capture.h"
+#include "port/render/render.h"
+#include "port/sim/sched.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 int _mangled_main(int argc, char **argv);
+void port_sim_trace_configure(const char *path);
 
 /* Port options (platform, config, capture); everything else is passed to the
  * historical command-line parser unchanged ("-check FILE -all", or a replay/
@@ -26,6 +29,7 @@ static const struct { const char *name; int args; } port_opts[] = {
    { "--borderless", 0 }, { "--windowed", 0 }, { "--window", 1 },
    { "--capture", 1 }, { "--capture-ms", 1 }, { "--capture-ticks", 1 },
    { "--exit-after-ms", 1 }, { "--exit-after-ticks", 1 },
+   { "--sim-trace", 1 }, { "--sim-speed", 1 },
 };
 
 static int strip_port_args(int argc, char **argv, char **out)
@@ -77,11 +81,24 @@ int main(int argc, char **argv)
    port_config_load(argc, argv);
    capture_configure(argc, argv);
    {
+      int i;
+      for (i = 1; i + 1 < argc; i++) {
+         if (!strcmp(argv[i], "--sim-trace"))
+            port_sim_trace_configure(argv[i + 1]);
+         else if (!strcmp(argv[i], "--sim-speed"))
+            sched_set_speed(SDL_atof(argv[i + 1]));
+      }
+   }
+   {
       char **game_argv = (char **)SDL_calloc((size_t)argc + 1, sizeof(char *));
       int game_argc = strip_port_args(argc, argv, game_argv);
       ret = _mangled_main(game_argc, game_argv);
       SDL_free(game_argv);
    }
+   if (!plat_headless())
+      SDL_Log("frames presented %llu, simulation ticks %llu, dropped ticks %llu",
+              (unsigned long long)render_frames_presented(), (unsigned long long)sched_ticks(),
+              (unsigned long long)sched_dropped_ticks());
    plat_shutdown();
    return ret;
 }

@@ -41,6 +41,11 @@ int port_qpf_low(void);
 
 void port_open_url(const char *url);
 
+/* Wait for the next 50 Hz simulation step (port/sim/sched.h).  Replaces the
+ * historical `while (!cycle_count) rest(2);` busy waits; frames are
+ * rendered at display rate while waiting. */
+void port_wait_tick(void);
+
 #ifdef __cplusplus
 }
 #endif
