@@ -6,6 +6,7 @@
 #include <string.h>
 #include <limits.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 int a4_color_depth = 8;
 int a4_color_conversion = COLORCONV_TOTAL;
@@ -174,6 +175,7 @@ BITMAP *create_bitmap_ex(int color_depth, int width, int height)
    b->serial = next_serial++;
    for (i = 0; i < height; i++)
       b->line[i] = (unsigned char *)b->dat + (size_t)i * b->pitch;
+   a4_dl_bitmap_created(b);
    return b;
 }
 
@@ -211,14 +213,31 @@ BITMAP *create_sub_bitmap(BITMAP *parent, int x, int y, int width, int height)
    return b;
 }
 
+/* frees immediately; destroy_bitmap() defers while display lists still
+ * reference the bitmap */
+void a4_real_destroy_bitmap(BITMAP *b)
+{
+   free(b->dat);
+   free(b);
+}
+
+int a4_dl_bitmap_release(BITMAP *b);
+
 void destroy_bitmap(BITMAP *b)
 {
    if (!b)
       return;
    if (b == screen)
       return;   /* the screen belongs to set_gfx_mode() */
-   free(b->dat);
-   free(b);
+   if (a4_dl_bitmap_release(b))
+      a4_real_destroy_bitmap(b);
+}
+
+/* used by allegro_exit()/set_gfx_mode() to replace the screen */
+void a4_destroy_screen_bitmap(BITMAP *b)
+{
+   if (b && a4_dl_bitmap_release(b))
+      a4_real_destroy_bitmap(b);
 }
 
 int bitmap_color_depth(BITMAP *bmp) { return bmp ? bmp->depth : 0; }
@@ -227,11 +246,14 @@ void acquire_bitmap(BITMAP *bmp) { (void)bmp; }
 void release_bitmap(BITMAP *bmp) { (void)bmp; }
 int bitmap_mask_color(BITMAP *bmp) { return (int)a4_mask_color(bmp->depth); }
 
+void a4_dl_check_touch(BITMAP *b);
+
 void a4_touch(BITMAP *b)
 {
    b->generation++;
    if (b->parent)
       b->parent->generation++;
+   a4_dl_check_touch(b);
 }
 
 void set_clip_rect(BITMAP *b, int x1, int y1, int x2, int y2)
@@ -250,6 +272,7 @@ void putpixel(BITMAP *bmp, int x, int y, int color)
       return;
    if (x < 0 || y < 0 || x >= bmp->w || y >= bmp->h)
       return;
+   a4_dl_line(bmp, x, y, x, y, color);
    if (a4_draw_mode == DRAW_MODE_TRANS && bmp->depth != 8) {
       unsigned long d = a4_get_raw(bmp, x, y);
       a4_put_raw(bmp, x, y, a4_blend(bmp->depth, (unsigned long)color, d, (unsigned long)a4_blend_a));
@@ -271,6 +294,7 @@ int getpixel(BITMAP *bmp, int x, int y)
 void clear_to_color(BITMAP *bmp, int color)
 {
    int x, y;
+   a4_dl_clear(bmp, color);
    for (y = bmp->ct; y < bmp->cb; y++)
       for (x = bmp->cl; x < bmp->cr; x++)
          a4_put_raw(bmp, x, y, (unsigned long)color);

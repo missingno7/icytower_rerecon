@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 /* blit.c get_replacement_mask_color() */
 static unsigned long replacement_mask_color(BITMAP *bmp)
@@ -130,6 +131,8 @@ void blit(BITMAP *src, BITMAP *dest, int s_x, int s_y, int d_x, int d_y, int w, 
 {
    int y, bpp;
 
+   a4_dl_blit(src, dest, s_x, s_y, d_x, d_y, w, h, DLB_SOLID);
+
    if (!blit_clip(src, dest, &s_x, &s_y, &d_x, &d_y, &w, &h))
       return;
 
@@ -171,6 +174,8 @@ void masked_blit(BITMAP *src, BITMAP *dest, int s_x, int s_y, int d_x, int d_y, 
 {
    int x, y;
    unsigned long mask;
+
+   a4_dl_blit(src, dest, s_x, s_y, d_x, d_y, w, h, DLB_MASKED);
 
    if (!blit_clip(src, dest, &s_x, &s_y, &d_x, &d_y, &w, &h))
       return;
@@ -292,11 +297,14 @@ void stretch_blit(BITMAP *source, BITMAP *dest, int source_x, int source_y,
                   int source_width, int source_height, int dest_x, int dest_y,
                   int dest_width, int dest_height)
 {
+   a4_dl_stretch(source, dest, source_x, source_y, source_width, source_height,
+                 dest_x, dest_y, dest_width, dest_height, 0);
    stretch_blit_ex(source, dest, source_x, source_y, source_width, source_height,
                    dest_x, dest_y, dest_width, dest_height, 0);
 }
 
 void stretch_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y, int w, int h)
 {
+   a4_dl_stretch(sprite, bmp, 0, 0, sprite->w, sprite->h, x, y, w, h, 1);
    stretch_blit_ex(sprite, bmp, 0, 0, sprite->w, sprite->h, x, y, w, h, 1);
 }

@@ -17,6 +17,7 @@
  */
 #include <stdint.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 int a4_draw_mode = DRAW_MODE_SOLID;
 int a4_blend_kind = A4_BLEND_TRANS;
@@ -224,12 +225,14 @@ static int do_vline(BITMAP *bmp, int x, int y1, int y2, int color)
 
 void hline(BITMAP *bmp, int x1, int y, int x2, int color)
 {
+   a4_dl_line(bmp, x1, y, x2, y, color);
    if (do_hline(bmp, x1, y, x2, color))
       a4_touch(bmp);
 }
 
 void vline(BITMAP *bmp, int x, int y1, int y2, int color)
 {
+   a4_dl_line(bmp, x, y1, x, y2, color);
    if (do_vline(bmp, x, y1, y2, color))
       a4_touch(bmp);
 }
@@ -334,6 +337,7 @@ void line(BITMAP *bmp, int x1, int y1, int x2, int y2, int color)
       hline(bmp, x1, y1, x2, color);
       return;
    }
+   a4_dl_line(bmp, x1, y1, x2, y2, color);
    lc.bmp = bmp;
    clip_rect_of(bmp, &lc.cl, &lc.ct, &lc.cr, &lc.cb);
    lc.drawn = 0;
@@ -357,6 +361,11 @@ void rect(BITMAP *bmp, int x1, int y1, int x2, int y2, int color)
 {
    int t, drawn = 0;
 
+   a4_dl_line(bmp, x1, y1, x2, y1, color);
+   a4_dl_line(bmp, x1, y2, x2, y2, color);
+   a4_dl_line(bmp, x1, y1, x1, y2, color);
+   a4_dl_line(bmp, x2, y1, x2, y2, color);
+
    if (x2 < x1) {
       t = x1; x1 = x2; x2 = t;
    }
@@ -379,6 +388,8 @@ void rect(BITMAP *bmp, int x1, int y1, int x2, int y2, int color)
 void rectfill(BITMAP *bmp, int x1, int y1, int x2, int y2, int color)
 {
    int t, drawn = 0;
+
+   a4_dl_fill(bmp, x1, y1, x2, y2, color);
 
    if (y1 > y2) {
       t = y1; y1 = y2; y2 = t;

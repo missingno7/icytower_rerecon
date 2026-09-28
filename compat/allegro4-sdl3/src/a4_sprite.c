@@ -27,6 +27,7 @@
 #include <math.h>
 #include <stdint.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 enum { SPR_NORMAL, SPR_256, SPR_CONVERT, SPR_TRANS, SPR_TRANS_256, SPR_RGBA };
 
@@ -146,22 +147,27 @@ static int plain_kind(BITMAP *bmp, BITMAP *sprite)
 /* draw.inl draw_sprite: 8 bpp sprites go through draw_256_sprite */
 void draw_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y)
 {
+   a4_dl_sprite(bmp, sprite, x, y, 0, DLB_MASKED);
    sprite_generic(bmp, sprite, x, y, 0, 0, plain_kind(bmp, sprite));
 }
 
 void draw_sprite_h_flip(BITMAP *bmp, BITMAP *sprite, int x, int y)
 {
+   a4_dl_sprite(bmp, sprite, x, y, 1, DLB_MASKED);
    sprite_generic(bmp, sprite, x, y, 1, 0, plain_kind(bmp, sprite));
 }
 
 void draw_sprite_v_flip(BITMAP *bmp, BITMAP *sprite, int x, int y)
 {
+   a4_dl_sprite(bmp, sprite, x, y, 2, DLB_MASKED);
    sprite_generic(bmp, sprite, x, y, 0, 1, plain_kind(bmp, sprite));
 }
 
 /* draw.inl draw_trans_sprite */
 void draw_trans_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y)
 {
+   a4_dl_sprite(bmp, sprite, x, y, 0,
+                (a4_blend_kind == A4_BLEND_ALPHA && sprite->depth == 32) ? DLB_ALPHA : DLB_TRANS);
    if (sprite->depth == 32) {
       /* draw_trans_rgba_sprite: for a 32 bpp target that is
        * _linear_draw_trans_sprite32 itself */
@@ -621,6 +627,7 @@ static void pivot_scaled_sprite_flip(BITMAP *bmp, BITMAP *sprite, fixed x, fixed
 /* draw.inl rotate_sprite */
 void rotate_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y, fixed angle)
 {
+   a4_dl_rotate(bmp, sprite, x, y, angle, 0x10000);
    pivot_scaled_sprite_flip(bmp, sprite,
                             wrap_add(shl16(x), (sprite->w * 0x10000) / 2),
                             wrap_add(shl16(y), (sprite->h * 0x10000) / 2),
@@ -631,6 +638,7 @@ void rotate_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y, fixed angle)
 /* draw.inl rotate_scaled_sprite */
 void rotate_scaled_sprite(BITMAP *bmp, BITMAP *sprite, int x, int y, fixed angle, fixed scale)
 {
+   a4_dl_rotate(bmp, sprite, x, y, angle, scale);
    pivot_scaled_sprite_flip(bmp, sprite,
                             wrap_add(shl16(x), (fixed)((int32_t)((uint32_t)sprite->w * (uint32_t)scale)) / 2),
                             wrap_add(shl16(y), (fixed)((int32_t)((uint32_t)sprite->h * (uint32_t)scale)) / 2),

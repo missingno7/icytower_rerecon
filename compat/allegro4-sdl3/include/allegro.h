@@ -114,6 +114,9 @@ typedef struct BITMAP {
    int x_ofs, y_ofs;             /* offset inside the root bitmap */
    uint32_t serial;              /* unique id, for texture caches */
    uint32_t generation;          /* bumped by every drawing op that targets this bitmap */
+   struct A4_DL *a4_dl;          /* display list (canvas bitmaps only), see a4_dl.c */
+   uint32_t a4_flags;            /* A4_BMP_* (internal) */
+   int32_t a4_refs;              /* display-list references (internal) */
    unsigned char *line[];        /* row pointers, as in Allegro */
 } BITMAP;
 

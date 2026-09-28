@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 #include "port/platform/platform.h"
 #include "port/render/present.h"
 #include "port/input/input.h"
@@ -118,6 +119,7 @@ int set_gfx_mode(int card, int w, int h, int v_w, int v_h)
       screen = create_bitmap_ex(a4_color_depth, w, h);
       if (!screen)
          return -1;
+      a4_dl_mark_canvas(screen);
    }
    the_driver.id = card;
    the_driver.name = "SDL3";
