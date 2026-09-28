@@ -201,3 +201,9 @@ construct in GCC 4.4 produces (zero comparisons get no opcode prediction; the ca
 fires identically in both, checked at 4249 and 4337). The x87 compare idioms agree at all 14 sites,
 so the results region is cold in both and the 4932 alignment is a trace-start effect. The polarity-swap
 spelling is excluded by line order at 4519 and 4883. Details: build/rootcause37/RESULTS.md section 6.2.
+IRA identifies the register family precisely: the tie is between the top-region caps of `player_id`
+and the ladder counter `scroll_acc` (tot_scroll shares its register in both binaries); the frame
+colours scroll_acc first, the original player_id first. Loop-form probes confirm `while (playing)`
+(a do-while changes 30 instructions) and a `while (done)` name-entry loop (its test is tagged on
+4792); the results loop's form is indistinguishable. No header attributes and no bypass of the
+particle-loop guard exist, so the profile difference must come from an unidentified construct.
