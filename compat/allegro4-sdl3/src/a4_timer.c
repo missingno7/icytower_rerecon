@@ -98,7 +98,7 @@ uint64_t a4_timer_next_due_in(void)
 void rest(unsigned int ms)
 {
    uint64_t end = plat_ticks_ns() + (uint64_t)ms * 1000000u;
-   a4_service();
+   a4_service_wait();
    while (!plat_headless()) {
       uint64_t now = plat_ticks_ns();
       uint64_t left, next;
@@ -110,7 +110,7 @@ void rest(unsigned int ms)
          left = next;
       if (left > 0)
          plat_sleep_ns(left);
-      a4_service();
+      a4_service_wait();
       if (plat_quit_requested())
          break;
    }

@@ -132,6 +132,8 @@ void a4_mix(float *out, int frames, int device_freq);
  * callbacks, present the legacy screen when appropriate.  Called from
  * rest(), vsync(), key[] reads, keypressed(), poll_joystick() ... */
 void a4_service(void);
+/* same, from a waiting context: may present frames */
+void a4_service_wait(void);
 void a4_timer_service(void);
 extern volatile int a4_close_requested;
 

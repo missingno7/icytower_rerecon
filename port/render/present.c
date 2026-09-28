@@ -198,13 +198,33 @@ void present_draw_canvas(SDL_FRect *dst_out)
       *dst_out = dst;
 }
 
-void present_service(bool force)
+static bool canvas_changed(void)
 {
-   bool changed;
+   return g_canvas && (g_canvas->generation != g_uploaded_gen || g_canvas->serial != g_uploaded_serial);
+}
+
+bool present_service(bool force)
+{
    if (!g_ren)
+      return false;
+   if (!render_frame_due(force || canvas_changed() || g_need_repaint))
+      return false;
+   g_need_repaint = false;
+   render_frame();
+   return true;
+}
+
+void present_service_idle(void)
+{
+   static uint64_t last_check;
+   uint64_t now;
+   if (!g_ren || !(canvas_changed() || g_need_repaint))
       return;
-   changed = g_canvas && (g_canvas->generation != g_uploaded_gen || g_canvas->serial != g_uploaded_serial);
-   if (!render_frame_due(force || changed || g_need_repaint))
+   now = SDL_GetTicksNS();
+   if (now - last_check < 50000000ull)
+      return;
+   last_check = now;
+   if (now - render_last_frame_ns() < 50000000ull)
       return;
    g_need_repaint = false;
    render_frame();

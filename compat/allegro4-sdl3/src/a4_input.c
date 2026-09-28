@@ -50,7 +50,7 @@ int keypressed(void)
 int readkey(void)
 {
    while (input_keybuf_empty()) {
-      a4_service();
+      a4_service_wait();
       if (plat_quit_requested() || plat_headless())
          return 0;
       plat_sleep_ns(1000000u);

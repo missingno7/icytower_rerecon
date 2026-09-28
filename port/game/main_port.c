@@ -8,6 +8,7 @@
 #include <SDL3/SDL_main.h>
 #include "port/platform/platform.h"
 #include "port/config/port_config.h"
+#include "port/render/capture.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -43,6 +44,7 @@ int main(int argc, char **argv)
    if (!plat_init(argc, argv))
       return 1;
    port_config_load(argc, argv);
+   capture_configure(argc, argv);
    ret = _mangled_main(argc, argv);
    plat_shutdown();
    return ret;

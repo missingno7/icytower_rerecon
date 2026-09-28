@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "port/platform/plat_internal.h"
+#include "port/render/capture.h"
 
 #define MAX_ASSET_DIRS 4
 #define MAX_HANDLERS 8
@@ -179,8 +180,10 @@ void plat_pump_events(void)
    }
 }
 
-bool plat_quit_requested(void) { return g_quit; }
+bool plat_quit_requested(void) { return g_quit || capture_exit_requested(); }
 void plat_clear_quit_request(void) { g_quit = false; }
+/* note: a capture exit request (--exit-after-*) stays active so every
+ * later wait loop sees it too */
 bool plat_has_focus(void) { return g_focus; }
 
 /* ------------------------------------------------------------ messages */

@@ -37,9 +37,15 @@ void present_set_fullscreen(bool fullscreen);
 
 /* legacy canvas: `screen` bitmap presented by the faithful path */
 void present_set_canvas(struct BITMAP *canvas);
-/* Called from the compat service loop: presents when the canvas changed or
- * the window needs repainting.  `force` presents unconditionally. */
-void present_service(bool force);
+/* Called from waits (scheduler, rest, vsync): produces a frame when the
+ * canvas changed, the window needs repainting or the modern renderer is
+ * animating, subject to pacing.  `force` presents unconditionally.
+ * Returns true when a frame was presented. */
+bool present_service(bool force);
+/* Called from input polling inside game logic: only repaints a changed
+ * canvas that has not been shown for a while (keeps busy-wait screens
+ * alive) and never renders animation frames mid-tick. */
+void present_service_idle(void);
 
 /* map window coordinates (SDL mouse units) to canvas coordinates */
 void present_window_to_canvas(float wx, float wy, int *cx, int *cy);

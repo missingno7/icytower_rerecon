@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include "port/render/render.h"
 #include "port/render/modern.h"
+#include "port/render/capture.h"
 #include "port/platform/platform.h"
 
 static render_config g_cfg = {
@@ -64,9 +65,11 @@ void render_frame(void)
    SDL_RenderClear(g_ren);
    if (!(g_cfg.modern && modern_draw_frame(g_ren)))
       present_draw_canvas(NULL);
+   capture_frame(g_ren);
    SDL_RenderPresent(g_ren);
    g_last_frame_ns = plat_ticks_ns();
    g_frames++;
 }
 
 uint64_t render_frames_presented(void) { return g_frames; }
+uint64_t render_last_frame_ns(void) { return g_last_frame_ns; }

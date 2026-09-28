@@ -143,8 +143,7 @@ int set_gfx_mode(int card, int w, int h, int v_w, int v_h)
 
 void vsync(void)
 {
-   a4_service();
-   present_service(false);
+   a4_service_wait();
 }
 
 void acquire_screen(void) { }
@@ -152,7 +151,7 @@ void release_screen(void) { }
 
 /* ---------------------------------------------------------------- service */
 
-void a4_service(void)
+static void service(bool wait)
 {
    static int depth;
    if (depth)
@@ -167,6 +166,14 @@ void a4_service(void)
          close_proc();
    }
    a4_timer_service();
-   present_service(false);
+   if (wait)
+      present_service(false);
+   else
+      present_service_idle();
    depth--;
 }
+
+/* from input polling inside game logic */
+void a4_service(void) { service(false); }
+/* from waits: rest(), vsync(), readkey() */
+void a4_service_wait(void) { service(true); }

@@ -48,6 +48,7 @@ bool render_frame_due(bool dirty);
 void render_frame(void);
 /* number of frames presented so far (tests, stats) */
 uint64_t render_frames_presented(void);
+uint64_t render_last_frame_ns(void);
 
 /* helpers shared by the renderers (present.c) */
 struct SDL_Texture *present_canvas_texture(void);
