@@ -17,13 +17,16 @@ import argparse, os, struct, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+# Checkout that holds build/local (historical toolchain) and the historical
+# library cache; override with ITOWER_HIST_ROOT when working in a worktree.
+HIST = Path(os.environ.get('ITOWER_HIST_ROOT', str(ROOT)))
 OUT = ROOT / 'build' / 'port' / 'golden'
-TC = ROOT / 'build' / 'local' / 'toolchain'
+TC = HIST / 'build' / 'local' / 'toolchain'
 
 
 def historical_libs():
-    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'link.py'), '--libraries-only'],
-                       cwd=ROOT, capture_output=True, text=True, check=True)
+    r = subprocess.run([sys.executable, str(HIST / 'tools' / 'link.py'), '--libraries-only'],
+                       cwd=HIST, capture_output=True, text=True, check=True)
     return Path(r.stdout.strip().splitlines()[-1])
 
 
@@ -33,7 +36,7 @@ def build_allegro_runner():
     srcs = sorted(p for p in (ROOT / 'tests/port/golden').glob('*.c') if p.name != 'main_compat.c')
     exe = OUT / 'a4_golden_allegro.exe'
     cmd = [str(TC / 'bin/gcc.exe'), '-O2', '-mfpmath=387', '-DALLEGRO_STATICLINK', '-DALLEGRO_NO_MAGIC_MAIN', '-mconsole',
-           '-I' + str(ROOT / 'include'), '-I' + str(ROOT / 'third_party/allegro-4.4.1/include'),
+           '-I' + str(HIST / 'include'), '-I' + str(HIST / 'third_party/allegro-4.4.1/include'),
            '-I' + str(ROOT / 'tests/port/golden'),
            *map(str, srcs), str(lib / 'liballeg.a'),
            '-lkernel32', '-luser32', '-lgdi32', '-lcomdlg32', '-lole32', '-ldinput', '-lddraw', '-ldxguid',

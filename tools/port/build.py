@@ -32,6 +32,7 @@ def main():
     ap.add_argument('--clean', action='store_true')
     ap.add_argument('--target', default=None)
     ap.add_argument('--cmake-arg', action='append', default=[])
+    ap.add_argument('--dir', default=None, help='build directory name under build/port (default: build type)')
     a = ap.parse_args()
 
     vs = r'C:\Program Files\Microsoft Visual Studio\*\*\Common7\IDE\CommonExtensions\Microsoft\CMake'
@@ -45,7 +46,7 @@ def main():
         if not shutil.which('gcc') and mingw.exists():
             env['PATH'] = str(mingw) + os.pathsep + env['PATH']
         env['PATH'] = str(Path(ninja).parent) + os.pathsep + env['PATH']
-    out = ROOT / 'build' / 'port' / a.type.lower()
+    out = ROOT / 'build' / 'port' / (a.dir or a.type.lower())
     if a.clean and out.exists():
         shutil.rmtree(out)
     if not (out / 'build.ninja').exists():
