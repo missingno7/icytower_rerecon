@@ -6,6 +6,7 @@
 
 #include <allegro.h>
 #include "recovered_types.h"
+#include "port/sim/x87.h"
 
 /* Historical .data objects of this CU (DWARF lines 14 and 16, verifier bytes at
  * 0x4bdb80 and 0x4bdba8). Indexed by collision_type and the gravity mode. */
@@ -63,28 +64,44 @@ void reset_player(Tplayer *p)
  * and state transition order are oracle-backed; mode-table tuning is pending. */
 void update_player(Tplayer *p)
 {
+    /* port: the floating-point steps below are evaluated exactly as the
+     * original i386 build did them (x87, 64-bit precision; port/sim/x87.h).
+     * Sums and products are rounded to double only when stored, and the
+     * comparisons use the unrounded 80-bit register values. */
+    x87 X, Y;
+
     p->sy = MID(-100, p->sy, max_speed[collision_type]);
     p->sx = MID(-max_speed[collision_type], p->sx, max_speed[collision_type]);
-    p->x += p->sx;
-    p->y += p->sy;
-    if (p->y > 1000)
+    X = x87_add(x87_from_f64(p->sx), x87_from_f64(p->x));
+    p->x = x87_to_f64(X);
+    Y = x87_add(x87_from_f64(p->sy), x87_from_f64(p->y));
+    p->y = x87_to_f64(Y);
+    if (x87_gt(Y, x87_from_i32(1000)))
         p->y = 1000;
-    if (p->x > 555) {
+    if (x87_gt(X, x87_from_i32(555))) {
+        x87 SX;
         p->x = 555;
-        p->sx *= -0.9;
-        if (ABS(p->sx) > 4)
+        SX = x87_mul(x87_from_f64(-0.9), x87_from_f64(p->sx));
+        p->sx = x87_to_f64(SX);
+        if (x87_gt(x87_abs(SX), x87_from_i32(4)))
             p->bounce = -20;
     }
-    if (p->x < 85) {
+    else if (x87_lt(X, x87_from_i32(85))) {
+        x87 SX;
         p->x = 85;
-        p->sx *= -0.9;
-        if (ABS(p->sx) > 4)
+        SX = x87_mul(x87_from_f64(-0.9), x87_from_f64(p->sx));
+        p->sx = x87_to_f64(SX);
+        if (x87_gt(x87_abs(SX), x87_from_i32(4)))
             p->bounce = 20;
     }
-    if (p->status)
-        p->sy += 0.8 + gravity_modifier[get_demo()->gravity];
-    if (p->status == 1 && p->sy > 0)
-        p->status = 2;
+    if (p->status) {
+        x87 SY = x87_add(x87_add(x87_from_f64(0.8),
+                                 x87_from_f64(gravity_modifier[get_demo()->gravity])),
+                         x87_from_f64(p->sy));
+        p->sy = x87_to_f64(SY);
+        if (p->status == 1 && x87_gt(SY, x87_from_i32(0)))
+            p->status = 2;
+    }
 }
 
 int jump_player(Tplayer *p, int cheat)

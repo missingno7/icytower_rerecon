@@ -4,7 +4,7 @@
 #include "recovered/Tcustom.h"
 extern RGB black, pink;
 void custom_alert(char *txt1, char *txt2);
-char *get_string_data(char *key, char *string);
+char *get_string_data(char *tag, char *string);
 BITMAP *load_character_bmp(const char *name, int *uses_datafile, RGB *pal);
 int init_custom(Tcustom *c, const char *name, int uses_datafile);
 int load_frames(Tcustom *c);

@@ -89,6 +89,10 @@ static BITMAP *surface_to_bitmap(SDL_Surface *s, RGB *pal)
     return bmp;
 }
 
+/* compat: bitmaps created while loading are static assets */
+void a4_dl_begin_static(void);
+void a4_dl_end_static(void);
+
 BITMAP *load_memory_png(AL_CONST void *buffer, int bufsize, RGB *pal)
 {
     SDL_IOStream *io;
@@ -102,7 +106,9 @@ BITMAP *load_memory_png(AL_CONST void *buffer, int bufsize, RGB *pal)
     s = SDL_LoadPNG_IO(io, true);
     if (!s)
         return NULL;
+    a4_dl_begin_static();
     bmp = surface_to_bitmap(s, pal);
+    a4_dl_end_static();
     SDL_DestroySurface(s);
     return bmp;
 }

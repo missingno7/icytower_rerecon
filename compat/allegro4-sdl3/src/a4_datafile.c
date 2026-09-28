@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 static int ascii_stricmp(const char *a, const char *b)
 {
@@ -930,7 +931,20 @@ static DATAFILE *read_old_datafile(PACKFILE *f, void (*callback)(DATAFILE *))
    return dat;
 }
 
+static DATAFILE *load_datafile_callback_impl(const char *filename, void (*callback)(DATAFILE *));
+
+/* Loaded assets are static: their pixels are written directly, so they must
+ * never be mistaken for recording canvases (a4_dl.h). */
 DATAFILE *load_datafile_callback(const char *filename, void (*callback)(DATAFILE *))
+{
+   DATAFILE *d;
+   a4_dl_begin_static();
+   d = load_datafile_callback_impl(filename, callback);
+   a4_dl_end_static();
+   return d;
+}
+
+static DATAFILE *load_datafile_callback_impl(const char *filename, void (*callback)(DATAFILE *))
 {
    PACKFILE *f;
    DATAFILE *dat;
@@ -1057,8 +1071,13 @@ BITMAP *load_bitmap(const char *filename, RGB *pal)
    a4_utoascii(get_extension(filename), tmp, sizeof(tmp));
    for (iter = bitmap_type_list; iter; iter = iter->next) {
       if (ascii_stricmp(iter->ext, tmp) == 0) {
-         if (iter->load)
-            return iter->load(filename, pal);
+         if (iter->load) {
+            BITMAP *b;
+            a4_dl_begin_static();
+            b = iter->load(filename, pal);
+            a4_dl_end_static();
+            return b;
+         }
          return NULL;
       }
    }

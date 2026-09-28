@@ -84,24 +84,34 @@ def main():
 
     def one(f):
         xr, er = run_check(ref, f, a.timeout, workdir=ref.parent)
+        for _ in range(3):
+            # the reference build occasionally exits without output when many
+            # instances start at once (Allegro/DirectX start-up); retry
+            if er is None or not er.startswith('no XML'):
+                break
+            xr, er = run_check(ref, f, a.timeout, workdir=ref.parent)
         xp, ep = run_check(port, f, a.timeout, extra_env={'ITOWER_USER_DIR': str(userdir)})
         if save:
             if xr: (save / (f.stem + '.ref.xml')).write_text(xr, encoding='latin-1')
             if xp: (save / (f.stem + '.port.xml')).write_text(xp, encoding='latin-1')
+        if er == 'timeout' and ep == 'timeout':
+            # the input never ends the game (e.g. the player never climbs, so
+            # the tower never scrolls): both builds agree, but nothing to compare
+            return f, 'HANG', 'both builds still running at the timeout'
         if er or ep:
             return f, 'ERROR', f'ref: {er or "ok"}; port: {ep or "ok"}'
         if xr == xp:
             return f, 'SAME', ''
         return f, 'DIFF', first_diff(xr, xp)
 
-    counts = {'SAME': 0, 'DIFF': 0, 'ERROR': 0}
+    counts = {'SAME': 0, 'DIFF': 0, 'ERROR': 0, 'HANG': 0}
     with concurrent.futures.ThreadPoolExecutor(max_workers=a.jobs) as pool:
         for f, status, detail in pool.map(one, files):
             counts[status] += 1
             if status != 'SAME' or not a.quiet:
                 print(f'{status:5} {f.name} {detail}')
-    print(f"{counts['SAME']} identical, {counts['DIFF']} different, {counts['ERROR']} errors "
-          f"({len(files)} replays)")
+    print(f"{counts['SAME']} identical, {counts['DIFF']} different, {counts['ERROR']} errors, "
+          f"{counts['HANG']} endless on both ({len(files)} replays)")
     sys.exit(0 if counts['DIFF'] == 0 and counts['ERROR'] == 0 else 1)
 
 

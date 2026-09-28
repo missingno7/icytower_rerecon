@@ -48,8 +48,8 @@ static void save(SDL_Renderer *r, const char *tag)
       return;
    SDL_snprintf(path, sizeof(path), "%s/frame_%02d_%s.png", g_dir, g_seq++, tag);
    SDL_SavePNG(s, path);
-   SDL_DestroySurface(s);
    SDL_Log("captured %s (%dx%d)", path, s->w, s->h);
+   SDL_DestroySurface(s);
 }
 
 void capture_frame(SDL_Renderer *r)

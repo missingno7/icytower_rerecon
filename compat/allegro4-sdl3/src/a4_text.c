@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "a4_internal.h"
+#include "a4_dl.h"
 
 /* ================================================================== */
 /* UTF-8 helpers (ported from unicode.c: utf8_getc/getx/setc/width/   */
@@ -680,6 +681,7 @@ static void render(BITMAP *bmp, const FONT *f, const char *str, int x, int y, in
    int ch;
    if (!bmp || !f || !str)
       return;
+   a4_dl_text(bmp, f, str, x, y, color, bg);
    if (f->is_color) {
       /* color_render */
       if (color < 0 && bg >= 0) {

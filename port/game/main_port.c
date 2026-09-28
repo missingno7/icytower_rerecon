@@ -16,6 +16,37 @@
 
 int _mangled_main(int argc, char **argv);
 
+/* Port options (platform, config, capture); everything else is passed to the
+ * historical command-line parser unchanged ("-check FILE -all", or a replay/
+ * profile file to open). */
+static const struct { const char *name; int args; } port_opts[] = {
+   { "--data", 1 }, { "--user-dir", 1 }, { "--config", 1 }, { "--headless", 0 },
+   { "--renderer", 1 }, { "--filter", 1 }, { "--interpolation", 1 }, { "--widescreen", 1 },
+   { "--ui-scale", 1 }, { "--vsync", 1 }, { "--max-fps", 1 }, { "--fullscreen", 0 },
+   { "--borderless", 0 }, { "--windowed", 0 }, { "--window", 1 },
+   { "--capture", 1 }, { "--capture-ms", 1 }, { "--capture-ticks", 1 },
+   { "--exit-after-ms", 1 }, { "--exit-after-ticks", 1 },
+};
+
+static int strip_port_args(int argc, char **argv, char **out)
+{
+   int i, n = 0;
+   for (i = 0; i < argc; i++) {
+      size_t k;
+      int skip = -1;
+      if (i > 0)
+         for (k = 0; k < sizeof(port_opts) / sizeof(port_opts[0]); k++)
+            if (!strcmp(argv[i], port_opts[k].name))
+               skip = port_opts[k].args;
+      if (skip < 0)
+         out[n++] = argv[i];
+      else
+         i += skip;
+   }
+   out[n] = NULL;
+   return n;
+}
+
 static void attach_console_if_checking(int argc, char **argv)
 {
 #ifdef _WIN32
@@ -45,7 +76,12 @@ int main(int argc, char **argv)
       return 1;
    port_config_load(argc, argv);
    capture_configure(argc, argv);
-   ret = _mangled_main(argc, argv);
+   {
+      char **game_argv = (char **)SDL_calloc((size_t)argc + 1, sizeof(char *));
+      int game_argc = strip_port_args(argc, argv, game_argv);
+      ret = _mangled_main(game_argc, game_argv);
+      SDL_free(game_argv);
+   }
    plat_shutdown();
    return ret;
 }

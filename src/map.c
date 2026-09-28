@@ -1,6 +1,7 @@
 #include "port/game/port_game.h"
 #include "map.h"
 #include <stdlib.h>
+#include "port/sim/x87.h"
 
 #include "recovered/Treplay.h"
 typedef Treplay Tmap_replay;
@@ -46,7 +47,14 @@ void add_floor(Tmap *m)
         m->room[31].level++;
         if (get_demo()->floor_shrink) {
             if (m->room[31].level<3000)
-                width=hist_rand()%(int)((1.0f>((float)(300-m->room[31].level/5)/300.0f)*10.0f) ? 1.0f : ((float)(300-m->room[31].level/5)/300.0f)*10.0f)+6;
+            {
+                /* port: x87-exact (port/sim/x87.h); the quotient is never
+                 * rounded to float in the original build */
+                x87 v = x87_mul(x87_div(x87_from_i32(300-m->room[31].level/5), x87_from_f32(300.0f)),
+                                x87_from_f32(10.0f));
+                int range = x87_gt(x87_from_i32(1), v) ? 1 : x87_to_i32_trunc(v);
+                width=hist_rand()%range+6;
+            }
             else if (m->room[31].level>5004) {
                 if (m->room[31].level<=7504) width=5;
                 else if (m->room[31].level<=10004) width=4;

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <allegro.h>
+#include "port/sim/x87.h"
 #include <recovered/Treplay_post.h>
 #include "control.h"
 
@@ -212,13 +213,20 @@ int calc_replay_checksum(Treplay *r)
 
 
 
+    /* port: x87-exact (port/sim/x87.h).  The running unsigned sum is
+     * converted to 80-bit, the float term added without rounding, and the
+     * result truncated through a 64-bit integer, as the original build did;
+     * plain float/double arithmetic makes recorded replays fail the check. */
     for (i = 0; i < 100; i++) {
 
-        sum += r->tc_c_data[i] * ((i + 1) % 13);
+        sum = (unsigned int)x87_to_i64_trunc(x87_add(x87_from_i64((int64_t)sum),
+                  x87_mul(x87_from_f32(r->tc_c_data[i]), x87_from_i32((i + 1) % 13))));
 
-        sum += r->tc_q_data[i] * ((i + 7) % 17);
+        sum = (unsigned int)x87_to_i64_trunc(x87_add(x87_from_i64((int64_t)sum),
+                  x87_mul(x87_from_f32(r->tc_q_data[i]), x87_from_i32((i + 7) % 17))));
 
-        sum += r->tc_t_data[i] * ((i + 9) % 23);
+        sum = (unsigned int)x87_to_i64_trunc(x87_add(x87_from_i64((int64_t)sum),
+                  x87_mul(x87_from_f32(r->tc_t_data[i]), x87_from_i32((i + 9) % 23))));
 
     }
 

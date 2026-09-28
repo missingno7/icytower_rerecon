@@ -18,6 +18,7 @@ extern void handle_player_collision_combo(int, int);
 #include "port/game/port_game.h"
 #include "port/config/port_config.h"
 #include "port/sim/snapshot.h"
+#include "port/sim/x87.h"
 /* port: render snapshots around draw_frame (port/game/snapshot_capture.c) */
 void port_snapshot_pre(void);
 void port_snapshot_post(void);
@@ -1965,11 +1966,17 @@ void play_sound(SAMPLE *s, int pitch, int please_pan)
 
 int new_rand(void)
 {
+    /* port: x87-exact (port/sim/x87.h); presentation-only randomness, kept
+     * exact so both renderers see the historical stripe/particle sequence */
     int x;
-    seed = seed * 1.4294484665;
-    while (seed > 65535.0f) seed -= 65535.0f;
-    x = (int)seed;
-    return (int)((seed-x) * 65535.0f);
+    x87 S = x87_mul(x87_from_f64(1.4294484665), x87_from_f64(seed));
+    seed = x87_to_f64(S);
+    while (x87_gt(S, x87_from_f32(65535.0f))) {
+        S = x87_sub(S, x87_from_f32(65535.0f));
+        seed = x87_to_f64(S);
+    }
+    x = x87_to_i32_trunc(S);
+    return x87_to_i32_trunc(x87_mul(x87_sub(S, x87_from_i32(x)), x87_from_f32(65535.0f)));
 }
 
 inline void new_srand(int s)
@@ -3024,18 +3031,26 @@ void handle_player_input(Tcontrol *control)
             rec_pos++;
     }
 
+    /* port: x87-exact (port/sim/x87.h): the product with 0.7 is stored
+     * rounded, but the following +-0.3 uses the unrounded 80-bit value */
     if (is_left(control)) {
-        if (ply[player_id]->sx>0)
-            ply[player_id]->sx*=0.7;
-        ply[player_id]->sx-=0.3;
+        x87 SX = x87_from_f64(ply[player_id]->sx);
+        if (ply[player_id]->sx>0) {
+            SX = x87_mul(SX, x87_from_f64(0.7));
+            ply[player_id]->sx = x87_to_f64(SX);
+        }
+        ply[player_id]->sx = x87_to_f64(x87_sub(SX, x87_from_f64(0.3)));
     }
     else if (is_right(control)) {
-        if (ply[player_id]->sx<0)
-            ply[player_id]->sx*=0.7;
-        ply[player_id]->sx+=0.3;
+        x87 SX = x87_from_f64(ply[player_id]->sx);
+        if (ply[player_id]->sx<0) {
+            SX = x87_mul(SX, x87_from_f64(0.7));
+            ply[player_id]->sx = x87_to_f64(SX);
+        }
+        ply[player_id]->sx = x87_to_f64(x87_add(SX, x87_from_f64(0.3)));
     }
     else
-        ply[player_id]->sx*=0.9;
+        ply[player_id]->sx = x87_to_f64(x87_mul(x87_from_f64(ply[player_id]->sx), x87_from_f64(0.9)));
 
     if (!rejump) {
         if (is_fire(control)) {
@@ -3534,15 +3549,28 @@ int new_game(void)
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy,
                    int *ix, int *iy)
 {
-    float r, s, denom;
+    /* port: x87-exact (port/sim/x87.h).  The historical float variables were
+     * never rounded to float: GCC kept r, s and denom in 80-bit registers.
+     * A zero denominator yields an infinity or the x87 indefinite NaN; every
+     * range test is "ordered and strictly outside", so a NaN passes all of
+     * them and the intersection point becomes the integer indefinite, as in
+     * the original (callers guard against it with their +-10000 checks). */
+    x87 denom, r, s;
+    const x87 zero = x87_from_i32(0), one = x87_from_i32(1);
 
-    denom = (dy - cy) * (bx - ax) + (cx - dx) * (by - ay);
-    r = ((dx - cx) * (ay - cy) + (cy - dy) * (ax - cx)) / denom;
-    s = ((ay - cy) * (bx - ax) + (ay - by) * (ax - cx)) / denom;
-    if (r < 0.0f || s < 0.0f || r > 1.0f || s > 1.0f)
+    denom = x87_from_i32((dy - cy) * (bx - ax) + (cx - dx) * (by - ay));
+    r = x87_div(x87_from_i32((dx - cx) * (ay - cy) + (cy - dy) * (ax - cx)), denom);
+    if (x87_fucom(zero, r) == 0)      /* 0 > r */
         return 0;
-    *ix = ax + (int)(r * (bx - ax) + 0.5);
-    *iy = ay + (int)(r * (by - ay) + 0.5);
+    s = x87_div(x87_from_i32((ay - cy) * (bx - ax) + (ay - by) * (ax - cx)), denom);
+    if (x87_fucom(zero, s) == 0)      /* 0 > s */
+        return 0;
+    if (x87_fucom(r, one) == 0)       /* r > 1 */
+        return 0;
+    if (x87_fucom(s, one) == 0)       /* s > 1 */
+        return 0;
+    *ix = ax + x87_to_i32_trunc(x87_add(x87_mul(r, x87_from_i32(bx - ax)), x87_from_f32(0.5f)));
+    *iy = ay + x87_to_i32_trunc(x87_add(x87_mul(r, x87_from_i32(by - ay)), x87_from_f32(0.5f)));
     return 1;
 }
 
@@ -3743,9 +3771,9 @@ void handle_player_collision_combo(int lastX, int lastY)
         if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
         ply[player_id]->status = 0;
         ply[player_id]->sy = 0;
-        if (solid1) { ply[player_id]->y -= solid1 - 9999; ply[player_id]->rotate = 0; }
+        if (solid1) { ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid1 - 9999))); ply[player_id]->rotate = 0; }
         else {
-            if (solid2) { ply[player_id]->y -= solid2 - 9999; ply[player_id]->rotate = 0; }
+            if (solid2) { ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid2 - 9999))); ply[player_id]->rotate = 0; }
             if (solid2 == 0 || solid1 + solid2 == 0 || (solid1 ^ solid2) == 0 || (solid1 | solid2) == 0) ply[player_id]->rotate = 0;
         }
         if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
@@ -3820,8 +3848,8 @@ void handle_player_collision_old(int lastX, int lastY)
         if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
         ply[player_id]->status = 0;
         ply[player_id]->sy = 0;
-        if (solid1) ply[player_id]->y -= solid1 - 9999;
-        else if (solid2) ply[player_id]->y -= solid2 - 9999;
+        if (solid1) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid1 - 9999)));
+        else if (solid2) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid2 - 9999)));
         ply[player_id]->rotate = 0;
         if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
         else ply[player_id]->edge = 0;
@@ -3839,8 +3867,8 @@ void handle_player_collision_old(int lastX, int lastY)
             if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
             ply[player_id]->status = 0;
             ply[player_id]->sy = 0;
-            if (solid1) ply[player_id]->y -= solid1 - 9999;
-            else if (solid2) ply[player_id]->y -= solid2 - 9999;
+            if (solid1) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid1 - 9999)));
+            else if (solid2) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid2 - 9999)));
             ply[player_id]->rotate = 0;
             if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
             else ply[player_id]->edge = 0;
@@ -3873,8 +3901,8 @@ void handle_player_collision_original(int lastX, int lastY)
         if (ply[player_id]->status) play_sound(sounds[8], 1, 1);
         ply[player_id]->status = 0;
         ply[player_id]->sy = 0;
-        if (solid1) ply[player_id]->y -= solid1 - 9999;
-        else if (solid2) ply[player_id]->y -= solid2 - 9999;
+        if (solid1) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid1 - 9999)));
+        else if (solid2) ply[player_id]->y = x87_to_f64(x87_sub(x87_from_f64(ply[player_id]->y), x87_from_i32(solid2 - 9999)));
         ply[player_id]->rotate = 0;
         if (solid1 != solid2) ply[player_id]->edge = solid1 ? 1 : 2;
         else ply[player_id]->edge = 0;
@@ -4281,7 +4309,7 @@ if (ply[player_id]->y < 20.0) if (ply[player_id]->y < 20.0) scroll_acc += 2;
 if (ply[player_id]->y < 0.0) if (ply[player_id]->y < 0.0) scroll_acc += 3;
 map.offset = old_map_pos + scroll_acc;
 
-ply[player_id]->y += scroll_acc;
+ply[player_id]->y = x87_to_f64(x87_add(x87_from_f64(ply[player_id]->y), x87_from_i32(scroll_acc)));
 lastY = midY + scroll_acc; } tot_scroll = scroll_acc;
 
 
@@ -4296,14 +4324,14 @@ if (!scroll) {
 if (step_count & 1) {
 map.offset++;
 tot_scroll++;
-ply[player_id]->y += 1.0;
+ply[player_id]->y = x87_to_f64(x87_add(x87_from_f64(ply[player_id]->y), x87_from_f64(1.0)));
 lastY++;
 }
 }
 else {
 map.offset += scroll;
 tot_scroll += scroll;
-ply[player_id]->y += scroll;
+ply[player_id]->y = x87_to_f64(x87_add(x87_from_f64(ply[player_id]->y), x87_from_i32(scroll)));
 lastY += scroll;
 }
 }

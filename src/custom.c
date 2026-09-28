@@ -17,11 +17,11 @@ void custom_alert(char *txt1, char *txt2)
     alert("CUSTOM CHARACTER", txt1, txt2, "OK", NULL, 0, 0);
 }
 
-char *get_string_data(char *key, char *string)
+char *get_string_data(char *tag, char *string)
 {
     int i;
-    int len = strlen(key);
-    if (strncmp(key, string, len)) return NULL;
+    int len = strlen(tag);
+    if (strncmp(tag, string, len)) return NULL;
     i = len;
     while (string[i] == ' ' || string[i] == '\t') i++;
     return string + i;
