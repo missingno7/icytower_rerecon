@@ -235,3 +235,6 @@ one-line extern block gives a bimodal outcome (588 or 522 identical lines) in th
 allocation, but 220 single-global moves all give the 588 outcome and never touch the main-loop register
 family. Both programs are exhausted for play; v17 with the extern-block prelude (588/710) is the closest
 point recorded (build/rootcause37/RESULTS.md 6.6).
+
+A behaviourally faithful diagnostic build (canonical units + play v17 + draw_frame N0) is produced by
+build/rootcause37/linefaithful_play/build_faithful.py into build/faithful/ (ignored); see RESULTS.md 6.7.
