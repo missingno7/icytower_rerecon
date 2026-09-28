@@ -191,47 +191,67 @@ static inline int32_t shl16(int32_t a) { return (int32_t)((uint32_t)a << 16); }
  * num = a * 65536.0 * (65536.0 * w) and
  * den = p * (double)q - r * (double)s   (int32 operands).
  * Both operands are exact in extended precision (|num| = |a*w|*2^32 with
- * |a*w| < 2^63, |den| <= 2^63), so the result is trunc(round64(num/den)),
- * and an out-of-range or undefined result is the x87 integer indefinite. */
+ * |a*w| <= 2^62, |den| <= 2^63), so the result is trunc(round64(num/den)),
+ * and an out-of-range or undefined result is the x87 integer indefinite.
+ * Computed with portable 64-bit integer long division. */
 static fixed x87_quot_trunc(int32_t a, int w, int32_t p, int32_t q, int32_t r, int32_t s)
 {
-#ifdef __SIZEOF_INT128__
-   typedef unsigned __int128 u128;
-   __int128 den = (__int128)((int64_t)p * q) - (__int128)((int64_t)r * s);
-   int64_t m = (int64_t)a * w;
-   int neg = (m < 0) != (den < 0);
-   u128 n, d, t, rem;
+   int64_t pa = (int64_t)p * q, pb = (int64_t)r * s, m = (int64_t)a * w;
+   uint64_t d, mm, rem;
+   uint32_t t;
+   int den_neg, i, e, k;
 
-   if (den == 0)
+   /* |den| and its sign without overflow (|pa|, |pb| <= 2^62) */
+   if ((pa >= 0) == (pb >= 0)) {
+      int64_t dd = pa - pb;
+      den_neg = dd < 0;
+      d = den_neg ? (uint64_t)0 - (uint64_t)dd : (uint64_t)dd;
+   }
+   else if (pa >= 0) {
+      den_neg = 0;
+      d = (uint64_t)pa + ((uint64_t)0 - (uint64_t)pb);
+   }
+   else {
+      den_neg = 1;
+      d = ((uint64_t)0 - (uint64_t)pa) + (uint64_t)pb;
+   }
+   if (d == 0)
       return INT32_MIN;          /* +-inf or NaN */
    if (m == 0)
       return 0;
-   n = (u128)(m < 0 ? -(uint64_t)m : (uint64_t)m) << 32;
-   d = (u128)(den < 0 ? -den : den);
-   t = n / d;
-   rem = n % d;
-   if (t >= ((u128)1 << 31))
+   mm = m < 0 ? (uint64_t)0 - (uint64_t)m : (uint64_t)m;   /* <= 2^62 */
+
+   /* |num/den| = mm * 2^32 / d >= 2^31  <=>  2 * mm >= d */
+   if (2 * mm >= d)
       return INT32_MIN;
-   if (rem != 0 && t >= 2) {
-      /* round64 reaches t+1 iff (t+1) - n/d <= 2^(e-64), e = floor(log2 t) */
-      int e = 0;
-      u128 tt = t;
-      while (tt >>= 1)
-         e++;
-      if (((d - rem) << (64 - e)) <= d)
-         t++;
-      if (t >= ((u128)1 << 31))
-         return INT32_MIN;
+
+   /* t = floor(mm * 2^32 / d) by long division (mm < d here) */
+   t = 0;
+   rem = mm;
+   for (i = 0; i < 32; i++) {
+      rem <<= 1;                 /* rem < d <= 2^63 */
+      t <<= 1;
+      if (rem >= d) {
+         rem -= d;
+         t |= 1;
+      }
    }
-   return neg ? -(fixed)t : (fixed)t;
-#else
-   long double num = (long double)a * 65536.0L * (65536.0L * w);
-   long double den = (long double)p * q - (long double)r * s;
-   long double v = num / den;
-   if (!(v > -2147483649.0L && v < 2147483648.0L))
-      return INT32_MIN;
-   return (fixed)v;
-#endif
+
+   /* round64(q) reaches t+1 iff (t+1) - q <= 2^(e-64), e = floor(log2 t),
+    * i.e. (d - rem) * 2^(64-e) <= d; ties go to the even t+1.  Impossible
+    * for t < 2 because d <= 2^63. */
+   if (rem != 0 && t >= 2) {
+      e = 0;
+      while ((t >> (e + 1)) != 0)
+         e++;
+      k = 64 - e;                /* 34..63 */
+      if ((d - rem) <= (d >> k)) {
+         t++;
+         if (t >= 0x80000000u)
+            return INT32_MIN;
+      }
+   }
+   return ((m < 0) != den_neg) ? -(fixed)t : (fixed)t;
 }
 
 typedef void (*SCANLINE_FN)(BITMAP *bmp, BITMAP *spr, fixed l_bmp_x, int bmp_y_i,
