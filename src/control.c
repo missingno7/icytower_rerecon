@@ -6,6 +6,9 @@
  */
 #include <allegro.h>
 #include "control.h"
+#include "port/input/input.h"
+/* compat: pump pending input events (rate limited) */
+void a4_input_service(void);
 
 #define CTRL_LEFT  0x01
 #define CTRL_RIGHT 0x02
@@ -39,26 +42,27 @@ Tgamepad *get_gamepad(void) { return &gamepad; }
 
 void poll_control(Tcontrol *c, int joystick_only)
 {
+    /* port: all devices are read by the portable input layer
+     * (port/input/input.h); this keeps the historical bindings and flag
+     * semantics, with the gamepad Start button also pausing. */
+    input_bindings bnd;
     int b;
-    c->flags = 0;
-    if (c->use_joy) {
-        poll_joystick();
-        if (joy[0].stick[0].axis[1].d1) c->flags |= gamepad.up;
-        if (joy[0].stick[0].axis[1].d2) c->flags |= gamepad.down;
-        if (joy[0].stick[0].axis[0].d1) c->flags |= gamepad.left;
-        if (joy[0].stick[0].axis[0].d2) c->flags |= gamepad.right;
-        for (b = 0; b < joy[0].num_buttons && b < 32; b++)
-            if (joy[0].button[b].b) c->flags |= gamepad.b[b];
-    }
-    if (!joystick_only) {
-        if (key[c->key_up]) c->flags |= CTRL_UP;
-        if (key[c->key_down]) c->flags |= CTRL_DOWN;
-        if (key[c->key_left]) c->flags |= CTRL_LEFT;
-        if (key[c->key_right]) c->flags |= CTRL_RIGHT;
-        if (key[c->key_fire]) c->flags |= CTRL_FIRE;
-        if (key[c->key_enter]) c->flags |= CTRL_ENTER;
-        if (key[c->key_pause]) c->flags |= CTRL_PAUSE;
-    }
+    a4_input_service();
+    bnd.key_left = c->key_left;
+    bnd.key_right = c->key_right;
+    bnd.key_up = c->key_up;
+    bnd.key_down = c->key_down;
+    bnd.key_fire = c->key_fire;
+    bnd.key_enter = c->key_enter;
+    bnd.key_pause = c->key_pause;
+    bnd.use_pad = c->use_joy;
+    bnd.pad_up = gamepad.up;
+    bnd.pad_down = gamepad.down;
+    bnd.pad_left = gamepad.left;
+    bnd.pad_right = gamepad.right;
+    for (b = 0; b < 32; b++)
+        bnd.pad_button[b] = gamepad.b[b];
+    c->flags = (unsigned char)input_control_flags(&bnd, joystick_only);
 }
 
 int check_control_key(Tcontrol *c, int k)

@@ -26,6 +26,11 @@ static void service_throttled(void)
    }
 }
 
+void a4_input_service(void)
+{
+   service_throttled();
+}
+
 volatile char *a4_key_state(void)
 {
    service_throttled();

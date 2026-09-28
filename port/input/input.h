@@ -48,6 +48,23 @@ typedef struct input_pad_state {
 } input_pad_state;
 const input_pad_state *input_pad(void);
 
+/* ---- game control flags ------------------------------------------------
+ * The game's Tcontrol flag byte (LEFT 1, RIGHT 2, UP 4, DOWN 8, FIRE 16,
+ * ENTER 32, PAUSE 64) is produced here from every device: keyboard (the
+ * player's key bindings, in Allegro scancodes, as stored in profiles),
+ * gamepads (the gamepad.txt mapping; Start additionally pauses) and future
+ * touch controls.  Replays record these flags once per simulation step, so
+ * they are independent of device and refresh rate. */
+typedef struct input_bindings {
+   int key_left, key_right, key_up, key_down, key_fire, key_enter, key_pause;
+   int use_pad;
+   int pad_up, pad_down, pad_left, pad_right;   /* flag bits for directions */
+   int pad_button[32];                          /* flag bits per button */
+} input_bindings;
+int input_control_flags(const input_bindings *b, int pad_only);
+/* touch (and other virtual) controls OR their flags in here (Android) */
+void input_set_virtual_flags(int flags);
+
 /* ---- logical actions (for modernised code, replay-safe) */
 typedef enum input_action {
    ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN,

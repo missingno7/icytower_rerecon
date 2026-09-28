@@ -368,3 +368,39 @@ bool input_action_down(input_action a)
       default: return false;
    }
 }
+
+/* ---------------------------------------------------------------- control */
+
+static int g_virtual_flags;
+
+void input_set_virtual_flags(int flags) { g_virtual_flags = flags; }
+
+int input_control_flags(const input_bindings *b, int pad_only)
+{
+   int f = 0, i;
+   if (b->use_pad) {
+      const input_pad_state *p = input_pad();
+      if (p->up) f |= b->pad_up;
+      if (p->down) f |= b->pad_down;
+      if (p->left) f |= b->pad_left;
+      if (p->right) f |= b->pad_right;
+      for (i = 0; i < p->num_buttons && i < 32; i++)
+         if (p->button[i]) f |= b->pad_button[i];
+      /* Start (button 7) pauses, as players expect on a gamepad */
+      if (p->num_buttons > 7 && p->button[7])
+         f |= 0x40;
+   }
+   if (!pad_only) {
+#define K(code) ((code) > 0 && (code) < INPUT_KEY_MAX && input_key[(code)])
+      if (K(b->key_up)) f |= 0x04;
+      if (K(b->key_down)) f |= 0x08;
+      if (K(b->key_left)) f |= 0x01;
+      if (K(b->key_right)) f |= 0x02;
+      if (K(b->key_fire)) f |= 0x10;
+      if (K(b->key_enter)) f |= 0x20;
+      if (K(b->key_pause)) f |= 0x40;
+#undef K
+      f |= g_virtual_flags;
+   }
+   return f;
+}
