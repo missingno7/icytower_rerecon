@@ -300,6 +300,17 @@ static void mix_silent_samples(MIXER_VOICE *spl, const PHYS_VOICE *voice, int le
    }
 }
 
+/* port setting [audio] master_volume (0..1), applied after Allegro's mix */
+static float a4_master_gain = 1.0f;
+static int a4_device_freq = A4_SOUND_FREQ;
+
+void a4_sound_configure(int freq, float master_gain)
+{
+   if (freq >= 8000 && freq <= 192000)
+      a4_device_freq = freq;
+   a4_master_gain = master_gain < 0.0f ? 0.0f : master_gain > 1.0f ? 1.0f : master_gain;
+}
+
 void a4_mix(float *out, int frames, int device_freq)
 {
    static int32_t buf[A4_MIX_CHUNK * 2];
@@ -339,7 +350,7 @@ void a4_mix(float *out, int frames, int device_freq)
          int32_t s = buf[k] + 0x800000;
          if (s < 0) s = 0;
          if (s > 0xFFFFFF) s = 0xFFFFFF;
-         out[k] = (float)((s >> 8) - 0x8000) * (1.0f / 32768.0f);
+         out[k] = (float)((s >> 8) - 0x8000) * (a4_master_gain / 32768.0f);
       }
       out += n * 2;
       frames -= n;
@@ -589,7 +600,7 @@ int install_sound(int digi, int midi, const char *cfg_path)
 
    /* The mixer and the voices work without a device (headless runs, no
     * audio hardware); they then only advance through explicit a4_mix(). */
-   if (digi_voices > 0 && !plat_headless() && plat_audio_open(A4_SOUND_FREQ, a4_mix))
+   if (digi_voices > 0 && !plat_headless() && plat_audio_open(a4_device_freq, a4_mix))
       device_open = 1;
 
    return 0;

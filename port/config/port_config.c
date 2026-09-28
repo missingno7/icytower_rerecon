@@ -166,6 +166,7 @@ void port_config_load(int argc, char **argv)
       }
    }
    load_file(g_path);
+   a4_sound_configure(g_audio.frequency, (float)g_audio.master_volume / 100.0f);
    for (i = 1; i < argc; i++) {
       const char *a = argv[i];
       if (!strcmp(a, "--renderer")) apply("render", "renderer", arg_after(argc, argv, &i));
@@ -189,6 +190,8 @@ void port_config_load(int argc, char **argv)
 }
 
 const port_audio_config *port_audio_cfg(void) { return &g_audio; }
+
+void a4_sound_configure(int freq, float master_gain);
 
 bool port_config_fullscreen(void)
 {
