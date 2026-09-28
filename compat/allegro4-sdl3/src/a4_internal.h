@@ -52,6 +52,9 @@ extern int a4_blend_r, a4_blend_g, a4_blend_b, a4_blend_a;
 /* Blend `src` over `dst` (both in `depth`) with the current blender and
  * factor n (0..255), exactly like Allegro's _blender_func<depth>. */
 unsigned long a4_blend(int depth, unsigned long src, unsigned long dst, unsigned long n);
+/* Same for a 32-bit RGBA source onto a 15/16/24 bpp destination
+ * (_blender_func15x/16x/24x, used by draw_trans_sprite). */
+unsigned long a4_blend_rgba(int depth, unsigned long src, unsigned long dst, unsigned long n);
 
 /* ---- bitmaps (a4_bitmap.c) --------------------------------------- */
 static inline BITMAP *a4_root(BITMAP *b) { return b->parent ? b->parent : b; }
