@@ -907,6 +907,84 @@ static void scen_rotate(golden_ctx *g)
    }
 }
 
+/* ---------------------------------------------------------------- game-like */
+
+static void scen_game(golden_ctx *g)
+{
+   BITMAP *scr, *spr[4], *tmp;
+   int i;
+
+   make_palette();
+   set_color_depth(32);
+   set_palette(test_pal);
+   scr = canvas(32, 640, 480, 100);
+   spr[0] = pattern(32, 64, 64, 101, 2);
+   spr[1] = pattern(32, 120, 40, 102, 1 | 8);
+   spr[2] = pattern(32, 17, 99, 103, 3);
+   spr[3] = pattern(8, 45, 33, 104, 1);
+
+   /* sprites everywhere, including far off-screen */
+   for (i = 0; i < 60; i++) {
+      int x = (int)(hash3(i, 7, 1) % 800) - 100;
+      int y = (int)(hash3(i, 8, 1) % 640) - 100;
+      BITMAP *s = spr[i & 3];
+      if (i % 7 == 3)
+         draw_sprite_h_flip(scr, spr[i % 3], x, y);
+      else if (i % 11 == 5)
+         draw_sprite_v_flip(scr, spr[i % 3], x, y);
+      else
+         draw_sprite(scr, s, x, y);
+   }
+   /* rotations over the whole screen at game-style angles and scales */
+   for (i = 0; i < 40; i++) {
+      int x = (int)(hash3(i, 9, 2) % 760) - 60;
+      int y = (int)(hash3(i, 10, 2) % 600) - 60;
+      fixed a = (fixed)(hash3(i, 11, 2) & 0x1FFFFFF) - 0x1000000;
+      if (i & 1)
+         rotate_sprite(scr, spr[i % 3], x, y, a);
+      else
+         rotate_scaled_sprite(scr, spr[i % 3], x, y, a, (fixed)(hash3(i, 12, 2) % 0x18000));
+   }
+   rotate_sprite(scr, spr[3], 300, 200, itofix(37));
+   golden_bitmap(g, N0("game.scene"), scr);
+
+   /* translucent overlays and fades */
+   set_clip_rect(scr, 32, 0, 607, 479);
+   for (i = 0; i < 16; i++) {
+      set_trans_blender(0, 0, 0, i * 16);
+      draw_trans_sprite(scr, spr[i % 3], i * 40 - 20, 400 - i * 25);
+   }
+   set_trans_blender(0, 0, 0, 110);
+   drawing_mode(DRAW_MODE_TRANS, NULL, 0, 0);
+   rectfill(scr, 0, 0, 639, 60, makecol32(0, 0, 0));
+   solid_mode();
+   set_clip_rect(scr, 0, 0, 639, 479);
+   golden_bitmap(g, N0("game.trans"), scr);
+
+   /* stretches of the whole screen */
+   tmp = canvas(32, 320, 240, 105);
+   stretch_blit(scr, tmp, 0, 0, 640, 480, 0, 0, 320, 240);
+   golden_bitmap(g, N0("game.shrink"), tmp);
+   stretch_blit(tmp, scr, 0, 0, 320, 240, -13, -7, 800, 600);
+   golden_bitmap(g, N0("game.enlarge"), scr);
+   stretch_sprite(scr, spr[0], 100, 100, 213, 97);
+   stretch_sprite(scr, spr[1], 400, 300, 61, 150);
+   golden_bitmap(g, N0("game.stretch_sprite"), scr);
+   destroy_bitmap(tmp);
+
+   /* very large rotated/scaled sprite (coordinates beyond 2^26 fixed) */
+   tmp = pattern(32, 400, 300, 106, 1 | 8);
+   clear_to_color(scr, 0);
+   rotate_scaled_sprite(scr, tmp, -200, -150, itofix(20), 0x30000);
+   rotate_scaled_sprite(scr, tmp, 100, 50, 0x123456, 0x2C000);
+   golden_bitmap(g, N0("game.bigrot"), scr);
+   destroy_bitmap(tmp);
+
+   for (i = 0; i < 4; i++)
+      destroy_bitmap(spr[i]);
+   destroy_bitmap(scr);
+}
+
 void scen_gfx(golden_ctx *g)
 {
 #ifndef A4COMPAT
@@ -928,6 +1006,7 @@ void scen_gfx(golden_ctx *g)
    scen_sprites(g);
    scen_stretch(g);
    scen_rotate(g);
+   scen_game(g);
    solid_mode();
    set_color_depth(32);
 }
