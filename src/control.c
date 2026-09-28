@@ -61,11 +61,11 @@ void poll_control(Tcontrol *c, int joystick_only)
     }
 }
 
-int check_control_key(Tcontrol *c, int key)
+int check_control_key(Tcontrol *c, int k)
 {
-    if (key == c->key_left || key == c->key_right ||
-        key == c->key_up || key == c->key_down ||
-        key == c->key_fire || key == c->key_enter || key == c->key_pause)
+    if (k == c->key_left || k == c->key_right ||
+        k == c->key_up || k == c->key_down ||
+        k == c->key_fire || k == c->key_enter || k == c->key_pause)
         return -1;
     return 0;
 }

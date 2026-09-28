@@ -14,7 +14,7 @@ void init_control(Tcontrol *c);
 void set_control(Tcontrol *c, int up, int down, int left, int right, int fire);
 Tgamepad *get_gamepad(void);
 void poll_control(Tcontrol *c, int joystick_only);
-int check_control_key(Tcontrol *c, int key);
+int check_control_key(Tcontrol *c, int k);
 int is_up(Tcontrol *c);
 int is_down(Tcontrol *c);
 int is_left(Tcontrol *c);

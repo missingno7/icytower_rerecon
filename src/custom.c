@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 /* Complete custom.c candidate reconstructed from original DWARF/disassembly.
  * Code and data equality are tracked by the experiment, not assumed here. */
 #include <stdio.h>
@@ -39,7 +40,7 @@ BITMAP *load_character_bmp(const char *name, int *uses_datafile, RGB *pal)
     get_character_dir(filename, sizeof(filename), name);
     strcat(filename, name);
     strcat(filename, ".txt");
-    fp = fopen(filename, "rt");
+    fp = port_fopen(filename, "rt");
     if (!fp) { log2file("Could not open %s", filename); return NULL; }
     ret=fgets(buf,sizeof(buf),fp);
     while (ret && !ok) {
@@ -112,7 +113,7 @@ BITMAP *load_character_bmp(const char *name, int *uses_datafile, RGB *pal)
             return char_bmp;
         }
     }
-    fp=fopen(filename,"rt");
+    fp=port_fopen(filename,"rt");
     if (!fp) return NULL;
     ok=0;
     ret=fgets(buf,sizeof(buf),fp);
@@ -184,7 +185,7 @@ int load_frames(Tcustom *c)
     get_character_dir(filename,sizeof(filename),c->name);
     strcat(filename,c->name);
     strcat(filename,".txt");
-    fp=fopen(filename,"rt");
+    fp=port_fopen(filename,"rt");
     if (!fp) return 0;
     if (!c->uses_datafile) {
         ret=fgets(buf,sizeof(buf),fp);
@@ -270,7 +271,7 @@ int load_frames(Tcustom *c)
             return 1;
         }
     } else {
-        fp=fopen(filename,"rt");
+        fp=port_fopen(filename,"rt");
         if (!fp) return 0;
         ret=fgets(buf,sizeof(buf),fp);
     while (ret && !ok) {
@@ -348,7 +349,7 @@ int load_sounds(Tcustom *c)
     get_character_dir(filename,sizeof(filename),c->name);
     strcat(filename,c->name);
     strcat(filename,".txt");
-    fp=fopen(filename,"rt");
+    fp=port_fopen(filename,"rt");
     if (!fp) return 0;
     if (c->uses_datafile) {
         int df_length=0;

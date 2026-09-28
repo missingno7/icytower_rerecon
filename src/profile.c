@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 #include "recovered/Tcontrol.h"
 #include <stdio.h>
 #include <allegro.h>
@@ -78,7 +79,7 @@ typedef struct Tprofile_tm {
 } Tprofile_tm;
 
 extern void log2file(const char *format, ...);
-extern long time(long *t);
+#include <time.h> /* port: was a hand-written 32-bit time() declaration */
 extern void init_control(Tcontrol*);
 extern int save_profile(Tprofile_create *p);
 
@@ -201,7 +202,7 @@ Tprofile_create *create_profile(char *handle, int overwrite)
     char file[1024];
     Tprofile_create *p;
     int i;
-    long now;
+    time_t now;
     Tprofile_tm *my_time;
     int year, month, day;
 
@@ -355,7 +356,7 @@ Tprofile_load *load_profile(char *handle)
 
     get_profile_dir_for_profile(file, 1024, handle);
     sprintf(file, "%s%s.itp", file, handle);
-    fp = fopen(file, "rb");
+    fp = port_fopen(file, "rb");
     if (!fp)
         return 0;
     p = malloc(0x550);
@@ -513,7 +514,7 @@ char *profile_data_page_advanced(Tprofile_advanced *p)
 int save_profile(Tprofile_create *p)
 {
     char file[1024];
-    long now;
+    time_t now;
     Tprofile_tm *my_time;
     int year, month, day;
     void *fp;
@@ -524,10 +525,10 @@ int save_profile(Tprofile_create *p)
 
     get_profile_dir_for_profile(file, 1024, p->handle);
     if (!file_exists(file, 16, 0))
-        mkdir(file);
+        port_mkdir(file);
     strcat(file, "replays/");
     if (!file_exists(file, 16, 0))
-        mkdir(file);
+        port_mkdir(file);
     get_profile_dir_for_profile(file, 1024, p->handle);
     sprintf(file, "%s%s.itp", file, p->handle);
     now = time(0);
@@ -538,7 +539,7 @@ int save_profile(Tprofile_create *p)
     sprintf(p->saveDate, "%d-%s%d-%s%d", year + 1900,
             month < 10 ? "0" : "", month, day < 10 ? "0" : "", day);
     p->checksum = generate_profile_checksum((Tprofile_checksum *)p);
-    fp = fopen(file, "wb");
+    fp = port_fopen(file, "wb");
     if (!fp) {
         log2file("Failed to open \"%s\" for writing", file);
         return -1;
@@ -548,7 +549,7 @@ int save_profile(Tprofile_create *p)
     fclose(fp);
     get_profile_dir_for_profile(file, 1024, p->handle);
     sprintf(file, "%s%s_stats.txt", file, p->handle);
-    fp = fopen(file, "wt");
+    fp = port_fopen(file, "wt");
     if (!fp) {
         log2file("failed to open profile stats \"%s\" for writing", file);
         return -1;

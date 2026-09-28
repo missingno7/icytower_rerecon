@@ -338,6 +338,9 @@ void get_executable_name(char *output, int size);
 int  for_each_file_ex(const char *name, int in_attrib, int out_attrib,
                       int (*callback)(const char *filename, int attrib, void *param),
                       void *param);
+char *canonicalize_filename(char *dest, const char *filename, int size);
+/* Allegro GUI file selector; the port shows the platform's folder dialog */
+int  file_select_ex(const char *message, char *path, const char *ext, int size, int w, int h);
 
 void set_config_file(const char *filename);
 const char *get_config_string(const char *section, const char *name, const char *def);
@@ -381,7 +384,7 @@ DATAFILE *load_datafile_callback(const char *filename, void (*callback)(DATAFILE
 void unload_datafile(DATAFILE *dat);
 void register_datafile_object(int id, void *(*load)(PACKFILE *f, long size),
                               void (*destroy)(void *data));
-void _fixup_loaded_bitmap(BITMAP *bmp, RGB *pal, int bpp);
+BITMAP *_fixup_loaded_bitmap(BITMAP *bmp, RGB *pal, int bpp);
 
 BITMAP *load_bitmap(const char *filename, RGB *pal);
 int  save_bitmap(const char *filename, BITMAP *bmp, const RGB *pal);
@@ -551,6 +554,7 @@ void simulate_keypress(int keycode);
 #define A4_MOUSE_CURSOR_HAND    100   /* compat extension; the game used a raw Win32 cursor */
 extern volatile int mouse_x, mouse_y, mouse_z, mouse_b;
 int  install_mouse(void);
+void remove_mouse(void);
 void show_mouse(BITMAP *bmp);
 void select_mouse_cursor(int cursor);
 void enable_hardware_cursor(void);

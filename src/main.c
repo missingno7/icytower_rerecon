@@ -14,11 +14,9 @@ extern void handle_player_collision_combo(int, int);
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <pthread.h>
-#include <direct.h>
 #include <allegro.h>
-#include <allegro/platform/aintwin.h>
-#include <winalleg.h>
+#include "port/game/port_game.h"
+#include "port/config/port_config.h"
 #include "loadpng.h"
 #include "beta.h"
 #include "control.h"
@@ -490,7 +488,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -573,7 +571,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -656,7 +654,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -739,7 +737,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -822,7 +820,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -905,7 +903,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -988,7 +986,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1071,7 +1069,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1154,7 +1152,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1237,7 +1235,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1320,7 +1318,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1403,7 +1401,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1486,7 +1484,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1569,7 +1567,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1652,7 +1650,7 @@ int _mangled_main(int argc, char **argv);
 void draw_frame(BITMAP *dst);
 int play(void);
 int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f, int pos_x, int pos_y, int colour, int bg_color);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 int line_intersect(int ax, int ay, int bx, int by, int cx, int cy, int dx, int dy, int *ix, int *iy);
 void datafile_callback_slow(DATAFILE *d);
 void datafile_callback(DATAFILE *d);
@@ -1695,7 +1693,7 @@ void load_new_ad_image(void);
 Treplay *get_demo(void);
 Tcontrol *get_controls(void);
 void take_screenshot(BITMAP *bmp);
-void pwd_garble_string(char *str, int key);
+void pwd_garble_string(char *str, int k);
 void play_sound(SAMPLE *s, int pitch, int please_pan);
 int new_rand(void);
 inline void new_srand(int s);
@@ -1770,14 +1768,12 @@ int _mangled_main(int argc, char **argv);
 
 void log2file(const char *format, ...)
 {
-    static pthread_mutex_t sLogMutex = PTHREAD_MUTEX_INITIALIZER;
     static char logfilename[1024];
     va_list ptr;
     PACKFILE *fp;
     if (itrcheck) return;
-    pthread_mutex_lock(&sLogMutex);
     if (!logfilename[0]) get_logfile_path(logfilename, sizeof(logfilename));
-    fp = fopen(logfilename, "at");
+    fp = port_fopen(logfilename, "at");
     if (fp) {
         va_start(ptr, format);
         vfprintf(fp, format, ptr);
@@ -1785,7 +1781,6 @@ void log2file(const char *format, ...)
         fputc('\n', fp);
         fclose(fp);
     }
-    pthread_mutex_unlock(&sLogMutex);
 }
 
 void line_alert(char *text)
@@ -1936,14 +1931,14 @@ void take_screenshot(BITMAP *bmp)
         ;
 }
 
-void pwd_garble_string(char *str, int key)
+void pwd_garble_string(char *str, int k)
 {
     int i;
     int len_i;
 
     len_i = strlen(str);
     for (i = 0; i < len_i; i++)
-        str[i] ^= key - i;
+        str[i] ^= k - i;
 }
 
 void play_sound(SAMPLE *s, int pitch, int please_pan)
@@ -1995,7 +1990,7 @@ BITMAP *loadScrambled(char *fileName)
     data = malloc(fileSize);
     if (!data)
         return NULL;
-    fp = fopen(fileName, "rb");
+    fp = port_fopen(fileName, "rb");
     if (!fp)
         return NULL;
     fread(data, fileSize, 1, fp);
@@ -2006,7 +2001,7 @@ BITMAP *loadScrambled(char *fileName)
         for (j = 0; j < pLen; j++)
             data[i + j] ^= password[j];
     newFile = "data/com/temp.dat";
-    fp = fopen(newFile, "wb");
+    fp = port_fopen(newFile, "wb");
     if (!fp)
         return NULL;
     fwrite(data, fileSize, 1, fp);
@@ -2084,9 +2079,10 @@ int check_characters(void)
     char additional_char_dir[256];
     int has_additional_char_dir;
 
-    getcwd(base_char_dir, sizeof(base_char_dir));
+    /* port: game-relative path; the file layer searches the user and
+     * asset roots (historically getcwd() + "/characters/") */
+    strcpy(base_char_dir, "characters/");
     base_char_dir_len = strlen(base_char_dir);
-    strcpy(base_char_dir + base_char_dir_len, "/characters/");
     has_additional_char_dir = get_custom_characters_dir(
         additional_char_dir, sizeof(additional_char_dir));
     log2file("Searching %s for characters", base_char_dir);
@@ -2223,7 +2219,7 @@ int check_beta_tester(void)
     FILE *fp;
     char pwd[16] = "12345678\0";
 
-    fp = fopen("password.txt", "rt");
+    fp = port_fopen("password.txt", "rt");
     if (!fp) {
         allegro_message("password.txt not found");
         return 0;
@@ -2333,10 +2329,8 @@ void clickedCloseButton(void)
 
 void open_web_browser(const char *pURL)
 {
-    char cmd[256];
-    sprintf(cmd, "url.dll, FileProtocolHandler %s", pURL);
-    log2file(" calling '%s'", cmd);
-    ShellExecuteA(NULL, "open", "rundll32", cmd, "", 4);
+    log2file(" opening '%s'", pURL);
+    port_open_url(pURL);
 }
 
 /* Partial recovery of main.c:1375, 0x40e7dc..0x40fe78.  The oracle starts
@@ -2349,8 +2343,6 @@ int init_game(int argc, char **argv)
     int i;
     char title[64];
     char tmpHandle[32];
-    WSADATA wsaData;
-    WORD wVersionRequested;
     char cfgfilename[256];
 
     tmpHandle[0]=0; /* 1382 */
@@ -2359,12 +2351,7 @@ int init_game(int argc, char **argv)
     packfile_password(NULL); /* 1394 */
     sprintf(title,"Icy Tower v%s","1.5.1"); /* 1395 */
     set_window_title(title); /* 1395 */
-    wVersionRequested=MAKEWORD(2,2); /* 1403 */
-    if (WSAStartup(wVersionRequested,&wsaData)!=0)
-        log2file(" !!! Failed to setup Winsock"); /* 1404 */
-    if (LOBYTE(wsaData.wVersion)<2 || HIBYTE(wsaData.wVersion)<2) /* 1407 */
-        log2file(" !!! Failed to get proper Winsock version (wanted 2.2, got %d.%d)",
-                 LOBYTE(wsaData.wVersion),HIBYTE(wsaData.wVersion)); /* 1408 */
+    /* port: Winsock was only needed by the removed advertising module */
     play_char.max=0; /* 1413 */
     play_char.value=0; /* 1413 */
     play_char.bmp=NULL; /* 1414 */
@@ -2489,6 +2476,9 @@ int init_game(int argc, char **argv)
         log2file("Resetting to default config"); /* 1610 */
         reset_options(&options); /* 1611 */
     }
+    /* port: the display mode is a port setting (icytower-port.ini); keep
+     * the game's Fullscreen option in sync with it */
+    options.full_screen = port_config_fullscreen() ? -1 : 0;
     if (tmpHandle[0]) { /* 1614 */
         log2file("Setting last profile"); /* 1615 */
         strcpy(options.lastProfile,tmpHandle); /* 1616 */
@@ -2564,7 +2554,7 @@ int init_game(int argc, char **argv)
     set_display_switch_callback(SWITCH_IN,switchedToProgram); /* 1729 */
     set_display_switch_callback(SWITCH_OUT,switchedFromProgram); /* 1730 */
     set_close_button_callback(clickedCloseButton); /* 1731 */
-    srand((unsigned int)time(NULL)); /* 1733 */
+    hist_srand((unsigned int)time(NULL)); /* 1733 */
     log2file("Installing timers"); /* 1736 */
     draw_progress_bar(); /* 1737 */
     install_timers(); /* 1738 */
@@ -2636,7 +2626,7 @@ int init_game(int argc, char **argv)
     }
     log2file("Initiating player"); /* 1835 */
     draw_progress_bar(); /* 1836 */
-    player_id=rand()%1000; /* 1837 */
+    player_id=hist_rand()%1000; /* 1837 */
     ply[player_id]=malloc(sizeof(*ply[player_id])); /* 1838 */
     if (!ply[player_id]) { /* 1839 */
         log2file(" *** failed"); /* 1840 */
@@ -2653,7 +2643,7 @@ int init_game(int argc, char **argv)
         get_profiles_dir(profiledir,sizeof(profiledir)); /* 1858 */
         if (!file_exists(profiledir,FA_ALL,0)) { /* 1860 */
             log2file("  does not exist, trying to create"); /* 1861 */
-            mkdir(profiledir); /* 1863 */
+            port_mkdir(profiledir); /* 1863 */
             if (!file_exists(profiledir,FA_ALL,0)) { /* 1867 */
                 log2file("  *** failed!"); /* 1868 */
                 set_gfx_mode(GFX_TEXT,0,0,0,0); /* 1869 */
@@ -2768,7 +2758,7 @@ int init_game(int argc, char **argv)
             }
             rest(2); /* 2078 */
         }
-        seed=rand()%2367; /* 2082 */
+        seed=hist_rand()%2367; /* 2082 */
         fadeOut(16); /* 2083 */
         clear_bitmap(screen); /* 2084 */
         vsync(); /* 2085 */
@@ -3445,7 +3435,7 @@ int new_game(void)
 
     log2file(" init new game");
     collision_type = 2;
-    new_srand(rand() % 0x18ff8);
+    new_srand(hist_rand() % 0x18ff8);
     rec_pos = 0;
     bg_stripe_ids[4] = 0;
     bg_stripe_ids[3] = 0;
@@ -3501,14 +3491,14 @@ int new_game(void)
             demo->gravity = 1;
         }
         rejump = options.jump_hold;
-        srand(time(0));
-        rec_seed = rand();
+        hist_srand(time(0));
+        rec_seed = hist_rand();
         demo->random_seed = rec_seed;
     }
 
     for (i = 0; i < 15; i++)
         new_personal_best[i] = 0;
-    srand(rec_seed);
+    hist_srand(rec_seed);
     log2file(" creating map layout");
     reset_map(&map);
     for (i = 0; i < 30; i++)
@@ -4074,11 +4064,10 @@ startTime = time(NULL);
 
 
 
-LARGE_INTEGER li;
-QueryPerformanceCounter(&li);
-qpc_start = li.LowPart;
+qpc_start = port_qpc_low();
 
-QueryPerformanceFrequency(&li);
+
+
 int qpc_freq;
 
 
@@ -4166,9 +4155,9 @@ if (clockSpeed > 0.0) { totClockTimes = (1000.0 * clockSpeed) / clockSpeed / 20.
 }
 
 
-QueryPerformanceFrequency(&li);
-qpc_freq = li.LowPart;
-QueryPerformanceCounter(&li); qpc_end = li.LowPart;
+
+qpc_freq = port_qpf_low();
+qpc_end = port_qpc_low();
 
 
 qpc_elapsed = qpc_end - qpc_start; qpcSpeed = (50.0 * qpc_elapsed / qpc_freq) / 20.0; totQPCTimes = qpcSpeed;
@@ -4212,8 +4201,8 @@ demo->tc_posts = demo->tc_posts < 98 ? demo->tc_posts + 1 : 99;
 
 clockTimeStart = clock();
 
-QueryPerformanceCounter(&li);
-qpc_start = li.LowPart;
+
+qpc_start = port_qpc_low();
 
 
 
@@ -4641,8 +4630,8 @@ musicCounter = voice_get_position(checkMusicVoiceID) * 50.0f / 44000.0f; totMusi
 
 clockTimeStart = clock();
 
-QueryPerformanceCounter(&li);
-qpc_start = li.LowPart;
+
+qpc_start = port_qpc_low();
 
 
 
@@ -4733,8 +4722,8 @@ musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); to
 
 clockTimeStart = clock();
 
-QueryPerformanceCounter(&li);
-qpc_start = li.LowPart;
+
+qpc_start = port_qpc_low();
 
 
 
@@ -4796,8 +4785,8 @@ musicCounter = (int)(voice_get_position(checkMusicVoiceID) * 50.0 / 44000.0); to
 
 clockTimeStart = clock();
 
-QueryPerformanceCounter(&li);
-qpc_start = li.LowPart;
+
+qpc_start = port_qpc_low();
 
 
 
@@ -4917,7 +4906,7 @@ while (cycle_count == 0) rest(2);
 
 
 } else if (key[KEY_TAB] && key[KEY_LSHIFT]) {
-while (cycle_count <= 7) { }
+while (cycle_count <= 7) { rest(0); }
 } else {
 while (!cycle_count) rest(2);
 }
@@ -5099,7 +5088,7 @@ profile->custom_games_played++;
 
 if (!file_exists(replay_directory, -1, NULL))
 
-mkdir(replay_directory);
+port_mkdir(replay_directory);
 
 
 
@@ -5656,6 +5645,7 @@ void testWindowResolution(void)
         {
             PALETTE pal;
             log2file("Switching to fullscreen (640x480)");
+            port_config_set_fullscreen(1);
             get_palette(pal);
             show_mouse(NULL);
             set_gfx_mode(GFX_AUTODETECT_FULLSCREEN,640,480,0,0);
@@ -5673,6 +5663,7 @@ void testWindowResolution(void)
     {
         PALETTE pal;
         log2file("Switching to window (640x480)");
+        port_config_set_fullscreen(0);
         get_palette(pal);
         set_gfx_mode(GFX_AUTODETECT_WINDOWED,640,480,0,0);
         set_palette(pal);
@@ -5723,9 +5714,9 @@ void main_menu_callback(void)
         }
         lastMouseB = mouse_b;                                        /* 5172 */
         if (mouseInAd)                                               /* 5176 */
-            _win_hcursor = LoadCursorA(NULL, IDC_HAND);              /* 5177 */
+            select_mouse_cursor(A4_MOUSE_CURSOR_HAND);               /* 5177 */
         else
-            _win_hcursor = LoadCursorA(NULL, IDC_ARROW);             /* 5179 */
+            select_mouse_cursor(MOUSE_CURSOR_ARROW);                 /* 5179 */
     }
 
     blit(data[126].dat, swap_screen, 0, 0, 0, 0, 640, 480);          /* 5187 */
@@ -6257,19 +6248,16 @@ int _mangled_main(int argc, char **argv)
     int ret;
     int must_fade;
     int play_again;
-    HMODULE hDebugLibrary;
 
-    hDebugLibrary = LoadLibraryA("exchndl.dll");
-    if (!hDebugLibrary)
-        printf("No exception handler present, RPTs will not be generated");
     allegro_init();
     register_png_file_type();
+    /* port: no chdir(); relative game paths are resolved against the user
+     * and asset roots by the platform layer */
     get_executable_name(full_path, sizeof(full_path));
     replace_filename(working_directory, full_path, "", sizeof(working_directory));
-    chdir(working_directory);
     char logfilename[256] = {0};
     get_logfile_path(logfilename, sizeof(logfilename));
-    f = fopen(logfilename, "wt");
+    f = port_fopen(logfilename, "wt");
     if (f) {
         fprintf(f, "Icy Tower v%s - log file\n----------------------------\n", "1.5.1");
         fclose(f);

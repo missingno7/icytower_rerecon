@@ -21,7 +21,7 @@ extern int my_alert(char*, char*, int, int);
 
 int stepIn = 0;
 
-extern void key_to_str(int key, char *dest);
+extern void key_to_str(int k, char *dest);
 extern void draw_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, int x, int y,
                       int step_in);
 extern void play_menu_move(void);
@@ -34,7 +34,7 @@ extern void change_profile(void);
 extern void *profile;
 extern int closeButtonClicked;
 extern int stepIn;
-extern volatile char key[];
+/* port: key[] comes from allegro.h */
 /* Icy Tower was built against an older Allegro scancode layout. */
 #ifdef KEY_F1
 #undef KEY_F1
@@ -208,7 +208,7 @@ int update_game_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, Tcontrol *ctrl,
         if (is_right(ctrl) || is_right(&mp->ctrl))
             return_value = m[pos].return_right;
     }
-    *data = (int)m[pos].data;
+    *data = m[pos].data;
     mp->pos = pos;
     return return_value;
 }

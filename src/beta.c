@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 /* Historical beta.c recovered from DWARF and disassembly. */
 #include <stdio.h>
 #include <allegro.h>
@@ -8,9 +9,9 @@ Tbeta *create_post()
     Tbeta *b = malloc(sizeof(Tbeta));
     int i;
     for (i = 0; i < 128; i++) {
-        b->name[i] = rand() % 256;
-        b->email[i] = rand() % 256;
-        b->code[i % 16] = rand() % 256;
+        b->name[i] = hist_rand() % 256;
+        b->email[i] = hist_rand() % 256;
+        b->code[i % 16] = hist_rand() % 256;
     }
     b->next = NULL;
     return b;
@@ -43,7 +44,7 @@ Tbeta *load_plain_data(char *filename)
     Tbeta *b = create_post();
     Tbeta *head = b;
     int i;
-    FILE *fp = fopen(filename, "rb");
+    FILE *fp = port_fopen(filename, "rb");
     for (i=0; i<9; i++) {
         read_line(b->name, fp);
         read_line(b->email, fp);
@@ -62,7 +63,7 @@ Tbeta *load_garbled_data(char *filename)
     int i, j;
     int true_check, check;
     head = b = create_post();
-    FILE *fp = fopen(filename, "rb");
+    FILE *fp = port_fopen(filename, "rb");
     true_check = 0;
     for (j = 0; j < 9; j++) {
         fread(b->name, 128, 1, fp);
@@ -92,7 +93,7 @@ void garble_string(char *str, int n)
 
 int save_garbled_data(Tbeta *b, char *filename)
 {
-    FILE *fp = fopen(filename, "wb");
+    FILE *fp = port_fopen(filename, "wb");
     int check = 0;
     int i;
     if (!fp) return 0;

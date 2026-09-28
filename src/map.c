@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 #include "map.h"
 #include <stdlib.h>
 
@@ -45,7 +46,7 @@ void add_floor(Tmap *m)
         m->room[31].level++;
         if (get_demo()->floor_shrink) {
             if (m->room[31].level<3000)
-                width=rand()%(int)((1.0f>((float)(300-m->room[31].level/5)/300.0f)*10.0f) ? 1.0f : ((float)(300-m->room[31].level/5)/300.0f)*10.0f)+6;
+                width=hist_rand()%(int)((1.0f>((float)(300-m->room[31].level/5)/300.0f)*10.0f) ? 1.0f : ((float)(300-m->room[31].level/5)/300.0f)*10.0f)+6;
             else if (m->room[31].level>5004) {
                 if (m->room[31].level<=7504) width=5;
                 else if (m->room[31].level<=10004) width=4;
@@ -54,10 +55,10 @@ void add_floor(Tmap *m)
             }
             else width=6;
         }
-        else width=rand()%10+6;
+        else width=hist_rand()%10+6;
 
         width=(1>width+floor_size_modifiers[get_demo()->floor_size]) ? 1 : width+floor_size_modifiers[get_demo()->floor_size];
-        m->room[31].start_tile=rand()%(30-width)+5;
+        m->room[31].start_tile=hist_rand()%(30-width)+5;
         m->room[31].end_tile=m->room[31].start_tile+width;
     }
     else {

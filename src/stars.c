@@ -1,3 +1,4 @@
+#include "port/game/port_game.h"
 /* Complete stars.c candidate reconstructed from original DWARF and code. */
 #include <stdlib.h>
 #include <allegro.h>
@@ -16,9 +17,9 @@ void init_star_field(Tstar_field *sf, int w, int h, int num, int first_col,
     sf->height=h;
     sf->stars=num;
     for (i=0;i<1024;i++) {
-        sf->star[i].x=rand()%sf->width;
-        sf->star[i].y=rand()%sf->height;
-        sf->star[i].z=rand()%sf->depth;
+        sf->star[i].x=hist_rand()%sf->width;
+        sf->star[i].y=hist_rand()%sf->height;
+        sf->star[i].z=hist_rand()%sf->depth;
     }
 }
 
@@ -40,19 +41,19 @@ void scroll_star_field(Tstar_field *sf, double xstep, double ystep)
         sf->star[i].y+=(sf->star[i].z+1)*ystep;
         if (sf->star[i].x<0) {
             sf->star[i].x=sf->width-1;
-            sf->star[i].z=rand()%sf->depth;
+            sf->star[i].z=hist_rand()%sf->depth;
         }
         if (sf->star[i].y<0) {
             sf->star[i].y=sf->height-1;
-            sf->star[i].z=rand()%sf->depth;
+            sf->star[i].z=hist_rand()%sf->depth;
         }
         if (sf->star[i].x>=sf->width) {
             sf->star[i].x=0;
-            sf->star[i].z=rand()%sf->depth;
+            sf->star[i].z=hist_rand()%sf->depth;
         }
         if (sf->star[i].y>=sf->height) {
             sf->star[i].y=0;
-            sf->star[i].z=rand()%sf->depth;
+            sf->star[i].z=hist_rand()%sf->depth;
         }
     }
 }

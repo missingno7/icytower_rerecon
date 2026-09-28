@@ -79,7 +79,7 @@ endif()
 # The 25 historical units, minus the dead advertising/network code which is
 # replaced by port/game/ads_stub.c (see docs/port/ARCHITECTURE.md).
 set(GAME_UNITS beta control custom directories game_data hisc loadpng main map
-    menu options particle player profile regpng replay savepng scroller stars)
+    menu options particle player profile regpng replay savepng scroller stars timer)
 set(GAME_SOURCES)
 foreach(u ${GAME_UNITS})
   list(APPEND GAME_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/${u}.c)
@@ -92,16 +92,13 @@ foreach(f ${GAME_SOURCES})
   endif()
 endforeach()
 if(PORT_GAME_SOURCES)
-  add_executable(icytower ${GAME_SOURCES} ${PORT_GAME_SOURCES}
-                 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/recovered/logg.c)
-  target_include_directories(icytower PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/allegro-4.4.1/addons/logg)
+  add_executable(icytower ${GAME_SOURCES} ${PORT_GAME_SOURCES})
+  target_include_directories(icytower PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(icytower PRIVATE itower_port)
   target_compile_options(icytower PRIVATE ${ITOWER_WARN} ${ITOWER_GAME_FLAGS})
   target_compile_definitions(icytower PRIVATE ICYTOWER_PORT=1)
   if(WIN32)
-    set_target_properties(icytower PROPERTIES WIN32_EXECUTABLE FALSE)
+    set_target_properties(icytower PROPERTIES WIN32_EXECUTABLE TRUE)
   endif()
 endif()
 
