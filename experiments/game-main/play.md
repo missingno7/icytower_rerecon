@@ -226,3 +226,12 @@ register allocation, spill slots and layout (build/rootcause37/linefaithful_play
 the oracle over 616 states and 5118 instruction pairs with zero divergences and zero unverified instructions
 (13 independent reorders and one narrowed immediate tolerated). The canonical play body is not equivalent
 (47 unexplained lines); v17 is the body to build from for behavioural fidelity.
+
+Full-match programs (same day): a witness-guided search over constructs that vanish after branch
+prediction (131 builds, doubled/split guards at 34 sites, simulation-filtered) finds nothing that flips
+the 3719 register or moves the first divergence; closed. The original prelude order recovered from
+DWARF declaration lines (111 globals, 81 functions) is a real lever: fixing the globals' UID order with a
+one-line extern block gives a bimodal outcome (588 or 522 identical lines) in the results-region
+allocation, but 220 single-global moves all give the 588 outcome and never touch the main-loop register
+family. Both programs are exhausted for play; v17 with the extern-block prelude (588/710) is the closest
+point recorded (build/rootcause37/RESULTS.md 6.6).
