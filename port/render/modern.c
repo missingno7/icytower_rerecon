@@ -17,6 +17,7 @@
  * snapshots is presentation-only (snapshots are never read by the game).
  */
 #include <math.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "port/render/modern.h"
@@ -556,6 +557,73 @@ static void underlay(dl_ctx *c, const xform *t, uint64_t gen)
 
 /* ------------------------------------------------------------ frame */
 
+/* The full-canvas opaque background of a menu screen (first operation). */
+static BITMAP *find_background(const A4_DL *dl, int depth)
+{
+   const a4_dl_op *op;
+   if (!dl || !dl->valid || dl->n == 0 || depth > 4)
+      return NULL;
+   op = &dl->ops[0];
+   if (op->kind == DLOP_NESTED)
+      return find_background(op->child, depth + 1);
+   if (op->kind == DLOP_BITMAP && op->blend == DLB_SOLID && op->dx <= 0 && op->dy <= 0 &&
+       op->dw >= (float)dl->w && op->dh >= (float)dl->h && op->src)
+      return op->src;
+   return NULL;
+}
+
+/* Wide outputs showing a 4:3 menu: continue the menu's own background into
+ * the side areas (mirrored, dimmed) instead of black bars. */
+static void draw_menu_sides(SDL_Renderer *r, const A4_DL *dl, const xform *t, int W, int H)
+{
+   BITMAP *bg = find_background(dl, 0);
+   SDL_Texture *tex;
+   if (getenv("ITOWER_DEBUG_DL") && dl && dl->n) {
+      static int cnt;
+      if (++cnt % 120 == 0) {
+         int i;
+         for (i = 0; i < dl->n && i < 6; i++)
+            SDL_Log("op%d kind=%d blend=%d dx=%g dy=%g dw=%g dh=%g src=%p w=%d h=%d", i, dl->ops[i].kind, dl->ops[i].blend,
+                    dl->ops[i].dx, dl->ops[i].dy, dl->ops[i].dw, dl->ops[i].dh, (void *)dl->ops[i].src, dl->w, dl->h);
+      }
+   }
+   SDL_FRect src, dst;
+   float cw, x;
+   int k;
+   if (!bg || !render_get_config()->widescreen)
+      return;
+   tex = texcache_get(bg, TEXV_OPAQUE);
+   if (!tex)
+      return;
+   texcache_filter(tex);
+   SDL_SetTextureColorMod(tex, 110, 110, 120);
+   SDL_SetTextureAlphaModFloat(tex, 1.0f);
+   src.x = 0; src.y = 0; src.w = (float)bg->w; src.h = (float)bg->h;
+   cw = (float)bg->w * t->s;
+   for (k = 1; ; k++) {
+      int drawn = 0;
+      dst.y = t->oy;
+      dst.w = cw;
+      dst.h = (float)bg->h * t->s;
+      x = t->ox - cw * (float)k;
+      if (x + cw > 0) {
+         dst.x = x;
+         SDL_RenderTextureRotated(r, tex, &src, &dst, 0, NULL, (k & 1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+         drawn = 1;
+      }
+      x = t->ox + cw * (float)k;
+      if (x < (float)W) {
+         dst.x = x;
+         SDL_RenderTextureRotated(r, tex, &src, &dst, 0, NULL, (k & 1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+         drawn = 1;
+      }
+      if (!drawn)
+         break;
+   }
+   SDL_SetTextureColorMod(tex, 255, 255, 255);
+   (void)H;
+}
+
 bool modern_draw_frame(SDL_Renderer *r)
 {
    BITMAP *cv = present_get_canvas();
@@ -563,6 +631,12 @@ bool modern_draw_frame(SDL_Renderer *r)
    dl_ctx c;
    int W, H;
    float s;
+   if (getenv("ITOWER_DEBUG_DL")) {
+      static int cnt;
+      if (++cnt % 60 == 0)
+         SDL_Log("frame: dl=%p valid=%d n=%d underlay=%d", (void *)dl, dl ? dl->valid : -1, dl ? dl->n : -1,
+                 list_has_underlay(dl));
+   }
    if (!dl || !dl->valid)
       return false;
    present_output_size(&W, &H);
@@ -582,6 +656,7 @@ bool modern_draw_frame(SDL_Renderer *r)
    c.underlay = underlay;
    if (!list_has_underlay(dl)) {
       /* menus and dialogs: the historical 4:3 design canvas, drawn natively */
+      draw_menu_sides(r, dl, &c.t, W, H);
       c.bounds.x = (int)c.t.ox;
       c.bounds.y = (int)c.t.oy;
       c.bounds.w = (int)floorf(cv->w * s + 0.5f);

@@ -319,6 +319,10 @@ void a4_dl_blit(BITMAP *src, BITMAP *dst, int sx, int sy, int dx, int dy, int w,
          return;
       }
    }
+   /* an opaque copy that covers the whole target hides everything before it */
+   if (blend == DLB_SOLID && full_clip(dst) && dx <= 0 && dy <= 0 && sx >= 0 && sy >= 0 &&
+       dx + w >= dst->w && dy + h >= dst->h && sx - dx + dst->w <= src->w && sy - dy + dst->h <= src->h)
+      dl_clear_ops(dl);
    op = push(dst, dl, DLOP_BITMAP);
    if (!op)
       return;
