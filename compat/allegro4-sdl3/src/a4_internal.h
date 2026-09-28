@@ -113,14 +113,47 @@ struct FONT {
    A4_FONT_RANGE *ranges;
    uint32_t serial;           /* unique id, for texture caches */
 };
+/* Allocates a zeroed FONT with `nranges` zeroed ranges.  The caller fills
+ * ranges[i].begin/end and allocates ranges[i].glyphs (calloc, end-begin
+ * entries), each glyph's `mono` (malloc) or `bmp` (create_bitmap_ex);
+ * destroy_font() frees all of it. */
 FONT *a4_font_create(int height, int is_color, int nranges);
 const A4_GLYPH *a4_font_glyph(const FONT *f, int codepoint);  /* falls back to '^' like Allegro */
 /* Allegro's UTF-8 decoding rule for text: returns code point, advances *s. */
 int a4_ugetx(const char **s);
 
+/* ---- Allegro UTF-8 string helpers (a4_text.c; unicode.c semantics) -- */
+int  a4_ugetc(const char *s);                 /* decode without advancing */
+int  a4_usetc(char *s, int c);                /* encode, returns bytes written */
+int  a4_ucwidth(int c);                       /* encoded size of c */
+int  a4_uwidth(const char *s);                /* size of the char at s (lead byte rule) */
+int  a4_ustrlen(const char *s);
+int  a4_ustrsize(const char *s);              /* bytes, without terminator */
+int  a4_uoffset(const char *s, int index);    /* negative index counts from the end */
+int  a4_ugetat(const char *s, int index);
+int  a4_utolower(int c);
+int  a4_uisspace(int c);
+int  a4_ustricmp(const char *s1, const char *s2);
+char *a4_ustrzcpy(char *dest, int size, const char *src);
+char *a4_ustrzcat(char *dest, int size, const char *src);
+char *a4_ustrzncpy(char *dest, int size, const char *src, int n);
+/* uconvert_toascii(): chars > 255 become '^'; dest holds `size` bytes */
+char *a4_utoascii(const char *s, char *dest, int size);
+
+/* ---- packfile internals (a4_file.c) -------------------------------- */
+PACKFILE *a4_pack_fopen_chunk(PACKFILE *f, int pack);   /* read side only */
+PACKFILE *a4_pack_fclose_chunk(PACKFILE *f);
+long a4_pack_todo(PACKFILE *f);                /* bytes left (normal.todo) */
+int  a4_pack_is_datafile_chunk(PACKFILE *f);   /* CHUNK && !EXEDAT */
+extern int a4_packfile_type;                   /* _packfile_type */
+
 /* ---- datafile helpers (a4_datafile.c) ------------------------------ */
 /* read an Allegro datafile BITMAP object body (after type/size header) */
 BITMAP *a4_read_bitmap_object(PACKFILE *f, long size);
+/* Allegro's _blit_between_formats() for a whole bitmap onto an equally
+ * sized bitmap of another depth, honouring COLORCONV_KEEP_TRANS in `conv`
+ * (dithering flags are not implemented).  Same-depth copies are plain. */
+void a4_convert_blit(BITMAP *src, BITMAP *dst, int conv);
 
 /* ---- sound (a4_sound.c) ------------------------------------------- */
 /* Mix `frames` stereo float frames into `out` (called by the audio device

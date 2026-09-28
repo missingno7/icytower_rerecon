@@ -381,7 +381,7 @@ DATAFILE *load_datafile_callback(const char *filename, void (*callback)(DATAFILE
 void unload_datafile(DATAFILE *dat);
 void register_datafile_object(int id, void *(*load)(PACKFILE *f, long size),
                               void (*destroy)(void *data));
-void _fixup_loaded_bitmap(BITMAP *bmp, RGB *pal, int bpp);
+BITMAP *_fixup_loaded_bitmap(BITMAP *bmp, RGB *pal, int bpp);
 
 BITMAP *load_bitmap(const char *filename, RGB *pal);
 int  save_bitmap(const char *filename, BITMAP *bmp, const RGB *pal);
