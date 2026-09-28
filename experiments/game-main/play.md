@@ -193,3 +193,11 @@ original's estimated profile is systematically hotter after the main loop. The s
 changes the predictions is the open question. Full tables, tooling and receipts:
 `build/rootcause37/RESULTS.md` section 6 and `build/rootcause37/linefaithful_play/`. Canonical 251/2
 unchanged; no promotion.
+
+Addendum (same day): a 70-build `__builtin_expect` probe (diagnostics only, never candidates) shows
+the 3719 register family flips only under large profile shifts at the loop core, and the sync loop at
+4357 aligns almost for free only if `if (!debug)` at 4356 were predicted likely, which no natural
+construct in GCC 4.4 produces (zero comparisons get no opcode prediction; the call heuristic already
+fires identically in both, checked at 4249 and 4337). The x87 compare idioms agree at all 14 sites,
+so the results region is cold in both and the 4932 alignment is a trace-start effect. The polarity-swap
+spelling is excluded by line order at 4519 and 4883. Details: build/rootcause37/RESULTS.md section 6.2.
