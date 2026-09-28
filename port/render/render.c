@@ -27,9 +27,13 @@ int render_scale_mode(void)
    }
 }
 
+void a4_dl_enable(int on);
+
 void render_on_open(struct SDL_Renderer *r)
 {
    g_ren = r;
+   /* display lists are only needed by the modern renderer */
+   a4_dl_enable(g_cfg.modern);
    modern_on_open(r);
 }
 

@@ -17,6 +17,10 @@ extern void handle_player_collision_combo(int, int);
 #include <allegro.h>
 #include "port/game/port_game.h"
 #include "port/config/port_config.h"
+#include "port/sim/snapshot.h"
+/* port: render snapshots around draw_frame (port/game/snapshot_capture.c) */
+void port_snapshot_pre(void);
+void port_snapshot_post(void);
 #include "loadpng.h"
 #include "beta.h"
 #include "control.h"
@@ -3503,6 +3507,7 @@ int new_game(void)
     reset_map(&map);
     for (i = 0; i < 30; i++)
         add_floor(&map);
+    snapshot_discontinuity();
     reset_player(ply[player_id]);
     ply[player_id]->x = 200.0;
     ply[player_id]->y = 431.0;
@@ -4041,7 +4046,7 @@ fast_fast_forward = 0;
 
 update_frame();
 if (!itrcheck) {
-draw_frame(swap_screen);
+port_snapshot_pre(); draw_frame(swap_screen); port_snapshot_post();
 
 fadeIn(swap_screen, 16);
 play_sound(custom.yo, 0, 0);
@@ -4883,7 +4888,7 @@ int skipDrawing;
 
 
 if (!quit && someCounter % ffstep == 0) {
-draw_frame(swap_screen);
+port_snapshot_pre(); draw_frame(swap_screen); port_snapshot_post();
 
 
 
@@ -5248,7 +5253,7 @@ hy = hy + (130.0f - hy) * 0.1;
 update_frame();
 for (i = 0; i < 512; i++) if (stars[i].intensity) update_particle(&stars[i]);
 if (hurry_y > -100 && hurry_y < 480) hurry_y -= 2;
-draw_frame(swap_screen);
+port_snapshot_pre(); draw_frame(swap_screen); port_snapshot_post();
 draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify, qualifyValue, is_playing_custom_game ? 0 : (recording != 0));
 if (isGuest && gotHigh && !is_playing_custom_game && recording) {
 textout_centre_ex(swap_screen, data[52].dat, "Enter your initials", 320, (int)(hy * 2 + 80), -1, -1);
@@ -5354,7 +5359,7 @@ while (key[KEY_F1]) { }
 
 
 if (hurry_y > -100 && hurry_y < 480) hurry_y -= 2;
-draw_frame(swap_screen);
+port_snapshot_pre(); draw_frame(swap_screen); port_snapshot_post();
 draw_results(swap_screen, data[gameover_bmp_id].dat, (int)hy, qualify, qualifyValue, is_playing_custom_game ? 0 : (recording != 0));
 if (isGuest && gotHigh && !is_playing_custom_game && recording) {
 textout_centre_ex(swap_screen, data[52].dat, "Enter your initials", 320, (int)(hy * 2 + 80), -1, -1);

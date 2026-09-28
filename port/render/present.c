@@ -129,6 +129,7 @@ void present_set_canvas(BITMAP *canvas)
 }
 
 SDL_Renderer *present_renderer(void) { return g_ren; }
+BITMAP *present_get_canvas(void) { return g_canvas; }
 SDL_Window *present_window(void) { return g_win; }
 
 void present_output_size(int *w, int *h)

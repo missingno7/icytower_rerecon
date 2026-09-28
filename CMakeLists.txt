@@ -71,6 +71,7 @@ target_include_directories(itower_port
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat/allegro4-sdl3/src)
 target_link_libraries(itower_port PUBLIC ${ITOWER_SDL3_TARGET} itower_xiph)
 target_compile_options(itower_port PRIVATE ${ITOWER_WARN})
+target_compile_definitions(itower_port PRIVATE A4_NO_KEY_MACRO=1)
 if(NOT WIN32)
   target_link_libraries(itower_port PUBLIC m)
 endif()

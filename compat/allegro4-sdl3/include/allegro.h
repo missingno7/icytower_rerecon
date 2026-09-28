@@ -538,7 +538,9 @@ void remove_keyboard(void);
  * events first (rate limited); busy loops such as while(key[KEY_F1]); keep
  * working.  Writes (key[k] = 0) go to the same array. */
 volatile char *a4_key_state(void);
+#ifndef A4_NO_KEY_MACRO   /* port-side code that also includes SDL headers */
 #define key (a4_key_state())
+#endif
 extern volatile int key_shifts;
 int  keypressed(void);
 int  readkey(void);
