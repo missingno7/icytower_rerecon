@@ -3489,6 +3489,10 @@ int new_game(void)
     if (demo) {
         log2file(" preparing to show replay");
         recording = 0;
+        /* port: the first playback step keeps the previous control state (the
+         * replay stream starts one step later); start from "no input" as
+         * the replay checker does, instead of whatever keys were held */
+        ctrl.flags = 0;
         rejump = demo->rejump;
         rec_seed = demo->random_seed;
         if (is_custom_replay(demo))
