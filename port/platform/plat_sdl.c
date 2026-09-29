@@ -78,6 +78,9 @@ bool plat_init(int argc, char **argv)
                 getenv("ITOWER_HEADLESS") != NULL;
    if (!g_headless)
       flags |= SDL_INIT_VIDEO | SDL_INIT_GAMEPAD;
+   else
+      /* the batch checker never pumps quit events: SIGINT/SIGTERM must kill it */
+      SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
    SDL_SetAppMetadata("Icy Tower (portable)", "1.5.1-port", "io.github.icytower-rerecon.port");
    if (!SDL_Init(flags)) {
       fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());

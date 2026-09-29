@@ -9,6 +9,8 @@
 #include "port/render/render.h"
 #include "port/platform/platform.h"
 
+void a4_sound_configure(int freq, float master_gain);   /* compat mixer */
+
 static port_audio_config g_audio = { 44100, 100 };
 static char g_path[2048];
 
@@ -191,7 +193,6 @@ void port_config_load(int argc, char **argv)
 
 const port_audio_config *port_audio_cfg(void) { return &g_audio; }
 
-void a4_sound_configure(int freq, float master_gain);
 
 bool port_config_fullscreen(void)
 {

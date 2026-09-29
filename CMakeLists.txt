@@ -48,6 +48,8 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(itower_xiph PRIVATE -w)
 endif()
 if(NOT WIN32)
+  # configure-generated libogg header, provided statically
+  target_include_directories(itower_xiph BEFORE PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/port/xiph)
   target_link_libraries(itower_xiph PUBLIC m)
 endif()
 

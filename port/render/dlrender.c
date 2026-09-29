@@ -7,6 +7,7 @@
  * tile seams cannot open at fractional scales.
  */
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include "port/render/dlrender.h"
 #include "port/render/texcache.h"
