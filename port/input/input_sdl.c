@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "port/input/input.h"
+#include "port/input/touch.h"
 #include "port/platform/plat_internal.h"
 #include "port/render/present.h"
 
@@ -244,6 +245,44 @@ static void apply_pending_releases(uint64_t now)
       }
 }
 
+void input_virtual_key(int sc, int ascii, bool down)
+{
+   if (sc <= 0 || sc >= INPUT_KEY_MAX)
+      return;
+   if (down) {
+      input_key[sc] = 1;
+      g_key_down_ns[sc] = SDL_GetTicksNS();
+      g_key_release_pending[sc] = 0;
+      input_keybuf_push(sc, ascii);
+   } else if (SDL_GetTicksNS() - g_key_down_ns[sc] < KEY_MIN_HOLD_NS) {
+      g_key_release_pending[sc] = 1;
+   } else {
+      input_key[sc] = 0;
+   }
+}
+
+/* While the game reads a typed string (get_string) the platform's text
+ * input is on: phones show their soft keyboard.  Printable characters then
+ * arrive as text events; key-down events keep only their key state and the
+ * special keys (Enter, Backspace, Esc), so hardware keys are not doubled. */
+static bool g_text_input;
+
+void input_text_input(bool on)
+{
+#ifdef SDL_PLATFORM_ANDROID
+   SDL_Window *w = present_window();
+   if (on == g_text_input || !w)
+      return;
+   g_text_input = on;
+   if (on)
+      SDL_StartTextInput(w);
+   else
+      SDL_StopTextInput(w);
+#else
+   (void)on;   /* desktop: every key already arrives as a key event */
+#endif
+}
+
 static void on_event(const SDL_Event *ev)
 {
    int sc, cx, cy;
@@ -262,8 +301,22 @@ static void on_event(const SDL_Event *ev)
             g_key_down_ns[sc] = SDL_GetTicksNS();
             g_key_release_pending[sc] = 0;
          }
-         input_keybuf_push(sc, ascii_for(&ev->key, sc));
+         {
+            int a = ascii_for(&ev->key, sc);
+            /* Allegro never buffers the modifier and lock keys (KEY_LSHIFT..);
+               a buffered Shift reached get_string() as character 0 and cut
+               every name typed with a capital letter */
+            if (sc < 115 && !(g_text_input && a >= 32 && a < 127))
+               input_keybuf_push(sc, a);
+         }
          break;
+      case SDL_EVENT_TEXT_INPUT: {
+         const unsigned char *t = (const unsigned char *)ev->text.text;
+         for (; t && *t; t++)
+            if (*t >= 32 && *t < 127)
+               input_keybuf_push(0, *t);   /* plain character (scancode 0) */
+         break;
+      }
       case SDL_EVENT_KEY_UP:
          sc = map_scancode(ev->key.scancode);
          update_shifts(ev->key.mod);
@@ -362,6 +415,7 @@ void input_init(void)
    g_inited = true;
    plat_add_event_handler(on_event);
    SDL_AddEventWatch(lifecycle_watch, NULL);
+   touch_init();
    if (!plat_headless())
       pad_open_first();
 }
@@ -448,6 +502,7 @@ int input_control_flags(const input_bindings *b, int pad_only)
       if (K(b->key_pause)) f |= 0x40;
 #undef K
       f |= g_virtual_flags;
+      f |= touch_control_flags();
    }
    if (SDL_GetAtomicInt(&g_pause_request) && SDL_SetAtomicInt(&g_pause_request, 0))
       f |= 0x40;   /* back from the background: pause, as the pause key does */

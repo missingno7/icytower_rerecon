@@ -8,6 +8,8 @@
  * Called on the game thread between screens; nothing is written before the
  * game has loaded its data, so defaults never overwrite the player's files. */
 #include "recovered/Tprofile.h"
+#include "recovered/Tmenu_selection.h"
+#include "port/config/port_config.h"
 
 extern Tprofile *profile;
 extern void save_config(void);
@@ -16,6 +18,12 @@ extern void syncProfileFromOptions(void);
 
 void port_save_state(void)
 {
+#ifdef __ANDROID__
+   {
+      extern Tmenu_selection touch_selection;   /* Options > Controls > Touch */
+      port_config_set_touch_scheme(touch_selection.value);
+   }
+#endif
    if (!profile)
       return;
    save_config();

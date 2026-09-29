@@ -31,6 +31,8 @@ bool port_config_fullscreen(void);
 void port_config_set_fullscreen(bool fullscreen);
 /* write the current settings back (e.g. after an in-game fullscreen toggle) */
 bool port_config_save(void);
+/* in-game touch scheme change (applies it and saves the INI) */
+void port_config_set_touch_scheme(int scheme);
 const char *port_config_path(void);
 
 #ifdef __cplusplus

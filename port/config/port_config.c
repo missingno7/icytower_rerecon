@@ -8,6 +8,7 @@
 #include "port/config/port_config.h"
 #include "port/render/render.h"
 #include "port/platform/platform.h"
+#include "port/input/touch.h"
 
 void a4_sound_configure(int freq, float master_gain);   /* compat mixer */
 
@@ -65,7 +66,19 @@ static const char *DEFAULT_INI =
 "# mixer output rate in Hz\n"
 "frequency = 44100\n"
 "# 0..100, applied on top of the in-game sound and music volumes\n"
-"master_volume = 100\n";
+"master_volume = 100\n"
+"\n"
+"[input]\n"
+"# touch controls during gameplay (also in the game: Options > Controls > Touch)\n"
+"#   zones = left side: left / right zones, right side: jump\n"
+"#   slide = left side: drag left / right, right side: jump\n"
+"#   tilt  = tilt the device to run, tap anywhere to jump\n"
+"#   off   = keyboard or gamepad only\n"
+"touch_scheme = zones\n"
+"# strength of the on-screen controls, 0.05 .. 1\n"
+"touch_opacity = 0.35\n"
+"# mirror the touch layout (jump on the left)\n"
+"touch_left_handed = false\n";
 
 static bool parse_bool(const char *v, bool def)
 {
@@ -116,6 +129,13 @@ static void apply(const char *section, const char *k, const char *v)
    } else if (!SDL_strcasecmp(section, "audio")) {
       if (!SDL_strcasecmp(k, "frequency")) g_audio.frequency = SDL_clamp(atoi(v), 8000, 192000);
       else if (!SDL_strcasecmp(k, "master_volume")) g_audio.master_volume = SDL_clamp(atoi(v), 0, 100);
+   } else if (!SDL_strcasecmp(section, "input")) {
+      if (!SDL_strcasecmp(k, "touch_scheme")) {
+         int t = touch_scheme_from_name(v);
+         if (t >= 0) touch_set_scheme(t);
+      }
+      else if (!SDL_strcasecmp(k, "touch_opacity")) touch_set_opacity((float)atof(v));
+      else if (!SDL_strcasecmp(k, "touch_left_handed")) touch_set_left_handed(parse_bool(v, false));
    }
 }
 
@@ -216,16 +236,26 @@ void port_config_set_fullscreen(bool fullscreen)
                                 : WINMODE_WINDOWED;
    port_config_save();
 }
+void port_config_set_touch_scheme(int scheme)
+{
+   if (scheme == touch_scheme())
+      return;
+   touch_set_scheme(scheme);
+   port_config_save();
+}
+
 const char *port_config_path(void) { return g_path; }
 
 bool port_config_save(void)
 {
    /* The file is user-edited documentation as much as data; only the
-    * display mode is ever changed from inside the game, so rewrite just
-    * that key and keep comments intact. */
+    * display mode and the touch scheme are changed from inside the game, so
+    * rewrite just those keys and keep comments intact (a file from an older
+    * version gets an [input] section appended). */
    char *text;
    size_t n;
    FILE *f;
+   bool touch_written = false;
    const render_config *rc = render_get_config();
    const char *mode = rc->window_mode == WINMODE_FULLSCREEN ? "fullscreen" :
                       rc->window_mode == WINMODE_BORDERLESS ? "borderless" : "windowed";
@@ -240,10 +270,15 @@ bool port_config_save(void)
          if (next) *next++ = 0;
          if (!strncmp(line, "mode", 4) && strchr(line, '='))
             fprintf(f, "mode = %s\n", mode);
-         else
+         else if (!strncmp(line, "touch_scheme", 12) && strchr(line, '=')) {
+            fprintf(f, "touch_scheme = %s\n", touch_scheme_name(touch_scheme()));
+            touch_written = true;
+         } else
             fprintf(f, "%s\n", line);
          line = next;
       }
+      if (!touch_written)
+         fprintf(f, "\n[input]\ntouch_scheme = %s\n", touch_scheme_name(touch_scheme()));
       fclose(f);
    }
    SDL_free(text);

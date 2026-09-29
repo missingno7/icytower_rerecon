@@ -61,6 +61,42 @@ reads plain files and lists directories, which APK assets cannot do. Profiles, r
   key-state polling sees it.
 - **Mouse cursor.** Never shown.
 
+## Touch controls
+
+`port/input/touch.c` feeds the game's own control flags: left, right, jump (fire) and pause.
+Replays and the simulation therefore cannot tell touch from a keyboard. Every press lasts at
+least one 20 ms tick, so short taps are never lost.
+
+During gameplay one of three schemes is active. You choose it in the game, under
+*Options > Controls > Touch* (Android builds only), or with `[input] touch_scheme` in
+`icytower-port.ini`:
+
+| scheme | left side of the screen | right side |
+|---|---|---|
+| **Zones** (default) | outer half = run left, inner half = run right; rocking the thumb across the boundary switches direction | jump |
+| **Slide** | drag left or right from where the thumb touched down; the anchor trails the thumb, so reversing needs only a short move | jump |
+| **Tilt** | tilt the device to run (about 9 degrees, with hysteresis); tap anywhere to jump | |
+| **Off** | keyboard or gamepad only | |
+
+The controls sit in the widescreen side areas, so they don't cover the tower. A pause button
+sits top-right, and `touch_opacity` / `touch_left_handed` adjust the overlay.
+
+Outside gameplay (menus, results, pause and exit prompts, replays) a small remote replaces
+the game controls:
+
+- ▲ ▼ ◀ ▶ arrows, OK (Enter; Space while watching a replay) and Back (Esc).
+- They are sent as key presses, so every historical screen works as with a keyboard.
+- The mode switches automatically: gameplay mode is on while gameplay frames are being
+  captured.
+
+**Text input.** While the game reads a typed string (profile name, replay name and comment),
+the soft keyboard is shown (`input_text_input`). Printable characters then come from text
+events and key events only carry key state, so hardware keys are not doubled.
+
+Found on the way, fixed for every platform: Shift was put into the key buffer. Allegro never
+buffers modifier keys, and `get_string` stored the buffered Shift as a NUL character, which
+cut off every name typed with a capital letter.
+
 ## Determinism on ARM
 
 Two compiler settings keep ARM builds identical to x86 (`CMakeLists.txt`, all platforms):
@@ -84,7 +120,9 @@ Portability bugs found by the first Android run, fixed for every platform:
    and landscape fullscreen. Verified on the x86_64 emulator (API 36, 2340x1080) with
    keyboard input: first-run profile creation, the menus, gameplay, Back, and pausing when
    backgrounded. arm64-v8a builds and has not been run yet.
-2. Touch controls: zones, slide and tilt schemes, selectable in the game's menus; tap
-   latching; a touch remote for non-gameplay screens.
-3. Tap-to-select menus and the soft keyboard for name entry.
+2. Done: touch controls (zones, slide, tilt, off) selectable in the game's menus, tap
+   latching, the touch remote for other screens, and the soft keyboard for name entry.
+   All verified on the emulator, tilt with the emulated accelerometer.
+3. Tapping menu items directly, a touch-friendly replay browser, and overlay polish
+   (size and position settings in the game).
 4. Replay check on a real ARM phone (`-check` of all replays through adb) and polish.

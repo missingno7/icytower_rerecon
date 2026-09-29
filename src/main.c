@@ -252,12 +252,21 @@ Tscroller summary_scroller;
 /* Initialized menu data recovered from main.c's DWARF declarations and the
  * original .data bytes.  Links stay symbolic so the ordinary linker owns the
  * final relocations. */
+#ifdef __ANDROID__
+/* port: touch scheme (port/input/touch.h), stored in icytower-port.ini */
+Tmenu_selection touch_selection;
+Tmenu ctrl_menu[7] = {
+#else
 Tmenu ctrl_menu[6] = {
+#endif
     { "LEFT",   'r', 0,   0,   0x40, &ctrl.key_left },
     { "RIGHT",  'r', 0,   0,   0x40, &ctrl.key_right },
     { "JUMP",   'r', 0,   0,   0x40, &ctrl.key_fire },
     { "PAUSE",  'r', 0,   0,   0x40, &ctrl.key_pause },
     { "ReJump", 'q', 'q', 'q', 0x04, &options.jump_hold },
+#ifdef __ANDROID__
+    { "Touch",  0,   'o', 'p', 0x08, &touch_selection },   /* right = next */
+#endif
     { "Back",   'l', 0,   0,   0x80, NULL }
 };
 
@@ -2383,6 +2392,14 @@ int init_game(int argc, char **argv)
     eyecandy_selection.caption[0]=strdup("Lots"); /* 1418 */
     eyecandy_selection.caption[1]=strdup("Some"); /* 1419 */
     eyecandy_selection.caption[2]=strdup("None"); /* 1420 */
+#ifdef __ANDROID__
+    touch_selection.size=4;   /* port: order of TOUCH_ZONES.. in port/input/touch.h */
+    touch_selection.caption[0]=strdup("Zones");
+    touch_selection.caption[1]=strdup("Slide");
+    touch_selection.caption[2]=strdup("Tilt");
+    touch_selection.caption[3]=strdup("Off");
+    touch_selection.value=port_touch_scheme();
+#endif
     scroll_speed_selection.value=0; /* 1422 */
     scroll_speed_selection.size=6; /* 1423 */
     scroll_speed_selection.caption[5]=strdup("Normal"); /* 1424 */
@@ -5917,7 +5934,7 @@ void replay_menu_callback(void)
 
 /* Oracle: main.c:5367, 0x40bc44..0x40bf59.  The editor owns only its
  * temporary backing bitmap; callers retain the supplied string and screen. */
-int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
+static int get_string_body(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
                int pos_x, int pos_y, int colour, int bg_color)
 {
     BITMAP *block = create_bitmap(w, text_height(f) + 2);
@@ -6004,6 +6021,18 @@ int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
 
     destroy_bitmap(block);
     return 0;
+}
+
+/* port: the platform text input (phones: the soft keyboard) is on while a
+   string is typed */
+int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
+               int pos_x, int pos_y, int colour, int bg_color)
+{
+    int r;
+    port_text_input(1);
+    r = get_string_body(bmp, string, w, max_chars, f, pos_x, pos_y, colour, bg_color);
+    port_text_input(0);
+    return r;
 }
 
 void replaceBadCharacters(char *string, char newChar)

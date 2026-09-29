@@ -87,4 +87,5 @@ The historical options still work: `-check REPLAY [-all]` runs the headless repl
 and the in-game options menu is available (its Fullscreen entry follows `[display] mode`).
 
 Controls are the game's own configurable keys. SDL gamepads also work and can be connected
-at any time; Start pauses.
+at any time; Start pauses. Touch screens get on-screen controls (zones, slide or tilt) and a
+remote for the menus; see [docs/port/ANDROID.md](docs/port/ANDROID.md) for Android builds.

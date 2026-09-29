@@ -6,6 +6,8 @@
 #include "port/render/modern.h"
 #include "port/render/capture.h"
 #include "port/platform/platform.h"
+#include "port/input/touch.h"
+#include "port/render/touch_overlay.h"
 
 #ifdef SDL_PLATFORM_ANDROID
 #define DEFAULT_WINMODE WINMODE_BORDERLESS   /* the app always covers the screen */
@@ -55,6 +57,8 @@ bool render_frame_due(bool dirty)
    bool animating = g_cfg.modern && modern_scene_active() && g_cfg.interpolation;
    if (capture_pending())
       return true;
+   if (touch_take_dirty())
+      dirty = true;   /* a touch control changed (press highlight) */
    if (!dirty && !animating)
       return false;
    if (g_cfg.max_fps > 0) {
@@ -77,6 +81,7 @@ void render_frame(void)
    SDL_RenderClear(g_ren);
    if (!(g_cfg.modern && modern_draw_frame(g_ren)))
       present_draw_canvas(NULL);
+   touch_overlay_draw(g_ren);
    capture_frame(g_ren);
    SDL_RenderPresent(g_ren);
    g_last_frame_ns = plat_ticks_ns();

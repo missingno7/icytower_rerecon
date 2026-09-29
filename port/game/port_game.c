@@ -56,3 +56,9 @@ void port_wait_tick(void)
 {
    sched_wait_tick();
 }
+
+#include "port/input/touch.h"
+#include "port/input/input.h"
+
+int port_touch_scheme(void) { return touch_scheme(); }
+void port_text_input(int on) { input_text_input(on != 0); }

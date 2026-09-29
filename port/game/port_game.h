@@ -50,6 +50,11 @@ void port_wait_tick(void);
  * without an exit path; see port_game.c) */
 void port_save_state(void);
 
+/* touch scheme for the in-game selection (port/input/touch.h values) */
+int port_touch_scheme(void);
+/* soft keyboard on/off while the game reads a typed string */
+void port_text_input(int on);
+
 #ifdef __cplusplus
 }
 #endif

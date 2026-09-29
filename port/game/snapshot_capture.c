@@ -11,6 +11,7 @@
  * pause text, fades) is an overlay on top of the modern world rendering.
  */
 #include <string.h>
+#include "port/input/touch.h"
 #include <allegro.h>
 #include "recovered_types.h"
 #include "map.h"
@@ -215,5 +216,6 @@ void port_snapshot_post(void)
    s.debug_rows = debug;
 
    snapshot_push(&s);
+   touch_note_gameplay(s.replay != 0);   /* touch: gameplay controls while frames flow */
    a4_dl_set_underlay(swap_screen, snapshot_generation());
 }

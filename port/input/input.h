@@ -32,6 +32,11 @@ int  input_keybuf_pop(void);
 void input_keybuf_push(int scancode, int ascii);
 void input_keybuf_clear(void);
 void input_release_all_keys(void);
+/* a key pressed/released by a virtual device (touch remote): same path as a
+ * keyboard key, including the minimum hold time and the key buffer */
+void input_virtual_key(int allegro_scancode, int ascii, bool down);
+/* soft keyboard / text input while the game reads a typed string */
+void input_text_input(bool on);
 
 /* ---- mouse, in legacy 640x480 canvas coordinates */
 extern volatile int input_mouse_x, input_mouse_y, input_mouse_b;
