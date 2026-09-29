@@ -5,12 +5,16 @@
 # PulseAudio and PipeWire at run time, so none of them is a hard dependency.
 # No original game file is involved: the player supplies their own data.
 #
-# Runs for pushed v* tags, or by hand: gh workflow run linux-release.yml -f tag=v1.0
+# Runs for pushed v* tags (attached to that release) and for pushes to the
+# portable-sdl3 branch (a Linux CI build; the archive is kept as a workflow
+# artifact, named after the nearest release tag).  workflow_dispatch needs the
+# workflow on the default branch, which this project leaves untouched.
 name: Linux release build
 
 on:
   push:
     tags: ['v*']
+    branches: [portable-sdl3]
   workflow_dispatch:
     inputs:
       tag:
@@ -28,6 +32,8 @@ jobs:
       TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags, for the version in the archive name
 
       - name: Build dependencies
         run: |
@@ -59,11 +65,13 @@ jobs:
       - name: Package
         run: |
           set -e
-          name="IcyTower-port-${TAG:-dev}-linux-x86_64"
+          version="${TAG:-$(git describe --tags --abbrev=0 2>/dev/null || echo dev)}"
+          name="IcyTower-port-$version-linux-x86_64"
           mkdir -p "dist/$name/licenses"
           cp build/linux/icytower "dist/$name/icytower-port"
           strip "dist/$name/icytower-port"
           cp packaging/README.txt "dist/$name/"
+          echo "Built from commit $(git rev-parse HEAD)" > "dist/$name/BUILD.txt"
           cp build/linux/_deps/sdl3-src/LICENSE.txt "dist/$name/licenses/SDL3.txt"
           cp third_party/libogg-1.1.3/COPYING "dist/$name/licenses/libogg.txt"
           cp third_party/libvorbis-1.2.0/COPYING "dist/$name/licenses/libvorbis.txt"
