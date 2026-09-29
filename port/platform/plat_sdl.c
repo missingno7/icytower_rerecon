@@ -66,6 +66,67 @@ static bool has_arg(int argc, char **argv, const char *name)
    return false;
 }
 
+#ifdef SDL_PLATFORM_ANDROID
+/* The game data ships inside the APK (assets/gamedata/, listed in index.txt
+ * by the Gradle build: a content-hash line, then "size path" lines).  The
+ * game reads plain files and lists directories, which APK assets do not
+ * support, so the data is unpacked into private storage once per APK
+ * content and that copy becomes the asset root. */
+static void android_unpack_gamedata(void)
+{
+   const char *base = SDL_GetAndroidInternalStoragePath();
+   char dir[1024], stamp[1100];
+   size_t len = 0, old_len = 0;
+   char *index, *old, *line, *next;
+   bool ok = true;
+   if (!base)
+      return;
+   index = (char *)SDL_LoadFile("gamedata/index.txt", &len);   /* relative: APK assets */
+   if (!index) {
+      SDL_Log("no packaged game data (gamedata/index.txt)");
+      return;
+   }
+   SDL_snprintf(dir, sizeof(dir), "%s/gamedata/", base);
+   SDL_snprintf(stamp, sizeof(stamp), "%sindex.txt", dir);
+   old = (char *)SDL_LoadFile(stamp, &old_len);
+   if (!old || old_len != len || memcmp(old, index, len) != 0) {
+      char *copy = SDL_strdup(index);
+      SDL_Log("unpacking game data to %s", dir);
+      plat_mkdir_p(dir);
+      for (line = copy; line && *line; line = next) {
+         char *path, src[1024], dst[1024];
+         size_t n = 0;
+         void *data;
+         next = strchr(line, '\n');
+         if (next) *next++ = 0;
+         if (line[0] == '#' || !(path = strchr(line, ' ')))
+            continue;
+         path++;
+         if (path[0] && path[strlen(path) - 1] == '\r')
+            path[strlen(path) - 1] = 0;
+         SDL_snprintf(src, sizeof(src), "gamedata/%s", path);
+         SDL_snprintf(dst, sizeof(dst), "%s%s", dir, path);
+         {
+            char *slash = strrchr(dst, '/');
+            if (slash) { *slash = 0; plat_mkdir_p(dst); *slash = '/'; }
+         }
+         data = SDL_LoadFile(src, &n);
+         if (!data || !SDL_SaveFile(dst, data, n)) {
+            SDL_Log("unpacking %s failed: %s", path, SDL_GetError());
+            ok = false;
+         }
+         SDL_free(data);
+      }
+      SDL_free(copy);
+      if (ok)
+         SDL_SaveFile(stamp, index, len);   /* written last: marks a complete copy */
+   }
+   SDL_free(old);
+   SDL_free(index);
+   add_asset_dir(dir);
+}
+#endif
+
 /* ------------------------------------------------------------ lifetime */
 
 bool plat_init(int argc, char **argv)
@@ -81,6 +142,10 @@ bool plat_init(int argc, char **argv)
    else
       /* the batch checker never pumps quit events: SIGINT/SIGTERM must kill it */
       SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
+#ifdef SDL_PLATFORM_ANDROID
+   SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");    /* back = Esc, not "close app" */
+   SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
    SDL_SetAppMetadata("Icy Tower (portable)", "1.5.1-port", "io.github.icytower-rerecon.port");
    if (!SDL_Init(flags)) {
       fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -108,6 +173,9 @@ bool plat_init(int argc, char **argv)
    /* asset roots */
    add_asset_dir(arg_value(argc, argv, "--data"));
    add_asset_dir(getenv("ITOWER_DATA_DIR"));
+#ifdef SDL_PLATFORM_ANDROID
+   android_unpack_gamedata();
+#endif
    add_asset_dir(SDL_GetBasePath());
    {
       char *cwd = SDL_GetCurrentDirectory();
@@ -175,10 +243,12 @@ void plat_pump_events(void)
          case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             g_quit = true;
             break;
+         case SDL_EVENT_DID_ENTER_FOREGROUND:   /* mobile: back from the background */
          case SDL_EVENT_WINDOW_FOCUS_GAINED:
             if (!g_focus && g_on_focus_in) g_on_focus_in();
             g_focus = true;
             break;
+         case SDL_EVENT_WILL_ENTER_BACKGROUND:
          case SDL_EVENT_WINDOW_FOCUS_LOST:
             if (g_focus && g_on_focus_out) g_on_focus_out();
             g_focus = false;

@@ -278,6 +278,7 @@ int handle_menu(Tmenu *menu, Tmenu_params *mp, Tcontrol *ctrl, BITMAP *bmp,
 
             case 132:
                 change_profile();
+                port_save_state();   /* port: persist at once (mobile apps get killed) */
                 break;
 
             case 131:
@@ -308,6 +309,7 @@ int handle_menu(Tmenu *menu, Tmenu_params *mp, Tcontrol *ctrl, BITMAP *bmp,
             case 103:
                 mp->pos = 0;
                 { int sub_ret = handle_menu((Tmenu *)data, mp, ctrl, bmp, callback, x, y, dx);
+                port_save_state();   /* port: options/controls changes persist at once */
                 if (sub_ret && sub_ret != 108) return sub_ret; }
                 break;
 

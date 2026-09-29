@@ -39,6 +39,7 @@ static int map_scancode(SDL_Scancode sc)
       return 47 + (sc - SDL_SCANCODE_F1);
    switch (sc) {
       case SDL_SCANCODE_ESCAPE: return 59;
+      case SDL_SCANCODE_AC_BACK: return 59;   /* Android back button: Esc (pause / back) */
       case SDL_SCANCODE_GRAVE: return 60;
       case SDL_SCANCODE_MINUS: return 61;
       case SDL_SCANCODE_EQUALS: return 62;
@@ -211,25 +212,67 @@ const input_pad_state *input_pad(void)
 
 /* ---------------------------------------------------------------- events */
 
+/* one-shot CTRL_PAUSE when the app is backgrounded (mobile).  SDL delivers
+ * the lifecycle events only to event watchers, on the OS UI thread, while
+ * the game thread is about to be frozen; the watcher just sets this flag and
+ * the game pauses on its next control poll after it resumes. */
+static SDL_AtomicInt g_pause_request;
+
+static bool SDLCALL lifecycle_watch(void *user, SDL_Event *ev)
+{
+   (void)user;
+   if (ev->type == SDL_EVENT_WILL_ENTER_BACKGROUND)
+      SDL_SetAtomicInt(&g_pause_request, 1);
+   return true;
+}
+
+/* The game polls key *state* in its wait loops and 50 Hz ticks.  A press
+ * whose down and up arrive in the same event pump (touch taps, injected or
+ * very quick key taps) would never be seen, so every press stays down for
+ * at least KEY_MIN_HOLD_NS, which is longer than one simulation tick. */
+#define KEY_MIN_HOLD_NS 30000000ull
+static uint64_t g_key_down_ns[INPUT_KEY_MAX];
+static unsigned char g_key_release_pending[INPUT_KEY_MAX];
+
+static void apply_pending_releases(uint64_t now)
+{
+   int i;
+   for (i = 0; i < INPUT_KEY_MAX; i++)
+      if (g_key_release_pending[i] && now - g_key_down_ns[i] >= KEY_MIN_HOLD_NS) {
+         g_key_release_pending[i] = 0;
+         input_key[i] = 0;
+      }
+}
+
 static void on_event(const SDL_Event *ev)
 {
    int sc, cx, cy;
    run_script();
    switch (ev->type) {
+      case SDL_EVENT_USER:   /* once per pump */
+         apply_pending_releases(SDL_GetTicksNS());
+         break;
       case SDL_EVENT_KEY_DOWN:
          sc = map_scancode(ev->key.scancode);
          update_shifts(ev->key.mod);
          if (!sc)
             break;
-         if (!ev->key.repeat)
+         if (!ev->key.repeat) {
             input_key[sc] = 1;
+            g_key_down_ns[sc] = SDL_GetTicksNS();
+            g_key_release_pending[sc] = 0;
+         }
          input_keybuf_push(sc, ascii_for(&ev->key, sc));
          break;
       case SDL_EVENT_KEY_UP:
          sc = map_scancode(ev->key.scancode);
          update_shifts(ev->key.mod);
-         if (sc)
-            input_key[sc] = 0;
+         if (sc) {
+            if (SDL_GetTicksNS() - g_key_down_ns[sc] < KEY_MIN_HOLD_NS)
+               g_key_release_pending[sc] = 1;
+            else
+               input_key[sc] = 0;
+         }
          break;
       case SDL_EVENT_WINDOW_FOCUS_LOST:
          input_release_all_keys();
@@ -318,6 +361,7 @@ void input_init(void)
       return;
    g_inited = true;
    plat_add_event_handler(on_event);
+   SDL_AddEventWatch(lifecycle_watch, NULL);
    if (!plat_headless())
       pad_open_first();
 }
@@ -343,6 +387,9 @@ void input_show_cursor(bool show)
 {
    if (plat_headless())
       return;
+#ifdef SDL_PLATFORM_ANDROID
+   show = false;   /* touch device: the game's mouse cursor is never shown */
+#endif
    if (show)
       SDL_ShowCursor();
    else
@@ -402,5 +449,7 @@ int input_control_flags(const input_bindings *b, int pad_only)
 #undef K
       f |= g_virtual_flags;
    }
+   if (SDL_GetAtomicInt(&g_pause_request) && SDL_SetAtomicInt(&g_pause_request, 0))
+      f |= 0x40;   /* back from the background: pause, as the pause key does */
    return f;
 }

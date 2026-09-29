@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.22)   # 3.22: the Android SDK's CMake
 project(IcyTowerPortable C)
 
 # Portable SDL3 source port of the frozen Icy Tower 1.5.1 reconstruction.
@@ -14,6 +14,10 @@ include(FetchSDL3)
 option(ITOWER_BUILD_TESTS "Build port unit tests" ON)
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+  # Determinism on every CPU (docs/port/TESTING.md): plain char is signed as on
+  # x86 (with unsigned char two real replays are rejected as invalid files),
+  # and a*b+c is never fused into one differently rounded FMA.
+  add_compile_options(-fsigned-char -ffp-contract=off)
   set(ITOWER_WARN -Wall -Wno-unused-variable -Wno-unused-but-set-variable
       -Wno-pointer-sign -Wno-unused-function -Wno-misleading-indentation
       -Wno-dangling-else -Wno-parentheses -Wno-format-overflow)
@@ -95,7 +99,14 @@ foreach(f ${GAME_SOURCES})
   endif()
 endforeach()
 if(PORT_GAME_SOURCES)
-  add_executable(icytower ${GAME_SOURCES} ${PORT_GAME_SOURCES})
+  if(ANDROID)
+    # SDLActivity loads the game as libmain.so (SDL_main)
+    add_library(icytower SHARED ${GAME_SOURCES} ${PORT_GAME_SOURCES})
+    set_target_properties(icytower PROPERTIES OUTPUT_NAME main)
+    target_link_libraries(icytower PRIVATE android log)
+  else()
+    add_executable(icytower ${GAME_SOURCES} ${PORT_GAME_SOURCES})
+  endif()
   target_include_directories(icytower PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(icytower PRIVATE itower_port)
   target_compile_options(icytower PRIVATE ${ITOWER_WARN} ${ITOWER_GAME_FLAGS})

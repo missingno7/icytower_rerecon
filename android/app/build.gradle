@@ -1,0 +1,148 @@
+import java.security.MessageDigest
+
+plugins {
+    id 'com.android.application'
+}
+
+// ---------------------------------------------------------------- inputs
+// The repository root holds the one CMake build shared by every platform.
+def repoRoot = rootProject.file('..')
+
+// SDL version and tarball hash have one source of truth: cmake/FetchSDL3.cmake.
+// The Java glue (org.libsdl.app.*) must match the native SDL exactly, so it is
+// unpacked from the same pinned tarball instead of being copied into the repo.
+def fetchCmake = new File(repoRoot, 'cmake/FetchSDL3.cmake').text
+def sdlVersion = (fetchCmake =~ /ITOWER_SDL3_VERSION "([^"]+)"/)[0][1]
+def sdlSha256 = (fetchCmake =~ /ITOWER_SDL3_SHA256 "([0-9a-f]{64})"/)[0][1]
+def depsDir = new File(System.getenv('ITOWER_DEPS_DIR') ?: new File(repoRoot, 'build/deps').path)
+def sdlTar = new File(depsDir, "SDL3-${sdlVersion}.tar.gz")
+
+// Game data is never part of the repository.  Personal builds package the
+// local, git-ignored copy of an Icy Tower 1.5 installation (default: assets/;
+// override with -PgameData=DIR).
+def gameDir = new File((project.findProperty('gameData') ?: new File(repoRoot, 'assets').path) as String)
+
+// ABIs: phones (arm64-v8a) and the emulator (x86_64); -Pabis=x86_64 builds one
+def abiList = ((project.findProperty('abis') ?: 'arm64-v8a,x86_64') as String).split(',')*.trim()
+
+def genJava = new File(buildDir, 'generated/sdl-java')
+def genAssets = new File(buildDir, 'generated/game-assets')
+
+android {
+    namespace 'io.github.icytowerport'
+    compileSdk 36
+    ndkVersion = (project.findProperty('ndkVersion') ?: '27.0.12077973')
+
+    defaultConfig {
+        applicationId 'io.github.icytowerport'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.5.1-port'
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static', '-DITOWER_BUILD_TESTS=OFF',
+                          "-DITOWER_DEPS_DIR=${depsDir.absolutePath.replace('\\', '/')}"
+                abiFilters(*abiList)
+            }
+        }
+        ndk {
+            abiFilters(*abiList)
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path '../../CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += genJava
+            assets.srcDirs += genAssets
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // personal builds (the APK contains the local game data): sign
+            // with the debug key so the release variant installs directly
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    androidResources {
+        // aapt's default pattern also drops "<dir>_*" (characters/_template/)
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// ---------------------------------------------------------------- tasks
+
+tasks.register('fetchSdlTarball') {
+    outputs.file(sdlTar)
+    doLast {
+        if (!sdlTar.exists()) {
+            depsDir.mkdirs()
+            def url = "https://github.com/libsdl-org/SDL/releases/download/release-${sdlVersion}/SDL3-${sdlVersion}.tar.gz"
+            logger.lifecycle("downloading ${url}")
+            new URI(url).toURL().withInputStream { i -> sdlTar.withOutputStream { it << i } }
+        }
+        def md = MessageDigest.getInstance('SHA-256')
+        sdlTar.eachByte(65536) { buf, n -> md.update(buf, 0, n) }
+        if (md.digest().encodeHex().toString() != sdlSha256)
+            throw new GradleException("SDL tarball hash mismatch: ${sdlTar}")
+    }
+}
+
+tasks.register('sdlJava', Copy) {
+    dependsOn 'fetchSdlTarball'
+    def prefix = "SDL3-${sdlVersion}/android-project/app/src/main/java/"
+    from(tarTree(resources.gzip(sdlTar))) {
+        include "${prefix}**"
+        eachFile { it.path = it.path.substring(prefix.length()) }
+    }
+    includeEmptyDirs = false
+    into genJava
+}
+
+// Packages data/, characters/ and gamepad.txt as APK assets under gamedata/,
+// with index.txt (content hash, then "size path" per file).  The game unpacks
+// them into private storage on first start (port/platform/plat_sdl.c).
+tasks.register('gameAssets') {
+    inputs.files(fileTree(gameDir) { include 'data/**', 'characters/**', 'gamepad.txt' })
+    outputs.dir(genAssets)
+    doLast {
+        if (!new File(gameDir, 'data/data.dat').exists())
+            throw new GradleException("Icy Tower game data not found in ${gameDir}: it needs data/ and " +
+                                      "characters/ from an Icy Tower 1.5 installation (-PgameData=DIR)")
+        def out = new File(genAssets, 'gamedata')
+        project.delete(genAssets)
+        project.copy {
+            from(gameDir) { include 'data/**', 'characters/**', 'gamepad.txt' }
+            into out
+        }
+        def files = []
+        out.eachFileRecurse(groovy.io.FileType.FILES) { files << it }
+        files.sort { it.path }
+        def md = MessageDigest.getInstance('SHA-1')
+        def lines = files.collect { f ->
+            def rel = out.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+            md.update(rel.getBytes('UTF-8'))
+            md.update(f.bytes)
+            "${f.length()} ${rel}"
+        }
+        new File(out, 'index.txt').text = "# ${md.digest().encodeHex()}\n" + lines.join('\n') + '\n'
+    }
+}
+
+tasks.named('preBuild') {
+    dependsOn 'sdlJava', 'gameAssets'
+}

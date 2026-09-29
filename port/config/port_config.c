@@ -14,6 +14,12 @@ void a4_sound_configure(int freq, float master_gain);   /* compat mixer */
 static port_audio_config g_audio = { 44100, 100 };
 static char g_path[2048];
 
+#ifdef SDL_PLATFORM_ANDROID
+#define DEFAULT_MODE_NAME "borderless"
+#else
+#define DEFAULT_MODE_NAME "windowed"
+#endif
+
 static const char *DEFAULT_INI =
 "# Icy Tower portable build - port settings.\n"
 "# This file only holds settings of the SDL3 port.  Game options, profiles,\n"
@@ -25,7 +31,7 @@ static const char *DEFAULT_INI =
 "# windowed | fullscreen | borderless\n"
 "#   fullscreen = exclusive display mode change (uses width/height)\n"
 "#   borderless = desktop-resolution fullscreen window\n"
-"mode = windowed\n"
+"mode = " DEFAULT_MODE_NAME "\n"
 "# initial window size in desktop units (high-DPI screens get more pixels)\n"
 "width = 1280\n"
 "height = 720\n"

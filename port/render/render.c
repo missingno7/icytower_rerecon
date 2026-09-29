@@ -7,8 +7,14 @@
 #include "port/render/capture.h"
 #include "port/platform/platform.h"
 
+#ifdef SDL_PLATFORM_ANDROID
+#define DEFAULT_WINMODE WINMODE_BORDERLESS   /* the app always covers the screen */
+#else
+#define DEFAULT_WINMODE WINMODE_WINDOWED
+#endif
+
 static render_config g_cfg = {
-   WINMODE_WINDOWED, 1280, 720, true, true, true, 0, false,
+   DEFAULT_WINMODE, 1280, 720, true, true, true, 0, false,
    true, true, FILTER_NEAREST, true, 0.0f, false
 };
 static struct SDL_Renderer *g_ren;

@@ -14,9 +14,10 @@ typedef Thisc Thisc_post;
 
 #include "recovered/Thisc_table.h"
 
-extern void free(void *ptr);
-extern void *malloc(unsigned int size);
-extern char *strcpy(char *dst,const char *src);
+/* port: the historical unit declared free/malloc/strcpy itself, malloc with an
+   unsigned int size; 64-bit targets need the real size_t prototypes */
+#include <stdlib.h>
+#include <string.h>
 /* DWARF declares the shared list as DATAFILE *.  The original's 0x420,
  * 0x410, and 0x400 offsets identify entries 66, 65, and 64. */
 extern DATAFILE *data;

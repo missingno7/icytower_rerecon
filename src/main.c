@@ -1785,8 +1785,16 @@ void log2file(const char *format, ...)
     fp = port_fopen(logfilename, "at");
     if (fp) {
         va_start(ptr, format);
-        vfprintf(fp, format, ptr);
-        vsprintf(last_log, format, ptr);
+        {
+            /* port: a va_list may be consumed only once; reusing it worked on
+               Win32/Win64 but reads garbage on x86-64 System V (Linux, Android) */
+            va_list again;
+            va_copy(again, ptr);
+            vfprintf(fp, format, ptr);
+            vsprintf(last_log, format, again);
+            va_end(again);
+        }
+        va_end(ptr);
         fputc('\n', fp);
         fclose(fp);
     }
@@ -6354,6 +6362,7 @@ int _mangled_main(int argc, char **argv)
         draw_menu(swap_screen, main_menu, &menu_params, 355, 285, 0);
         fadeIn(swap_screen, 16);
         force_create_profile();
+        port_save_state();   /* port: keep the new profile if the app is killed */
         syncOptionsFromProfile();
         must_fade = 0;
     }

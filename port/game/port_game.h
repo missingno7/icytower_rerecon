@@ -46,6 +46,10 @@ void port_open_url(const char *url);
  * rendered at display rate while waiting. */
 void port_wait_tick(void);
 
+/* write tower.cfg and the current profile now (mobile apps are killed
+ * without an exit path; see port_game.c) */
+void port_save_state(void);
+
 #ifdef __cplusplus
 }
 #endif
