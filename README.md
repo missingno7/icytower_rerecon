@@ -1,5 +1,10 @@
 # Icy Tower 1.5.1 — minimal matching reconstruction
 
+> **Branch `portable-sdl3`:** this branch is a portable SDL3 source port derived from the
+> frozen reconstruction (`main` @ `70ece2a`). See [PORT.md](PORT.md). The text below
+> describes the frozen matching project; its claims apply to `main`, not to this branch's
+> sources.
+
 25 historical game translation units. **Migration baseline: 211 FUNCTION_MATCH,
 41 DIFFER, 1 CODEGEN_SIMILAR.** The ordinary source link closes, but this remains
 an incomplete reconstruction. No playable-game, OBJECT_MATCH, CU_MATCH or

@@ -1,60 +1,89 @@
-# SDL3 backend and Android builds: preparation
+# Icy Tower 1.5.1: portable SDL3 build
 
-Goal: run the reconstructed game on SDL3 (desktop first, then Android) while keeping the 25
-historical units as the behavioural reference. The reconstruction repository stays what it is
-(the historical build and its proofs); the port lives beside it and links the same 25 units
-against a compatibility layer instead of Allegro 4.4.1.
+Branch `portable-sdl3` is a modern source port of the frozen matching reconstruction
+(`main` @ `70ece2a`). The game's rules, physics, RNG, replays and 50 Hz timing are the
+reconstruction's. Replays are verified identical to the frozen build.
 
-## Measured API surface
+Platform, rendering, input, audio and files are new:
 
-`tools/port_inventory.py` scans the 25 units against the pinned Allegro 4.4.1 headers and writes
-`docs/sdl3/allegro-api-usage.json`. Result: 127 Allegro functions, 15 globals, 8 types and
-53 constants are used (`name` in the list is a struct field, not the Allegro macro). Grouped:
+- SDL3 with no Allegro runtime;
+- resizable, high-DPI, true widescreen output;
+- rendering decoupled from the fixed 50 Hz simulation, with optional interpolation;
+- gamepads;
+- per-user writable paths.
 
-| area | functions (use counts in the JSON) | notes for the layer |
-|---|---|---|
-| bitmaps and drawing | create_bitmap(_ex), create_sub_bitmap, destroy_bitmap, blit, masked_blit, stretch_blit, draw_sprite(_h_flip/_v_flip), draw_trans_sprite, rotate_sprite, rotate_scaled_sprite, stretch_sprite, rectfill, rect, line, putpixel, getpixel, clear_bitmap, clear_to_color, set_clip_rect, acquire/release_bitmap, acquire/release_screen, vsync, is_memory_bitmap, bitmap_color_depth | software BITMAP in memory (8/16/32 bpp as the data files need), one SDL texture upload of `screen` per frame; `screen` is a 640x480 BITMAP |
-| colour and blending | makecol(_depth), getr/getg/getb/geta (15/16/24/32), set_trans_blender, set_alpha_blender, drawing_mode, solid_mode, set_color_conversion, get_color_conversion, set_color_depth, desktop_color_depth, select_palette, set_palette, get_palette, generate_332_palette, _rgb_scale_6, _color_load_depth, _fixup_loaded_bitmap | keep Allegro's colour math exactly (it is the reference); palette handling is used only for 8-bit loading |
-| text | textout_ex, textout_centre_ex, textout_right_ex, text_length, text_height, `font` | Allegro FONT from the datafile; glyph blitting in software |
-| datafiles and files | load_datafile(_callback), unload_datafile, register_datafile_object, DAT_ID, load_bitmap, save_bitmap, register_bitmap_file_type, pack_fopen/fread/fwrite/fclose, packfile_password, exists, file_exists, file_size_ex, delete_file, get_filename, get_extension, replace_extension, replace_filename, get_executable_name, for_each_file_ex, set_config_file, get_config_string | the datafile reader and the LZSS unpacker must be ported verbatim from Allegro (assets are `.dat`); PACKFILE maps onto SDL_IOStream |
-| input | key[], keypressed, readkey, clear_keybuf, simulate_keypress, install_keyboard, install_mouse, mouse_x/y/b, show_mouse, select_mouse_cursor, enable_hardware_cursor, install_joystick, poll_joystick, joy[] | scancode table KEY_* to SDL_Scancode; `key[]` refreshed from SDL events each frame; Android needs on-screen controls mapped into `key[]` |
-| timing | install_timer, install_int, rest | the game's `cycle_count` timer callback drives logic at a fixed rate; implement `install_int` with an SDL timer or a monotonic-clock accumulator, `rest` with SDL_Delay |
-| sound | install_sound, play_sample, stop_sample, adjust_sample, destroy_sample, load_sample, load_wav, voice_stop, voice_get_position, set_volume, play_midi, stop_midi, load_midi, destroy_midi, logg (ogg decode) | software mixer with SDL3 audio streams; ogg via stb_vorbis or libvorbis; MIDI is used once (menu) and can be stubbed or rendered |
-| system | set_gfx_mode, gfx_driver, set_display_switch_mode/callback, set_close_button_callback, allegro_exit, alert, allegro_errno, END_OF_MAIN, SWITCH_* | window/fullscreen through SDL; focus callbacks from SDL window events |
-| fixed point | itofix, fixtoi, ftofix, fixtof, fixsin | header inlines, copy verbatim |
+| document | contents |
+|---|---|
+| [docs/port/ARCHITECTURE.md](docs/port/ARCHITECTURE.md) | layers, coordinate domains, renderers, scheduler, interpolation, x87 determinism, config, what changed in the game sources, remaining legacy limitations |
+| [docs/port/TESTING.md](docs/port/TESTING.md) | how equivalence is established: Allegro golden tests, replay regression against the frozen build, render-rate independence, Linux |
+| [docs/port/COORDINATES.md](docs/port/COORDINATES.md) | classification of every 640/480/320/240/SCREEN_W/H/screen/swap_screen use |
+| [docs/port/X87.md](docs/port/X87.md) | the software 80-bit arithmetic that makes gameplay bit-exact on every CPU |
+| [docs/port/BASELINE.md](docs/port/BASELINE.md) | provenance and the reference build |
 
-Types: BITMAP, SAMPLE, DATAFILE, FONT, PACKFILE, RGB, fixed, GFX_DRIVER. The layer must keep the
-struct layouts the game touches (BITMAP `w`, `h`, `line[]`, `dat`; DATAFILE `dat`, `size`).
+This branch makes no matching claims. `recovery.json`, `FREEZE.md` and `tools/verify.py`
+describe the frozen commit, not these sources.
 
-## Design: `compat/allegro4-sdl3`
+## Build
 
-1. One C library exposing `allegro.h`-compatible declarations for exactly the surface above, so
-   the 25 units compile unchanged. Anything not in the inventory is left out on purpose.
-2. Rendering is software into memory BITMAPs, exactly as Allegro did, and `screen` is presented
-   with one texture update per frame. This keeps pixel results identical to the reference build,
-   which matters for replays and for later equivalence tests.
-3. Behavioural verification: the same replay files must play identically on the historical build
-   and on the SDL3 build. Add a headless mode (the game already has `itrcheck`, the replay checker)
-   and compare its XML output between both builds in CI.
-4. Files: profiles, replays, config and screenshots move under `SDL_GetPrefPath`; the data files
-   ship read-only (`SDL_GetBasePath`, or Android assets through SDL_IOStream).
+Requirements:
 
-## Android
+- CMake 3.24+ and Ninja;
+- a C compiler (MinGW-w64 gcc 12 tested on Windows, gcc 15 on Linux);
+- Python 3.10+ for the helper scripts.
 
-- Build with SDL3's Android project template (Gradle + CMake); the 25 units plus the layer are
-  plain C99, no Windows headers once the layer replaces `winalleg.h`/`aintwin.h` includes in
-  main.c (those two includes are the only Win32-specific lines in the game sources; the
-  QueryPerformanceCounter use in `play` needs a portable clock in the layer).
-- 640x480 logical size rendered with letterboxing (`SDL_SetRenderLogicalPresentation`).
-- Touch: an overlay that sets `key[KEY_LEFT/RIGHT/SPACE/...]` and feeds `readkey` for menus.
-- Audio: SDL3 audio streams; keep the mixer in the layer so sample priorities match.
-- Ads module (fld_adspot, httpget) is dead code without a server; keep it compiled, it is
-  harmless, or stub the network call.
+SDL3 3.4.16 is downloaded once, pinned by sha256; the vendored libogg/libvorbis are in
+`port/xiph`.
 
-## Order of work
+```
+python tools/port/build.py                  # -> build/port/release/icytower(.exe)
+```
 
-1. Layer skeleton with bitmaps, datafile loading, text, keyboard, timer, `set_gfx_mode`; get to
-   the main menu on desktop.
-2. Sound and gameplay; verify replays against the historical build with the replay checker.
-3. Android project, touch overlay, file locations.
-4. Only then consider touching game sources, and only outside the 25 historical units' proven code.
+Or use CMake directly (`-DITOWER_SDL3_MODE=system` uses an installed SDL3):
+
+```
+cmake -S . -B build/port/release -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build/port/release
+```
+
+A windowed Linux build needs SDL3's usual X11/Wayland development packages. With
+`-DSDL_UNIX_CONSOLE_BUILD=ON` it builds without them, for the headless replay checker.
+
+## Run
+
+Game data is not included. Point the port at an installed Icy Tower 1.5 directory (the one
+containing `data/` and `characters/`):
+
+```
+icytower --data "C:/Games/Icy Tower 1.5"
+```
+
+`ITOWER_DATA_DIR` does the same. Alternatively, put the executable next to the data.
+Profiles, replays, high scores, screenshots, `tower.cfg` and the port settings go to the
+per-user directory: `%APPDATA%/IcyTowerPort/IcyTower` on Windows,
+`~/.local/share/IcyTowerPort/IcyTower` on Linux; `--user-dir` overrides it.
+
+### Settings
+
+`icytower-port.ini` in the user directory is created on first run and documents itself:
+
+```
+[display]  mode = windowed | fullscreen | borderless
+           width, height, resizable, vsync, max_fps (0 = uncapped), high_dpi
+[render]   renderer = modern | faithful      modern: native resolution-independent
+                                             faithful: the historical 640x480 frame, scaled
+           widescreen = on | off             off: 4:3 view with bars
+           texture_filter = nearest | linear | pixelart
+           interpolation = on | off          smooth motion above 50 fps (presentation only)
+           ui_scale = auto | N, integer_scaling (faithful)
+[audio]    frequency, master_volume
+```
+
+Each setting has a command-line override: `--renderer`, `--window 1920x1080`,
+`--fullscreen`, `--borderless`, `--windowed`, `--vsync`, `--max-fps`, `--filter`,
+`--interpolation`, `--widescreen`, `--ui-scale`, `--config FILE`.
+
+The historical options still work: `-check REPLAY [-all]` runs the headless replay checker,
+and the in-game options menu is available (its Fullscreen entry follows `[display] mode`).
+
+Controls are the game's own configurable keys. SDL gamepads also work and can be connected
+at any time; Start pauses.
