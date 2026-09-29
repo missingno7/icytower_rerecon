@@ -1,0 +1,85 @@
+# Linux x86_64 build of the portable SDL3 port, for GitHub releases.
+#
+# Built on Ubuntu 22.04 (glibc 2.35) so the binary runs on most distributions
+# from about 2022 on.  SDL is linked statically and loads X11, Wayland, ALSA,
+# PulseAudio and PipeWire at run time, so none of them is a hard dependency.
+# No original game file is involved: the player supplies their own data.
+#
+# Runs for pushed v* tags, or by hand: gh workflow run linux-release.yml -f tag=v1.0
+name: Linux release build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the build to (empty: artifact only)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    env:
+      TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build cmake \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev \
+            libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols \
+            libdecor-0-dev libegl1-mesa-dev libgl1-mesa-dev libgles2-mesa-dev libdrm-dev \
+            libgbm-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libdbus-1-dev libudev-dev
+
+      - name: Configure
+        run: cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build/linux
+
+      - name: Check video and audio backends
+        run: |
+          cfg=$(find build/linux/_deps/sdl3-build -name SDL_build_config.h | head -1)
+          for d in SDL_VIDEO_DRIVER_X11 SDL_VIDEO_DRIVER_WAYLAND SDL_AUDIO_DRIVER_ALSA \
+                   SDL_AUDIO_DRIVER_PULSEAUDIO SDL_AUDIO_DRIVER_PIPEWIRE; do
+            grep -qE "#define $d 1" "$cfg" || { echo "missing $d"; exit 1; }
+          done
+
+      - name: Unit tests
+        run: |
+          for t in test_x87 test_sound test_files test_logg; do ./build/linux/$t; done
+
+      - name: Package
+        run: |
+          set -e
+          name="IcyTower-port-${TAG:-dev}-linux-x86_64"
+          mkdir -p "dist/$name/licenses"
+          cp build/linux/icytower "dist/$name/icytower-port"
+          strip "dist/$name/icytower-port"
+          cp packaging/README.txt "dist/$name/"
+          cp build/linux/_deps/sdl3-src/LICENSE.txt "dist/$name/licenses/SDL3.txt"
+          cp third_party/libogg-1.1.3/COPYING "dist/$name/licenses/libogg.txt"
+          cp third_party/libvorbis-1.2.0/COPYING "dist/$name/licenses/libvorbis.txt"
+          cp third_party/licenses/allegro-license.txt "dist/$name/licenses/allegro.txt"
+          cp third_party/licenses/logg-license.txt "dist/$name/licenses/logg.txt"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          ldd "dist/$name/icytower-port"
+          echo "ARCHIVE=dist/$name.tar.gz" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: ${{ env.ARCHIVE }}
+
+      - name: Attach to release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "$ARCHIVE" --clobber

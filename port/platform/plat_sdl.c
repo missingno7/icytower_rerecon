@@ -337,6 +337,59 @@ static bool join(char *out, size_t n, const char *root, const char *rel)
    return (size_t)SDL_snprintf(out, n, "%s%s", root, rel) < n;
 }
 
+#ifndef _WIN32
+/* The game and its add-on characters come from Windows, where file names are
+ * case-insensitive ("Frames.PNG" may be referenced as "frames.png").  On
+ * case-sensitive systems a path that does not exist as written is matched
+ * component by component, ignoring ASCII case. */
+typedef struct ci_find { const char *want; char found[256]; } ci_find;
+
+static SDL_EnumerationResult SDLCALL ci_cb(void *user, const char *dir, const char *name)
+{
+   ci_find *f = (ci_find *)user;
+   (void)dir;
+   if (!SDL_strcasecmp(name, f->want)) {
+      SDL_strlcpy(f->found, name, sizeof(f->found));
+      return SDL_ENUM_SUCCESS;
+   }
+   return SDL_ENUM_CONTINUE;
+}
+
+static bool ci_resolve(const char *root, const char *rel, char *out, size_t n)
+{
+   char path[2048], comp[256];
+   size_t len;
+   while (rel[0] == '.' && (rel[1] == '/' || rel[1] == '\\'))
+      rel += 2;
+   SDL_strlcpy(path, root, sizeof(path));
+   while (*rel) {
+      size_t k = 0;
+      while (*rel == '/' || *rel == '\\') rel++;
+      while (*rel && *rel != '/' && *rel != '\\' && k + 1 < sizeof(comp))
+         comp[k++] = *rel++;
+      comp[k] = 0;
+      if (!k)
+         break;
+      len = strlen(path);
+      if ((size_t)SDL_snprintf(path + len, sizeof(path) - len, "%s", comp) >= sizeof(path) - len)
+         return false;
+      if (!SDL_GetPathInfo(path, NULL)) {
+         ci_find f;
+         path[len] = 0;
+         f.want = comp;
+         f.found[0] = 0;
+         SDL_EnumerateDirectory(len ? path : ".", ci_cb, &f);
+         if (!f.found[0])
+            return false;
+         SDL_strlcat(path, f.found, sizeof(path));
+      }
+      if (*rel)
+         SDL_strlcat(path, "/", sizeof(path));
+   }
+   return (size_t)SDL_snprintf(out, n, "%s", path) < n;
+}
+#endif
+
 bool plat_resolve_read(const char *game_path, char *out, size_t outsz)
 {
    int i;
@@ -353,6 +406,13 @@ bool plat_resolve_read(const char *game_path, char *out, size_t outsz)
       if (join(tmp, sizeof(tmp), g_asset_dirs[i], game_path) && SDL_GetPathInfo(tmp, NULL))
          return (size_t)SDL_snprintf(out, outsz, "%s", tmp) < outsz;
    }
+#ifndef _WIN32
+   if (ci_resolve(g_user_dir, game_path, out, outsz))
+      return true;
+   for (i = 0; i < g_asset_count; i++)
+      if (ci_resolve(g_asset_dirs[i], game_path, out, outsz))
+         return true;
+#endif
    return join(out, outsz, g_user_dir, game_path);
 }
 

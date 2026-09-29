@@ -215,6 +215,18 @@ static void test_memory_packfile(void)
    }
 }
 
+/* Windows-authored names must be found with any case on case-sensitive
+ * systems (plat_resolve_read's fallback); on Windows the OS already does. */
+static void test_case_insensitive(void)
+{
+   char out[2048];
+   CHECK(plat_resolve_read("casetest/mixed/frames.png", out, sizeof(out)));
+   CHECK(SDL_GetPathInfo(out, NULL));
+   CHECK(plat_resolve_read("CASETEST/MIXED/FRAMES.png", out, sizeof(out)));
+   CHECK(SDL_GetPathInfo(out, NULL));
+   CHECK(read_all("casetest/mixed/frames.png", "rb", out, sizeof(out)) == 1);
+}
+
 static void test_path_helpers(void)
 {
    char buf[64];
@@ -246,6 +258,7 @@ int main(int argc, char **argv)
    put_file(ddir, "characters/c2/c2.txt", "2");
    put_file(udir, "characters/c3/c3.txt", "3");
    put_file(udir, "characters/c1/extra.txt", "x");
+   put_file(ddir, "casetest/Mixed/Frames.PNG", "m");   /* case test */
 
    pargv[0] = "test_files";
    pargv[1] = "--headless";
@@ -262,6 +275,7 @@ int main(int argc, char **argv)
    test_path_helpers();
    test_memory_packfile();
    test_resolution();
+   test_case_insensitive();
 
    plat_shutdown();
    rm_tree(base);
