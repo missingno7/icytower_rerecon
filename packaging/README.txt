@@ -8,7 +8,7 @@ and adds:
 - resizable windows, fullscreen, true widescreen and high-DPI rendering
 - smooth motion on high-refresh displays (the game still runs at its fixed 50 Hz)
 - gamepad support
-- an Android version with touch controls
+- Windows, Linux, macOS and Android (with touch controls)
 
 The original game files are NOT included. You need your own copy of Icy Tower
 1.5 (freeware by Free Lunch Design).
@@ -48,6 +48,20 @@ Needs a 64-bit distribution from about 2022 on (glibc 2.35, e.g. Ubuntu
 22.04), X11 or Wayland, and ALSA, PulseAudio or PipeWire for sound. Saved
 data and icytower-port.ini go to ~/.local/share/IcyTowerPort/IcyTower.
 File names are matched without regard to case, as on Windows.
+
+
+MACOS (Apple Silicon and Intel, macOS 11 or later)
+---------------------------------------------------
+1. Unzip and move IcyTower.app into a folder that contains the "data" and
+   "characters" folders of Icy Tower 1.5 (copy them from a Windows
+   installation, e.g. into ~/Games/Icy Tower).
+2. Open IcyTower.app. The app is not notarized by Apple: the first time,
+   right-click it and choose Open; if macOS still refuses, allow it under
+   System Settings > Privacy & Security ("Open Anyway"), or run in Terminal:
+       xattr -dr com.apple.quarantine "/path/to/IcyTower.app"
+
+Saved data and icytower-port.ini go to
+~/Library/Application Support/IcyTowerPort/IcyTower.
 
 
 ANDROID

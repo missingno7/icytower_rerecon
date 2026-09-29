@@ -62,6 +62,9 @@ jobs:
         run: |
           for t in test_x87 test_sound test_files test_logg; do ./build/linux/$t; done
 
+      - name: Replay determinism
+        run: python3 tools/port/ci_replay_check.py build/linux/icytower --jobs 4
+
       - name: Package
         run: |
           set -e

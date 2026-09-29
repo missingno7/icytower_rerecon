@@ -181,6 +181,25 @@ bool plat_init(int argc, char **argv)
    android_unpack_gamedata();
 #endif
    add_asset_dir(SDL_GetBasePath());
+#ifdef SDL_PLATFORM_MACOS
+   {
+      /* an app bundle's base path is IcyTower.app/Contents/Resources/; the
+         player puts the .app into the game folder, next to data/ */
+      const char *b = SDL_GetBasePath();
+      const char *app = b ? SDL_strstr(b, ".app/Contents/Resources/") : NULL;
+      if (app) {
+         char dir[1024];
+         size_t n = (size_t)(app - b);
+         while (n > 0 && b[n - 1] != '/')
+            n--;   /* strip "IcyTower" of IcyTower.app */
+         if (n > 0 && n < sizeof(dir)) {
+            SDL_memcpy(dir, b, n);
+            dir[n] = 0;
+            add_asset_dir(dir);
+         }
+      }
+   }
+#endif
    {
       char *cwd = SDL_GetCurrentDirectory();
       if (cwd) {

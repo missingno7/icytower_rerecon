@@ -1,0 +1,98 @@
+# macOS build of the portable SDL3 port, for GitHub releases.
+#
+# One universal IcyTower.app (Apple Silicon + Intel, macOS 11+), with SDL linked
+# statically.  Replay determinism is checked on both CPU slices (the Intel one
+# under Rosetta when the runner has it).  The app is ad-hoc signed, not
+# notarized; the README tells players how to open it.  No original game file
+# is involved: the player puts the app next to their own game data.
+#
+# Runs for pushed v* tags (attached to that release) and for pushes to the
+# portable-sdl3 branch (CI build, kept as a workflow artifact).
+name: macOS release build
+
+on:
+  push:
+    tags: ['v*']
+    branches: [portable-sdl3]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach the build to (empty: artifact only)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-14
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags, for the version in the archive name
+
+      - name: Configure (universal arm64 + x86_64)
+        run: >
+          cmake -S . -B build/mac -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Build
+        run: cmake --build build/mac -j 4
+
+      - name: Check architectures
+        run: |
+          lipo -info build/mac/icytower
+          lipo -info build/mac/icytower | grep -q arm64
+          lipo -info build/mac/icytower | grep -q x86_64
+
+      - name: Unit tests (arm64)
+        run: |
+          for t in test_x87 test_sound test_files test_logg; do ./build/mac/$t; done
+
+      - name: Replay determinism (arm64)
+        run: python3 tools/port/ci_replay_check.py build/mac/icytower --jobs 3
+
+      - name: Replay determinism (x86_64 under Rosetta)
+        run: |
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 ./build/mac/test_x87
+            python3 tools/port/ci_replay_check.py build/mac/icytower --jobs 3 --prefix "arch -x86_64"
+          else
+            echo "Rosetta not available on this runner: x86_64 slice not executed"
+          fi
+
+      - name: Package
+        run: |
+          set -e
+          version="${TAG:-$(git describe --tags --abbrev=0 2>/dev/null || echo dev)}"
+          name="IcyTower-port-$version-macos-universal"
+          app="dist/$name/IcyTower.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "dist/$name/licenses"
+          cp build/mac/icytower "$app/Contents/MacOS/icytower-port"
+          strip -x "$app/Contents/MacOS/icytower-port"
+          sed "s/@VERSION@/${version#v}/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
+          codesign --force --deep --sign - "$app"
+          cp packaging/README.txt "dist/$name/"
+          echo "Built from commit $(git rev-parse HEAD)" > "dist/$name/BUILD.txt"
+          cp build/mac/_deps/sdl3-src/LICENSE.txt "dist/$name/licenses/SDL3.txt"
+          cp third_party/libogg-1.1.3/COPYING "dist/$name/licenses/libogg.txt"
+          cp third_party/libvorbis-1.2.0/COPYING "dist/$name/licenses/libvorbis.txt"
+          cp third_party/licenses/allegro-license.txt "dist/$name/licenses/allegro.txt"
+          cp third_party/licenses/logg-license.txt "dist/$name/licenses/logg.txt"
+          (cd dist && ditto -c -k --keepParent "$name" "$name.zip")
+          otool -L "$app/Contents/MacOS/icytower-port"
+          echo "ARCHIVE=dist/$name.zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: ${{ env.ARCHIVE }}
+
+      - name: Attach to release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "$ARCHIVE" --clobber
