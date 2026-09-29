@@ -137,7 +137,9 @@ void draw_menu(BITMAP *bmp, Tmenu *m, Tmenu_params *mp, int cx, int y, int dx)
         }
 
         if (m[pos].flags & 32) {
-            BITMAP *b = ((BITMAP **)m->data)[2];
+            /* the original read the 32-bit word at byte 8 ((BITMAP **)data)[2]; name the
+               field so 64-bit builds read the same member */
+            BITMAP *b = ((Tmenu_char_selection *)m->data)->bmp;
             draw_sprite(bmp, b, x + 244 - b->w / 2, y + nextpos * h - b->h + 10);
         }
 

@@ -103,6 +103,12 @@ optional integer scaling. This is the regression reference for the presentation.
   - Whole-canvas copies share lists, and partial copies nest.
   - The screen-shake self-copy shifts the list.
   - Opaque full-cover draws start a new list.
+  - Screens that redraw onto an uncleared canvas every frame (the post-game menu's grid)
+    would grow the list without bound. An op whose pixels are all overwritten later is
+    therefore pruned: covered by an opaque op, redrawn identically, or faded below half a
+    colour step by translucent fills. The final image is unchanged.
+  - 8-bit sources are converted with the palette selected at draw time, as Allegro does,
+    and the converted copy is recorded (the loading screen's logo uses its own palette).
   - Anything not representable (XOR, zooming a canvas, sub-bitmap drawing) invalidates the
     list, and that frame falls back to the canvas pixels, so correctness never depends on
     the list.
@@ -252,7 +258,8 @@ All changes are platform or presentation machinery unless listed as a behaviour 
 - Includes, Winsock, pthreads, `ShellExecute`, `LoadCursor`, `LoadLibrary`, `chdir`, `getcwd`,
   `QueryPerformanceCounter`: replaced with portable equivalents (`port/game/port_game.h`).
 - `fopen` and `mkdir` go through the file roots. `stricmp` is portable.
-- 64-bit fixes: menu data pointer, profile `time_t`, layout asserts of pointer-bearing
+- 64-bit fixes: menu data pointer, the GFX menu's character bitmap (read as the 32-bit
+  word at byte 8), profile `time_t`, layout asserts of pointer-bearing
   in-memory structs (serialised structs keep strict asserts), `key` parameter names.
 - `game_data.c`: overlapping `sprintf` (undefined behaviour) replaced by appends, and buffers
   sized for the 5000-entry tables.

@@ -28,7 +28,11 @@
  *  - operations reference their source bitmaps; a source destroyed before
  *    the list is replayed is cloned first (a4_dl_bitmap_dying);
  *  - a4_dl_set_underlay() replaces the list with a marker for the gameplay
- *    world, which the modern renderer draws from simulation snapshots.
+ *    world, which the modern renderer draws from simulation snapshots;
+ *  - screens that redraw onto an uncleared canvas every frame would grow the
+ *    list without bound, so an op whose pixels are all overwritten later
+ *    (opaque cover, identical redraw, or faded below one colour step by
+ *    translucent fills) is pruned; the final image is unchanged.
  */
 #ifndef A4_DL_H
 #define A4_DL_H
@@ -44,6 +48,7 @@ extern "C" {
 #define A4_BMP_CLONE    0x0004u   /* private copy owned by a display list */
 
 enum {
+   DLOP_NONE = 0,     /* pruned (fully overdrawn); consumers skip it */
    DLOP_BITMAP = 1,   /* src rect -> dst rect, optional flip/rotation/blend */
    DLOP_FILL,         /* solid or translucent rectangle */
    DLOP_LINE,         /* 1-pixel line (hline/vline/line/rect edge/putpixel) */
@@ -81,11 +86,16 @@ typedef struct a4_dl_op {
    const FONT *font;
    char *text;
    uint64_t underlay;        /* UNDERLAY: snapshot generation */
+   uint32_t src_gen;         /* BITMAP: source generation when recorded */
+   float vis;                /* remaining visibility under later translucent fills */
+   int16_t bx1, by1, bx2, by2; /* footprint (inclusive), set once the op is complete */
+   uint8_t has_bounds;
 } a4_dl_op;
 
 struct A4_DL {
    int refs;                 /* >1: shared, copy before modifying */
    int n, cap;
+   int dead;                 /* DLOP_NONE entries awaiting compaction */
    a4_dl_op *ops;
    int valid;                /* 0 = use the owning bitmap's pixels */
    int w, h;

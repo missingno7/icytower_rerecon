@@ -564,11 +564,13 @@ static BITMAP *find_background(const A4_DL *dl, int depth)
    if (!dl || !dl->valid || dl->n == 0 || depth > 4)
       return NULL;
    op = &dl->ops[0];
+   while (op->kind == DLOP_NONE && op < &dl->ops[dl->n - 1])
+      op++;
    if (op->kind == DLOP_NESTED)
       return find_background(op->child, depth + 1);
    if (op->kind == DLOP_BITMAP && op->blend == DLB_SOLID && op->dx <= 0 && op->dy <= 0 &&
-       op->dw >= (float)dl->w && op->dh >= (float)dl->h && op->src)
-      return op->src;
+       op->dw >= (float)dl->w && op->dh >= (float)dl->h && op->src && (op->src->a4_flags & A4_BMP_STATIC))
+      return op->src;   /* a loaded background image, never a canvas shown as pixels */
    return NULL;
 }
 
@@ -583,8 +585,9 @@ static void draw_menu_sides(SDL_Renderer *r, const A4_DL *dl, const xform *t, in
       if (++cnt % 120 == 0) {
          int i;
          for (i = 0; i < dl->n && i < 6; i++)
-            SDL_Log("op%d kind=%d blend=%d dx=%g dy=%g dw=%g dh=%g src=%p w=%d h=%d", i, dl->ops[i].kind, dl->ops[i].blend,
-                    dl->ops[i].dx, dl->ops[i].dy, dl->ops[i].dw, dl->ops[i].dh, (void *)dl->ops[i].src, dl->w, dl->h);
+            SDL_Log("op%d kind=%d blend=%d dx=%g dy=%g dw=%g dh=%g src=%p flags=%x w=%d h=%d", i, dl->ops[i].kind, dl->ops[i].blend,
+                    dl->ops[i].dx, dl->ops[i].dy, dl->ops[i].dw, dl->ops[i].dh, (void *)dl->ops[i].src,
+                    dl->ops[i].src ? dl->ops[i].src->a4_flags : 0u, dl->w, dl->h);
       }
    }
    SDL_FRect src, dst;

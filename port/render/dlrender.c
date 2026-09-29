@@ -189,6 +189,8 @@ int dl_render(dl_ctx *c, const A4_DL *dl)
    for (i = 0; i < dl->n; i++) {
       const a4_dl_op *op = &dl->ops[i];
       float a = c->alpha;
+      if (op->kind == DLOP_NONE)
+         continue;
       if (op->kind != DLOP_UNDERLAY) {
          if (c->extend_x && op->cl == 0 && op->cr >= dl->w) {
             /* full-width clip: widen to the output for extended spans */

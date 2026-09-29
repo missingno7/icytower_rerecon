@@ -1,6 +1,8 @@
 /*
  * Display-list recording for canvas bitmaps.  See a4_dl.h for the model.
  */
+#include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "a4_internal.h"
@@ -66,6 +68,7 @@ static void dl_clear_ops(A4_DL *dl)
    for (i = 0; i < dl->n; i++)
       op_release(&dl->ops[i]);
    dl->n = 0;
+   dl->dead = 0;
    dl->shift_x = dl->shift_y = 0;
    dl->valid = 1;
    dl->version++;
@@ -111,6 +114,7 @@ static A4_DL *dl_clone(const A4_DL *src)
    dl->valid = src->valid;
    dl->shift_x = src->shift_x;
    dl->shift_y = src->shift_y;
+   dl->dead = src->dead;
    dl->version = src->version + 1;
    return dl;
 }
@@ -198,6 +202,8 @@ void a4_dl_invalidate(BITMAP *b)
    dl = b->a4_dl;
    if (!dl || !dl->valid)
       return;
+   if (getenv("ITOWER_DEBUG_DL"))
+      fprintf(stderr, "dl invalidate %p (%dx%d) from %p\n", (void *)b, b->w, b->h, __builtin_return_address(0));
    dl = writable(b);
    if (!dl)
       return;
@@ -231,9 +237,184 @@ static A4_DL *target(BITMAP *dst)
    return dl;
 }
 
+/* ---------------------------------------------------------------- pruning */
+
+/* destination footprint of a completed op, clipped (inclusive; empty when
+ * x2 < x1) */
+static void op_bounds(a4_dl_op *op)
+{
+   int x1, y1, x2, y2;
+   switch (op->kind) {
+      case DLOP_FILL:
+         x1 = op->x1; y1 = op->y1; x2 = op->x2; y2 = op->y2;
+         break;
+      case DLOP_LINE:
+         x1 = op->x1 < op->x2 ? op->x1 : op->x2; x2 = op->x1 < op->x2 ? op->x2 : op->x1;
+         y1 = op->y1 < op->y2 ? op->y1 : op->y2; y2 = op->y1 < op->y2 ? op->y2 : op->y1;
+         break;
+      case DLOP_TEXT:
+         x1 = op->x1; y1 = op->y1;
+         x2 = x1 + text_length(op->font, op->text) - 1;
+         y2 = y1 + text_height(op->font) - 1;
+         break;
+      case DLOP_BITMAP:
+      case DLOP_NESTED:
+         if (op->angle != 0.0f) {
+            /* rotated about (px, py): any point lies within the rectangle's
+               farthest-corner distance of the pivot */
+            float ex = op->dx - op->px, ey = op->dy - op->py, fx = ex + op->dw, fy = ey + op->dh;
+            float r2 = 0, v;
+            v = ex * ex + ey * ey; if (v > r2) r2 = v;
+            v = fx * fx + ey * ey; if (v > r2) r2 = v;
+            v = ex * ex + fy * fy; if (v > r2) r2 = v;
+            v = fx * fx + fy * fy; if (v > r2) r2 = v;
+            v = (float)sqrt((double)r2) + 1.0f;
+            x1 = (int)floor(op->px - v); y1 = (int)floor(op->py - v);
+            x2 = (int)ceil(op->px + v); y2 = (int)ceil(op->py + v);
+         } else {
+            x1 = (int)floor(op->dx); y1 = (int)floor(op->dy);
+            x2 = (int)ceil(op->dx + op->dw) - 1; y2 = (int)ceil(op->dy + op->dh) - 1;
+         }
+         break;
+      default:   /* UNDERLAY: the whole canvas; never pruned */
+         x1 = -32768; y1 = -32768; x2 = 32767; y2 = 32767;
+         break;
+   }
+   if (x1 < op->cl) x1 = op->cl;
+   if (y1 < op->ct) y1 = op->ct;
+   if (x2 > op->cr - 1) x2 = op->cr - 1;
+   if (y2 > op->cb - 1) y2 = op->cb - 1;
+   op->bx1 = (int16_t)(x1 < -32768 ? -32768 : x1 > 32767 ? 32767 : x1);
+   op->by1 = (int16_t)(y1 < -32768 ? -32768 : y1 > 32767 ? 32767 : y1);
+   op->bx2 = (int16_t)(x2 < -32768 ? -32768 : x2 > 32767 ? 32767 : x2);
+   op->by2 = (int16_t)(y2 < -32768 ? -32768 : y2 > 32767 ? 32767 : y2);
+   op->has_bounds = 1;
+}
+
+/* rectangle every pixel of which `k` paints opaquely; 0 if none */
+static int op_cover(const a4_dl_op *k, int *x1, int *y1, int *x2, int *y2)
+{
+   int ok = 0;
+   switch (k->kind) {
+      case DLOP_FILL:
+         ok = k->blend == DLB_SOLID;
+         break;
+      case DLOP_LINE:
+         ok = k->blend == DLB_SOLID && (k->x1 == k->x2 || k->y1 == k->y2);
+         break;
+      case DLOP_TEXT:
+         ok = k->text_bg >= 0;   /* glyph cells filled with the background */
+         break;
+      case DLOP_BITMAP:
+         if (k->blend == DLB_SOLID && k->angle == 0.0f && k->src && !(k->src->a4_flags & A4_BMP_CANVAS)) {
+            /* only whole destination pixels count */
+            *x1 = (int)ceil(k->dx); *y1 = (int)ceil(k->dy);
+            *x2 = (int)floor(k->dx + k->dw) - 1; *y2 = (int)floor(k->dy + k->dh) - 1;
+            if (*x1 < k->cl) *x1 = k->cl;
+            if (*y1 < k->ct) *y1 = k->ct;
+            if (*x2 > k->cr - 1) *x2 = k->cr - 1;
+            if (*y2 > k->cb - 1) *y2 = k->cb - 1;
+            return *x2 >= *x1 && *y2 >= *y1;
+         }
+         return 0;
+      default:
+         return 0;
+   }
+   if (!ok)
+      return 0;
+   *x1 = k->bx1; *y1 = k->by1; *x2 = k->bx2; *y2 = k->by2;
+   return *x2 >= *x1 && *y2 >= *y1;
+}
+
+/* `k` redraws exactly the pixels `j` drew, with the same values */
+static int op_same(const a4_dl_op *j, const a4_dl_op *k)
+{
+   if (j->kind != k->kind || j->cl != k->cl || j->ct != k->ct || j->cr != k->cr || j->cb != k->cb)
+      return 0;
+   if (k->kind == DLOP_BITMAP)
+      return (k->blend == DLB_SOLID || k->blend == DLB_MASKED) && j->blend == k->blend && j->src == k->src &&
+             j->src_gen == k->src_gen && j->flip == k->flip && j->angle == k->angle &&
+             j->sx == k->sx && j->sy == k->sy && j->sw == k->sw && j->sh == k->sh &&
+             j->dx == k->dx && j->dy == k->dy && j->dw == k->dw && j->dh == k->dh &&
+             j->px == k->px && j->py == k->py;
+   if (k->kind == DLOP_TEXT)
+      return j->font == k->font && j->x1 == k->x1 && j->y1 == k->y1 && j->rgb == k->rgb &&
+             j->text_color_mode == k->text_color_mode && j->text_bg == k->text_bg &&
+             j->text && k->text && strcmp(j->text, k->text) == 0;
+   if (k->kind == DLOP_LINE || k->kind == DLOP_FILL)
+      return k->blend == DLB_SOLID && j->blend == DLB_SOLID && j->x1 == k->x1 && j->y1 == k->y1 &&
+             j->x2 == k->x2 && j->y2 == k->y2 && j->rgb == k->rgb;
+   return 0;
+}
+
+static void op_kill(A4_DL *dl, a4_dl_op *j)
+{
+   op_release(j);
+   memset(j, 0, sizeof(*j));
+   j->kind = DLOP_NONE;
+   dl->dead++;
+}
+
+/* The last op of `dl` is complete: drop every earlier op whose pixels it
+ * overwrites entirely.  Ops between the two cannot depend on the dropped
+ * one outside its footprint, and inside it their result is overwritten too,
+ * so the image is unchanged.  A translucent fill covering an op fades it;
+ * once its remaining contribution is below half a colour step it goes. */
+static void prune_last(A4_DL *dl)
+{
+   a4_dl_op *k = &dl->ops[dl->n - 1];
+   int i, cx1 = 0, cy1 = 0, cx2 = -1, cy2 = -1, cover, fade;
+   float keep = 1.0f;
+   if (k->kind == DLOP_NONE || k->has_bounds)
+      return;
+   op_bounds(k);
+   if (dl->shift_x || dl->shift_y)
+      return;   /* shaken list: earlier ops are drawn shifted, keep them all */
+   cover = op_cover(k, &cx1, &cy1, &cx2, &cy2);
+   fade = k->kind == DLOP_FILL && k->blend == DLB_TRANS && k->bx2 >= k->bx1 && k->by2 >= k->by1;
+   if (fade)
+      keep = 1.0f - (float)k->alpha / 255.0f;
+   if (!cover && !fade && k->kind != DLOP_BITMAP && k->kind != DLOP_TEXT && k->kind != DLOP_LINE)
+      return;
+   for (i = 0; i < dl->n - 1; i++) {
+      a4_dl_op *j = &dl->ops[i];
+      if (j->kind == DLOP_NONE || j->kind == DLOP_UNDERLAY || !j->has_bounds)
+         continue;
+      if (j->bx2 < j->bx1 || j->by2 < j->by1) {
+         op_kill(dl, j);                       /* clipped away entirely */
+      } else if (cover && j->bx1 >= cx1 && j->by1 >= cy1 && j->bx2 <= cx2 && j->by2 <= cy2 &&
+                 !(j->kind == DLOP_LINE && j->x1 == j->x2 && j->by1 <= 0 && j->by2 >= dl->h - 1 &&
+                   (cx1 > 0 || cx2 < dl->w - 1))) {
+         /* (full-height vertical lines are also repeated past the 4:3 edges on
+            wide outputs; only a full-width cover hides those repeats) */
+         op_kill(dl, j);
+      } else if (op_same(j, k)) {
+         op_kill(dl, j);
+      } else if (fade && j->bx1 >= k->bx1 && j->by1 >= k->by1 && j->bx2 <= k->bx2 && j->by2 <= k->by2) {
+         j->vis *= keep;
+         if (j->vis < 0.5f / 255.0f)
+            op_kill(dl, j);
+      }
+   }
+}
+
+static void compact(A4_DL *dl)
+{
+   int i, n = 0;
+   for (i = 0; i < dl->n; i++)
+      if (dl->ops[i].kind != DLOP_NONE)
+         dl->ops[n++] = dl->ops[i];
+   dl->n = n;
+   dl->dead = 0;
+}
+
 static a4_dl_op *push(BITMAP *dst, A4_DL *dl, int kind)
 {
    a4_dl_op *op;
+   if (dl->n > 0)
+      prune_last(dl);
+   if (dl->dead > 64 && dl->dead * 4 > dl->n)
+      compact(dl);
    if (dl->n >= DL_MAX_OPS) {
       a4_dl_invalidate(dst);
       return NULL;
@@ -251,6 +432,7 @@ static a4_dl_op *push(BITMAP *dst, A4_DL *dl, int kind)
    op = &dl->ops[dl->n++];
    memset(op, 0, sizeof(*op));
    op->kind = (uint8_t)kind;
+   op->vis = 1.0f;
    if (dst->clip) {
       op->cl = (int16_t)dst->cl; op->ct = (int16_t)dst->ct;
       op->cr = (int16_t)dst->cr; op->cb = (int16_t)dst->cb;
@@ -264,6 +446,72 @@ static a4_dl_op *push(BITMAP *dst, A4_DL *dl, int kind)
 static int full_clip(BITMAP *b)
 {
    return !b->clip || (b->cl == 0 && b->ct == 0 && b->cr == b->w && b->cb == b->h);
+}
+
+/* 8-bit sources drawn onto truecolour canvases are converted by Allegro with
+ * the palette selected at draw time (the loading screen selects the logo's
+ * palette only around its draw_sprite).  The list must not depend on the
+ * palette at render time, so such sources are recorded as a copy converted
+ * now.  Masked draws keep index 0 transparent (the canvas mask colour). */
+#define PAL_CACHE 16
+static struct {
+   uint32_t serial, gen, pal;
+   int depth, masked;
+   BITMAP *conv;
+} g_pal_cache[PAL_CACHE];
+static int g_pal_next;
+
+static uint32_t palette_hash(void)
+{
+   const unsigned char *p = (const unsigned char *)a4_current_palette;
+   uint32_t h = 2166136261u;
+   size_t i;
+   for (i = 0; i < sizeof(PALETTE); i++)
+      h = (h ^ p[i]) * 16777619u;
+   return h;
+}
+
+static BITMAP *record_source(BITMAP *src, BITMAP *dst, int masked)
+{
+   uint32_t pal;
+   int i, x, y, depth;
+   BITMAP *c;
+   if (!src || src->depth != 8 || dst->depth == 8)
+      return src;
+   depth = dst->depth;
+   pal = palette_hash();
+   for (i = 0; i < PAL_CACHE; i++)
+      if (g_pal_cache[i].conv && g_pal_cache[i].serial == src->serial && g_pal_cache[i].gen == src->generation &&
+          g_pal_cache[i].pal == pal && g_pal_cache[i].depth == depth && g_pal_cache[i].masked == masked)
+         return g_pal_cache[i].conv;
+   a4_dl_begin_static();
+   c = create_bitmap_ex(depth, src->w, src->h);
+   a4_dl_end_static();
+   if (!c)
+      return src;
+   for (y = 0; y < src->h; y++)
+      for (x = 0; x < src->w; x++) {
+         unsigned long v = a4_get_raw(src, x, y);
+         a4_put_raw(c, x, y, masked && v == 0 ? a4_mask_color(depth) : a4_convert_color(v, 8, depth));
+      }
+   i = g_pal_next;
+   g_pal_next = (g_pal_next + 1) % PAL_CACHE;
+   if (g_pal_cache[i].conv) {
+      BITMAP *old = g_pal_cache[i].conv;
+      g_pal_cache[i].conv = NULL;
+      src_unref(old);            /* freed now, or with the last list op using it */
+   }
+   /* the cache holds one reference; destroy_bitmap then defers the free until
+      the cache and every list that recorded it have let go */
+   src_ref(c);
+   destroy_bitmap(c);
+   g_pal_cache[i].serial = src->serial;
+   g_pal_cache[i].gen = src->generation;
+   g_pal_cache[i].pal = pal;
+   g_pal_cache[i].depth = depth;
+   g_pal_cache[i].masked = masked;
+   g_pal_cache[i].conv = c;
+   return c;
 }
 
 /* ---------------------------------------------------------------- recording */
@@ -319,6 +567,7 @@ void a4_dl_blit(BITMAP *src, BITMAP *dst, int sx, int sy, int dx, int dy, int w,
          return;
       }
    }
+   src = record_source(src, dst, blend != DLB_SOLID);
    /* an opaque copy that covers the whole target hides everything before it */
    if (blend == DLB_SOLID && full_clip(dst) && dx <= 0 && dy <= 0 && sx >= 0 && sy >= 0 &&
        dx + w >= dst->w && dy + h >= dst->h && sx - dx + dst->w <= src->w && sy - dy + dst->h <= src->h)
@@ -328,6 +577,7 @@ void a4_dl_blit(BITMAP *src, BITMAP *dst, int sx, int sy, int dx, int dy, int w,
       return;
    src_ref(src);
    op->src = src;
+   op->src_gen = src->generation;
    op->blend = (uint8_t)blend;
    op->alpha = a4_blend_a;
    op->sx = sx; op->sy = sy; op->sw = w; op->sh = h;
@@ -346,11 +596,13 @@ void a4_dl_sprite(BITMAP *dst, BITMAP *spr, int x, int y, int flip, int blend)
    dl = target(dst);
    if (!dl || !spr)
       return;
+   spr = record_source(spr, dst, blend != DLB_SOLID);
    op = push(dst, dl, DLOP_BITMAP);
    if (!op)
       return;
    src_ref(spr);
    op->src = spr;
+   op->src_gen = spr->generation;
    op->blend = (uint8_t)blend;
    op->alpha = a4_blend_a;
    op->flip = (uint8_t)flip;
@@ -370,11 +622,13 @@ void a4_dl_stretch(BITMAP *src, BITMAP *dst, int sx, int sy, int sw, int sh,
       a4_dl_invalidate(dst);
       return;
    }
+   src = record_source(src, dst, masked);
    op = push(dst, dl, DLOP_BITMAP);
    if (!op)
       return;
    src_ref(src);
    op->src = src;
+   op->src_gen = src->generation;
    op->blend = masked ? DLB_MASKED : DLB_SOLID;
    op->sx = sx; op->sy = sy; op->sw = sw; op->sh = sh;
    op->dx = (float)dx; op->dy = (float)dy; op->dw = (float)dw; op->dh = (float)dh;
@@ -391,11 +645,13 @@ void a4_dl_rotate(BITMAP *dst, BITMAP *spr, int x, int y, fixed angle, fixed sca
       a4_dl_invalidate(dst);
       return;
    }
+   spr = record_source(spr, dst, 1);
    op = push(dst, dl, DLOP_BITMAP);
    if (!op)
       return;
    src_ref(spr);
    op->src = spr;
+   op->src_gen = spr->generation;
    op->blend = DLB_MASKED;
    op->sx = 0; op->sy = 0; op->sw = spr->w; op->sh = spr->h;
    /* Allegro rotates about the sprite centre; (x,y) is where the unrotated,
