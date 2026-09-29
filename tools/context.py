@@ -81,6 +81,6 @@ def main():
         for r in rows:
             key=r.get('effective_output_id',r.get('outcome'));group=groups.setdefault(key,{'variants':[],'rounds':[]})
             group['variants'].append(r['variant']);group['rounds'].append(r['round']);group['latest_response']=r.get('response')
-        result['history']={'experiments':len(rows),'groups':groups,'archive_hint':'Older experiments remain in ../icytower_recon; query selectively.'}
+        result['history']={'experiments':len(rows),'groups':groups,'archive_hint':'Older experiments were in the retired ../icytower_recon archive.'}
     print(json.dumps(result,indent=2));db.close()
 if __name__=='__main__':main()

@@ -7,9 +7,11 @@ Screenshots alone never prove equivalence here. Equivalence is established at th
 - the simulation against every presentation setting.
 
 `docs/port/BASELINE.md` explains the reference build `build/oracle-ref/icytower-ref.exe`.
-It is an ordinary link of the frozen sources, never the original game. Game assets are not in
-the repository; `build/oracle-ref` holds the reference build next to a copy of an installed
-game's `data/` and `characters/`.
+It is an ordinary link of the frozen sources, never the original game. Game assets are not tracked:
+the installed game (data, characters, the original executable used only as the matching
+oracle, and the recorded replays in `profiles/MissingNO/replays/`) lives in ignored `assets/`.
+`build/oracle-ref` holds the reference build next to a copy of `data/` and `characters/`
+and those replays.
 
 ## Build
 

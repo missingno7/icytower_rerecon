@@ -11,14 +11,15 @@ an incomplete reconstruction. No playable-game, OBJECT_MATCH, CU_MATCH or
 whole-executable claim is made. Current accepted state lives in `recovery.json`.
 
 The workflow is **evidence → scratch search → strict acceptance**.
-`../icytower_recon` is read-only cold storage. Normal work does not depend on it.
+The old `../icytower_recon` archive is retired; its locked inputs were moved here
+(ignored `toolchain/tdm-gcc-4.4.1-tdm-2/` and `assets/`).
 
 ## Setup and reproduce
 
 Use Windows and Python 3.10+ with its standard library, from this directory:
 
 ```powershell
-python tools/bootstrap.py --archive ..\icytower_recon
+python tools/bootstrap.py
 python tools/verify.py --all
 python tools/test.py
 python tools/audit.py
@@ -26,7 +27,7 @@ python tools/audit.py
 
 Setup copies only hash-locked C tools, the analysis tool and the user-supplied
 oracle into ignored `build/local/`. Alternatively, supply `--toolchain-dir PATH
---analysis-dir PATH --fixture PATH` without the archive. See
+--analysis-dir PATH --fixture PATH` from other locations. See
 [toolchain/README.md](toolchain/README.md) for identities and required files.
 No executable, runtime DLL, game asset, generated object or library is tracked.
 
@@ -199,4 +200,4 @@ The goal is a 1:1 matching decompilation. Proving the original C spelling is not
 
 [AGENTS.md](AGENTS.md) is the short working contract.
 [MIGRATION.md](MIGRATION.md) contains the inventory, provenance and final audit.
-Old path references in unchanged C comments refer to the cold-storage archive.
+Old path references in unchanged C comments refer to the retired archive.

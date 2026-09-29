@@ -1,6 +1,7 @@
 This is the active historical matching reconstruction. Read README.md first.
-The old ../icytower_recon repository is READ-ONLY cold storage. Never run its
-writing tools there, update its reports, clean it, or import its queues/log trees.
+The old ../icytower_recon repository is retired (2026-09-29); nothing depends on it.
+Its locked inputs now live in this workspace, ignored by git: the toolchain in
+toolchain/tdm-gcc-4.4.1-tdm-2/ and the oracle fixture and game files in assets/.
 
 Preserve the 25 original source units and historical code generation. No SDL,
 modernization, stylistic source edits, binary patching, copied machine-code
@@ -34,4 +35,4 @@ as fragments/patches with shared environment references, never full TU copies.
 
 If a promotion is interrupted, use tools/promote.py --recover; do not delete its
 journal or overwrite concurrent edits. No original executable is ever executed.
-See MIGRATION.md before selectively consulting historical archive experiments.
+MIGRATION.md records what was imported; the archive's old experiments are gone.

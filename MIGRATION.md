@@ -1,5 +1,9 @@
 # Migration inventory (before import)
 
+> 2026-09-29: the archive has since been retired. The only inputs still read from it
+> (the 110 locked toolchain files, the oracle fixture and the game assets) were copied
+> into this workspace's ignored `toolchain/tdm-gcc-4.4.1-tdm-2/` and `assets/`.
+
 Archive: `../icytower_recon`, HEAD `a7bfbb08a031a75133a768043f5daf194b6d4f46`. Read-only throughout.
 Both HEAD and working ledger record 211 FUNCTION_MATCH, 41 DIFFER, 1 CODEGEN_SIMILAR.
 Working main.c has three body edits relative to HEAD; source selection requires fresh peer verification.

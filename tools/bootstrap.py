@@ -1,4 +1,8 @@
-"""Install only locked local inputs from an existing archive; never write to it."""
+"""Install only locked local inputs into build/local; never write to the source.
+
+By default the inputs come from this workspace's ignored copies:
+toolchain/tdm-gcc-4.4.1-tdm-2/ (paths as in toolchain/lock.json archive_path)
+and assets/icytower15.exe (evidence/oracle.json)."""
 import argparse, shutil
 from pathlib import Path
 from common import ROOT, TC, ANALYSIS, ORACLE, identity, read_json, verify_manifest
@@ -11,13 +15,13 @@ def copy_checked(source,dest,expected):
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--archive',type=Path,default=ROOT.parent/'icytower_recon')
+    ap.add_argument('--source','--archive',dest='archive',type=Path,default=ROOT,
+                    help='Root holding the locked inputs at their archive_path (default: this workspace)')
     ap.add_argument('--analysis-dir',type=Path)
     ap.add_argument('--toolchain-dir',type=Path,help='Alternative extracted TDM-2 mingw32 directory')
     ap.add_argument('--fixture',type=Path)
     a=ap.parse_args()
     archive=a.archive.resolve()
-    if archive==ROOT: raise ValueError('Archive must be separate from active workspace')
     for row in read_json(ROOT/'toolchain/lock.json')['files']:
         copy_checked((a.toolchain_dir/row['path']) if a.toolchain_dir else archive/row['archive_path'],TC/row['path'],row)
     analysis=read_json(ROOT/'toolchain/analysis.json')

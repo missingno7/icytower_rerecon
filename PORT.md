@@ -50,11 +50,12 @@ A windowed Linux build needs SDL3's usual X11/Wayland development packages. With
 
 ## Run
 
-Game data is not included. Point the port at an installed Icy Tower 1.5 directory (the one
-containing `data/` and `characters/`):
+Game data is not tracked. Point the port at an installed Icy Tower 1.5 directory (the one
+containing `data/` and `characters/`). In a working copy of this repository the installed
+game lives in the ignored `assets/` folder:
 
 ```
-icytower --data "C:/Games/Icy Tower 1.5"
+icytower --data assets
 ```
 
 `ITOWER_DATA_DIR` does the same. Alternatively, put the executable next to the data.

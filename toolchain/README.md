@@ -10,14 +10,16 @@ are omitted. No executable is committed here.
 The original package/archive identities and provenance paths are retained in
 `lock.json`. They include gcc-4.4.1-tdm-2-core, bundled binutils 2.19.1,
 MinGW runtime 3.16 and w32api 3.13. `files` is the exact setup allowlist; its
-`archive_path` names the file relative to the old reconstruction root.
+`archive_path` names the file relative to the source root: by default this workspace,
+where the files sit in ignored `toolchain/tdm-gcc-4.4.1-tdm-2/` (copied from the
+retired `../icytower_recon`).
 
 `analysis.json` separately pins GNU objdump 2.40 and its libzstd dependency.
 It is only an evidence decoder, never the compiler or linker. System Windows DLLs
 are platform prerequisites. Python 3.10+ standard library runs the tools.
 
 ```powershell
-python tools/bootstrap.py --archive ..\icytower_recon
+python tools/bootstrap.py                       # inputs from this workspace
 # Or point directly to already extracted, hash-identical inputs:
 python tools/bootstrap.py --toolchain-dir C:\archive\mingw32 --analysis-dir C:\msys64\mingw64\bin --fixture C:\fixtures\icytower15.exe
 ```

@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 /candidates/
+# game files and the locked historical toolchain: local inputs, never tracked
+/assets/
+/toolchain/tdm-gcc-4.4.1-tdm-2/
