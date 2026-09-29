@@ -163,6 +163,13 @@ Resolutions checked this way:
 At each one, gameplay, menus, pause, game-over and results were checked for: HUD anchoring,
 wall continuation, full-width overlays, the menu side fill, and seams.
 
+High DPI: at startup the log line `window WxH, drawable WxH pixels, density D, display WxH
+scale S` records the geometry. On a 3840x2160 monitor at 150% Windows scaling it reports the
+display as 3840x2160 with scale 1.50, whereas a DPI-unaware process sees 2560x1440. So the port
+renders into physical pixels and is not stretched by the OS. On Windows, SDL3 measures window
+sizes in pixels (density 1.0). On macOS and Wayland they are points with density 2.0, and the
+renderer then uses the larger drawable automatically.
+
 ## Before committing
 
 1. `python tools/port/build.py`, which must build without new warnings in `port/`/`compat/`.

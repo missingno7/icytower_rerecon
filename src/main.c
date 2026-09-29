@@ -4790,19 +4790,19 @@ textout_centre_ex(swap_screen, data[52].dat, "Press any key to resume", 320, 210
 blit_to_screen(swap_screen);
 play_sound(custom.wazup, 0, 1);
 poll_control(&ctrl, 0);
-while (is_any(&ctrl) || is_pause(&ctrl)) {
+while (!closeButtonClicked && (is_any(&ctrl) || is_pause(&ctrl))) {
 poll_control(&ctrl, 0);
 rest(2);
 }
 
 clear_keybuf();
-while (!keypressed()) { if (is_any(&ctrl) || is_pause(&ctrl) || key[KEY_ESC]) break;
+while (!keypressed() && !closeButtonClicked) { if (is_any(&ctrl) || is_pause(&ctrl) || key[KEY_ESC]) break;
 poll_control(&ctrl, 0);
 rest(2);
 }
 
 poll_control(&ctrl, 0);
-while (is_pause(&ctrl) || key[KEY_ESC]) {
+while (!closeButtonClicked && (is_pause(&ctrl) || key[KEY_ESC])) {
 poll_control(&ctrl, 0);
 rest(2);
 }

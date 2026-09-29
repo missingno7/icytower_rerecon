@@ -136,7 +136,7 @@ static void wide_fill(dl_ctx *c, const xform *t, float y, float h, uint32_t rgb,
    SDL_RenderFillRect(c->r, &r);
 }
 
-static int g_canvas_w = 640;
+static int g_canvas_w = 640, g_canvas_h = 480;
 
 static void line_op(dl_ctx *c, const xform *t, const a4_dl_op *op, float a)
 {
@@ -149,6 +149,14 @@ static void line_op(dl_ctx *c, const xform *t, const a4_dl_op *op, float a)
    } else if (x1 == x2) {
       if (y2 < y1) { int k = y1; y1 = y2; y2 = k; }
       fill(c, t, (float)x1, (float)y1, 1.0f, (float)(y2 - y1 + 1), op->rgb, a);
+      if (c->extend_x && y1 <= 0 && y2 >= g_canvas_h - 1) {
+         /* full-height lines repeat with the canvas period across wide outputs,
+            so line patterns (the pause grid) continue past the 4:3 edges */
+         int k;
+         for (k = -3; k <= 3; k++)
+            if (k)
+               fill(c, t, (float)(x1 + k * g_canvas_w), (float)y1, 1.0f, (float)(y2 - y1 + 1), op->rgb, a);
+      }
    } else {
       /* Bresenham in canvas pixels (debug lines only) */
       int dx = abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
@@ -174,6 +182,7 @@ int dl_render(dl_ctx *c, const A4_DL *dl)
    if (!dl || !dl->valid)
       return 0;
    g_canvas_w = dl->w;
+   g_canvas_h = dl->h;
    t = c->t;
    t.ox += (float)dl->shift_x * t.s;
    t.oy += (float)dl->shift_y * t.s;

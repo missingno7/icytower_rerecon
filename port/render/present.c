@@ -92,6 +92,16 @@ bool present_open(int canvas_w, int canvas_h, bool fullscreen)
    }
    apply_window_mode(fullscreen);
    SDL_ShowWindow(g_win);
+   {
+      int ww = 0, wh = 0, pw = 0, ph = 0;
+      SDL_Rect db = { 0, 0, 0, 0 };
+      SDL_GetWindowSize(g_win, &ww, &wh);
+      SDL_GetWindowSizeInPixels(g_win, &pw, &ph);
+      SDL_GetDisplayBounds(SDL_GetDisplayForWindow(g_win), &db);
+      SDL_Log("window %dx%d, drawable %dx%d pixels, density %.2f, display %dx%d scale %.2f",
+              ww, wh, pw, ph, SDL_GetWindowPixelDensity(g_win), db.w, db.h,
+              SDL_GetWindowDisplayScale(g_win));
+   }
    render_on_open(g_ren);
    g_need_repaint = true;
    return true;

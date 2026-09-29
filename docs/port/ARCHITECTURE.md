@@ -268,7 +268,9 @@ All changes are platform or presentation machinery unless listed as a behaviour 
   - replay playback starts from "no input" on its first step, as `-check` does; the original
     used whatever keys were held;
   - the player struct is zero-initialised (its `angle` was heap garbage, drawing only);
-  - the first-run profile dialog exits when the window is closed.
+  - the first-run profile dialog, the pause-key pause screen and the key-redefinition prompt
+    end when the window is closed. The original ignored the close button there until a
+    key was pressed.
 
 ## Remaining legacy limitations
 

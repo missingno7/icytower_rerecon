@@ -376,12 +376,13 @@ int handle_menu(Tmenu *menu, Tmenu_params *mp, Tcontrol *ctrl, BITMAP *bmp,
                 line_alert(txt);
 
                 for (k = 0; k < 128; k++) key[k] = 0;
-                for (k = 0; !k; ) {
+                for (k = 0; !k && !closeButtonClicked; ) {
                     for (kp = 0; kp < 128; kp++) if (key[kp]) k = kp;
                     if (k == KEY_ESC) k = *(int *)data;
 
                     rest(2);
                 }
+                if (!k) k = *(int *)data;   /* window closed: keep the binding */
                 for (kp = 0; kp < 128; kp++) key[kp] = 0;
                 *(int *)data = k;
 
