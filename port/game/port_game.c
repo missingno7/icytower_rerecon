@@ -61,4 +61,4 @@ void port_wait_tick(void)
 #include "port/input/input.h"
 
 int port_touch_scheme(void) { return touch_scheme(); }
-void port_text_input(int on) { input_text_input(on != 0); }
+void port_text_input(int on, int canvas_y) { input_text_input(on != 0, canvas_y); }

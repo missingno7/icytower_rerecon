@@ -146,7 +146,7 @@ bool plat_init(int argc, char **argv)
    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");    /* back = Esc, not "close app" */
    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
-   SDL_SetAppMetadata("Icy Tower (portable)", "1.5.1-port", "io.github.icytower-rerecon.port");
+   SDL_SetAppMetadata("Icy Tower (portable)", "1.0", "io.github.icytower-rerecon.port");
    if (!SDL_Init(flags)) {
       fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
       return false;
@@ -174,6 +174,10 @@ bool plat_init(int argc, char **argv)
    add_asset_dir(arg_value(argc, argv, "--data"));
    add_asset_dir(getenv("ITOWER_DATA_DIR"));
 #ifdef SDL_PLATFORM_ANDROID
+   /* the player's own copy of the game data, in the app's external files
+      folder (reachable over USB: Android/data/<package>/files), then data
+      packaged into personal builds */
+   add_asset_dir(SDL_GetAndroidExternalStoragePath());
    android_unpack_gamedata();
 #endif
    add_asset_dir(SDL_GetBasePath());

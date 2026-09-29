@@ -266,11 +266,22 @@ void input_virtual_key(int sc, int ascii, bool down)
  * arrive as text events; key-down events keep only their key state and the
  * special keys (Enter, Backspace, Esc), so hardware keys are not doubled. */
 static bool g_text_input;
+static int g_text_y;
 
-void input_text_input(bool on)
+bool input_text_field_covered(int *canvas_y)
+{
+   SDL_Window *w = present_window();
+   if (!g_text_input || !w || !SDL_ScreenKeyboardShown(w))
+      return false;
+   *canvas_y = g_text_y;
+   return true;
+}
+
+void input_text_input(bool on, int canvas_y)
 {
 #ifdef SDL_PLATFORM_ANDROID
    SDL_Window *w = present_window();
+   g_text_y = canvas_y;
    if (on == g_text_input || !w)
       return;
    g_text_input = on;
@@ -280,6 +291,7 @@ void input_text_input(bool on)
       SDL_StopTextInput(w);
 #else
    (void)on;   /* desktop: every key already arrives as a key event */
+   (void)canvas_y;
 #endif
 }
 

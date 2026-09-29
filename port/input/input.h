@@ -35,8 +35,12 @@ void input_release_all_keys(void);
 /* a key pressed/released by a virtual device (touch remote): same path as a
  * keyboard key, including the minimum hold time and the key buffer */
 void input_virtual_key(int allegro_scancode, int ascii, bool down);
-/* soft keyboard / text input while the game reads a typed string */
-void input_text_input(bool on);
+/* soft keyboard / text input while the game reads a typed string; the
+ * field's top in 640x480 canvas coordinates lets the renderer keep it above
+ * an on-screen keyboard */
+void input_text_input(bool on, int canvas_y);
+/* true while a soft keyboard covers the screen for a field at *canvas_y */
+bool input_text_field_covered(int *canvas_y);
 
 /* ---- mouse, in legacy 640x480 canvas coordinates */
 extern volatile int input_mouse_x, input_mouse_y, input_mouse_b;

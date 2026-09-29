@@ -31,13 +31,20 @@ in `android/app/build/outputs/apk/<variant>/`.
 - **SDL's Java glue** (`org.libsdl.app.*`). It must match the native SDL exactly, so Gradle
   unpacks it from that same tarball rather than copying it into the repository. The version
   and hash are read from `cmake/FetchSDL3.cmake`.
-- **Game data.** The git-ignored `assets/` folder (or `-PgameData=DIR`) supplies `data/`,
-  `characters/` and `gamepad.txt`. They are packaged under `assets/gamedata/` with an
-  `index.txt` (a content hash, then one line per file). APKs built this way contain the
-  original game's files and are for personal use; they are never published.
+- **Game data, personal builds only.** The git-ignored `assets/` folder (or
+  `-PgameData=DIR`) supplies `data/`, `characters/` and `gamepad.txt`. They are packaged
+  under `assets/gamedata/` with an `index.txt` (a content hash, then one line per file).
+  APKs built this way contain the original game's files and are never published.
 
-On first start (and whenever the packaged data changes) `port/platform/plat_sdl.c` unpacks
-the data into the app's private storage. That copy becomes the asset root, because the game
+**Distributable builds** (`android.py --release --no-game-data`, Gradle `-PnoGameData`)
+contain no game files. The player copies the `data` and `characters` folders of their own
+Icy Tower 1.5 installation into the app's external files folder:
+`Android/data/io.github.icytowerport/files/`, which a PC can reach over USB. Without the
+data, the app shows exactly that instruction and exits.
+
+Asset roots, in order: that external folder, then packaged data. On first start (and
+whenever the packaged data changes) `port/platform/plat_sdl.c` unpacks packaged data into
+the app's private storage. That copy becomes the asset root, because the game
 reads plain files and lists directories, which APK assets cannot do. Profiles, replays,
 `tower.cfg` and `icytower-port.ini` live in the app's private files directory
 (`SDL_GetPrefPath`).
@@ -56,6 +63,8 @@ reads plain files and lists directories, which APK assets cannot do. Profiles, r
   game's own saves (after every game, and on exit), `tower.cfg` and the current profile are
   also written after creating or changing a profile and whenever a submenu such as Options
   closes (`port_save_state`).
+- **Soft keyboard.** While a name is being typed and the on-screen keyboard is up, the frame
+  is drawn lifted so the text field stays visible above the keyboard (presentation only).
 - **Short presses.** Taps and injected key events can go down and up within one event pump.
   Every press stays down for at least 30 ms, longer than one 20 ms tick, so the game's
   key-state polling sees it.

@@ -50,15 +50,17 @@ A windowed Linux build needs SDL3's usual X11/Wayland development packages. With
 
 ## Run
 
-Game data is not tracked. Point the port at an installed Icy Tower 1.5 directory (the one
-containing `data/` and `characters/`). In a working copy of this repository the installed
-game lives in the ignored `assets/` folder:
+The original game files are not part of this project. The simplest setup is to put
+`icytower.exe` into your Icy Tower 1.5 folder (the one containing `data/` and
+`characters/`) and start it from there. Alternatively, point it at that folder:
 
 ```
-icytower --data assets
+icytower --data "C:/Games/Icy Tower 1.5"
 ```
 
-`ITOWER_DATA_DIR` does the same. Alternatively, put the executable next to the data.
+`ITOWER_DATA_DIR` does the same. In a working copy of this repository the installed game
+lives in the ignored `assets/` folder (`--data assets`). If the data can't be found, the
+port says where it has to be. On Android, see [docs/port/ANDROID.md](docs/port/ANDROID.md).
 Profiles, replays, high scores, screenshots, `tower.cfg` and the port settings go to the
 per-user directory: `%APPDATA%/IcyTowerPort/IcyTower` on Windows,
 `~/.local/share/IcyTowerPort/IcyTower` on Linux; `--user-dir` overrides it.

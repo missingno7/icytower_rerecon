@@ -19,7 +19,9 @@ def sdlTar = new File(depsDir, "SDL3-${sdlVersion}.tar.gz")
 
 // Game data is never part of the repository.  Personal builds package the
 // local, git-ignored copy of an Icy Tower 1.5 installation (default: assets/;
-// override with -PgameData=DIR).
+// override with -PgameData=DIR).  Distributable builds use -PnoGameData: the
+// player copies the data into the app's external files folder instead.
+def packageGameData = !project.hasProperty('noGameData')
 def gameDir = new File((project.findProperty('gameData') ?: new File(repoRoot, 'assets').path) as String)
 
 // ABIs: phones (arm64-v8a) and the emulator (x86_64); -Pabis=x86_64 builds one
@@ -38,7 +40,7 @@ android {
         minSdk 24
         targetSdk 35
         versionCode 1
-        versionName '1.5.1-port'
+        versionName '1.0'
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_static', '-DITOWER_BUILD_TESTS=OFF',
@@ -117,9 +119,15 @@ tasks.register('sdlJava', Copy) {
 // with index.txt (content hash, then "size path" per file).  The game unpacks
 // them into private storage on first start (port/platform/plat_sdl.c).
 tasks.register('gameAssets') {
+    inputs.property('packageGameData', packageGameData)   // switching must rerun the task
     inputs.files(fileTree(gameDir) { include 'data/**', 'characters/**', 'gamepad.txt' })
     outputs.dir(genAssets)
     doLast {
+        if (!packageGameData) {
+            project.delete(genAssets)
+            logger.lifecycle('game data not packaged (-PnoGameData)')
+            return
+        }
         if (!new File(gameDir, 'data/data.dat').exists())
             throw new GradleException("Icy Tower game data not found in ${gameDir}: it needs data/ and " +
                                       "characters/ from an Icy Tower 1.5 installation (-PgameData=DIR)")

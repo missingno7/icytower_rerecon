@@ -3407,7 +3407,7 @@ if (!ply[player_id]->status) if (!ply[player_id]->status) if (!ply[player_id]->s
         }
         cx = y + 10;
         cy = x + 10; set_clip_rect(bmp, cy, 0, 623, 479);
-        char scrollerText[70];
+        char scrollerText[80];   /* port: name(31) + " - " + comment(41) + NUL = 76; was 70 */
         sprintf(scrollerText, "%s%s%s", demo->name, demo->comment[0] ? " - " : "", !demo->comment[0] ? "" : demo->comment);
         textout_ex(bmp, data[53].dat, demo->name, x + 12 - scroll_count / 2, cx + 4, makecol(150, 150, 160), -1);
         textout_ex(bmp, data[53].dat, demo->name, x + 13 - scroll_count / 2, cx + 4, makecol(200, 200, 210), -1);
@@ -4018,6 +4018,25 @@ void draw_results(BITMAP *bmp, BITMAP *logo, int y, int *qualified,
         }
         pos += padding;
     }
+}
+
+/* port: the best-replay file names are built in 32-byte profile slots
+ * (Tprofile.best_replay_names[32][32]).  The original sprintf'd "<handle>_best_..."
+ * straight into the slot: a long profile name overflowed into the next record's
+ * name (and fortified C libraries abort there, e.g. on Android).  Shorten the
+ * handle part instead, so the name fits and keeps its ".itr" suffix; names that
+ * fit are unchanged. */
+static void port_best_replay_name(char *dst, const char *handle, const char *fmt, ...)
+{
+    char tail[64];
+    int keep;
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(tail, sizeof(tail), fmt, ap);
+    va_end(ap);
+    keep = 31 - (int)strlen(tail);
+    if (keep < 0) keep = 0;
+    snprintf(dst, 32, "%.*s%s", keep, handle, tail);
 }
 
 int play(void)
@@ -5168,7 +5187,7 @@ if (!is_playing_custom_game) {
 if (profile->best_floor < demo->floor) {
 profile->best_floor = demo->floor;
 myDeleteFile(replay_directory, profile->best_replay_names[2]);
-sprintf(profile->best_replay_names[2], "%s_best_floor_%d.itr", profile->handle, demo->floor);
+port_best_replay_name(profile->best_replay_names[2], profile->handle, "_best_floor_%d.itr", demo->floor);
 save_replay(replay_directory, profile->best_replay_names[2], demo, rec_pos + 2, 1);
 new_personal_best[2] = 1;
 }
@@ -5176,7 +5195,7 @@ new_personal_best[2] = 1;
 if (profile->best_combo < demo->combo) {
 profile->best_combo = demo->combo;
 myDeleteFile(replay_directory, profile->best_replay_names[1]);
-sprintf(profile->best_replay_names[1], "%s_best_combo_%d.itr", profile->handle, demo->combo);
+port_best_replay_name(profile->best_replay_names[1], profile->handle, "_best_combo_%d.itr", demo->combo);
 save_replay(replay_directory, profile->best_replay_names[1], demo, rec_pos + 2, 1);
 new_personal_best[1] = 1;
 }
@@ -5184,7 +5203,7 @@ new_personal_best[1] = 1;
 if (profile->best_score < demo->score) {
 profile->best_score = demo->score;
 myDeleteFile(replay_directory, profile->best_replay_names[0]);
-sprintf(profile->best_replay_names[0], "%s_best_score_%d.itr", profile->handle, demo->score);
+port_best_replay_name(profile->best_replay_names[0], profile->handle, "_best_score_%d.itr", demo->score);
 save_replay(replay_directory, profile->best_replay_names[0], demo, rec_pos + 2, 1);
 new_personal_best[0] = 1;
 }
@@ -5192,7 +5211,7 @@ new_personal_best[0] = 1;
 if (profile->no_combo_top_floor < ply[player_id]->no_combo_top_floor) {
 profile->no_combo_top_floor = ply[player_id]->no_combo_top_floor;
 myDeleteFile(replay_directory, profile->best_replay_names[4]);
-sprintf(profile->best_replay_names[4], "%s_best_no_combo_%d.itr", profile->handle, demo->no_combo_top_floor);
+port_best_replay_name(profile->best_replay_names[4], profile->handle, "_best_no_combo_%d.itr", demo->no_combo_top_floor);
 save_replay(replay_directory, profile->best_replay_names[4], demo, rec_pos + 2, 1);
 new_personal_best[4] = 1;
 }
@@ -5200,7 +5219,7 @@ new_personal_best[4] = 1;
 if (profile->biggest_lost_combo < ply[player_id]->biggest_lost_combo) {
 profile->biggest_lost_combo = ply[player_id]->biggest_lost_combo;
 myDeleteFile(replay_directory, profile->best_replay_names[3]);
-sprintf(profile->best_replay_names[3], "%s_best_lost_combo_%d.itr", profile->handle, demo->biggest_lost_combo);
+port_best_replay_name(profile->best_replay_names[3], profile->handle, "_best_lost_combo_%d.itr", demo->biggest_lost_combo);
 save_replay(replay_directory, profile->best_replay_names[3], demo, rec_pos + 2, 1);
 new_personal_best[3] = 1;
 }
@@ -5209,7 +5228,7 @@ for (i = 1; i < 6; i++) {
 if (profile->ccc[i - 1] < ply[player_id]->ccc[i - 1]) {
 profile->ccc[i - 1] = ply[player_id]->ccc[i - 1];
 myDeleteFile(replay_directory, profile->best_replay_names[4 + i]);
-sprintf(profile->best_replay_names[4 + i], "%s_best_cc%d_%d.itr", profile->handle, i, ply[player_id]->ccc[i - 1]);
+port_best_replay_name(profile->best_replay_names[4 + i], profile->handle, "_best_cc%d_%d.itr", i, ply[player_id]->ccc[i - 1]);
 save_replay(replay_directory, profile->best_replay_names[4 + i], demo, rec_pos + 2, 1);
 new_personal_best[4 + i] = 1;
 }
@@ -5219,7 +5238,7 @@ for (i = 1; i < 6; i++) {
 if (profile->jc[i - 1] < ply[player_id]->jcTop[i - 1]) {
 profile->jc[i - 1] = ply[player_id]->jcTop[i - 1];
 myDeleteFile(replay_directory, profile->best_replay_names[9 + i]);
-sprintf(profile->best_replay_names[9 + i], "%s_best_jj%d_%d.itr", profile->handle, i, ply[player_id]->jcTop[i - 1]);
+port_best_replay_name(profile->best_replay_names[9 + i], profile->handle, "_best_jj%d_%d.itr", i, ply[player_id]->jcTop[i - 1]);
 save_replay(replay_directory, profile->best_replay_names[9 + i], demo, rec_pos + 2, 1);
 new_personal_best[9 + i] = 1;
 }
@@ -6018,9 +6037,12 @@ static int get_string_body(BITMAP *bmp, char *string, int w, int max_chars, FONT
         port_wait_tick();
     }
 
-
+    /* port: closing the window cancels the input, like Esc; the original
+       returned the half-typed string (cursor character included) as if
+       Enter had been pressed, creating a profile named "_" at first start */
+    string[i] = 0;
     destroy_bitmap(block);
-    return 0;
+    return -1;
 }
 
 /* port: the platform text input (phones: the soft keyboard) is on while a
@@ -6029,9 +6051,9 @@ int get_string(BITMAP *bmp, char *string, int w, int max_chars, FONT *f,
                int pos_x, int pos_y, int colour, int bg_color)
 {
     int r;
-    port_text_input(1);
+    port_text_input(1, pos_y);
     r = get_string_body(bmp, string, w, max_chars, f, pos_x, pos_y, colour, bg_color);
-    port_text_input(0);
+    port_text_input(0, pos_y);
     return r;
 }
 

@@ -73,12 +73,55 @@ static void attach_console_if_checking(int argc, char **argv)
 #endif
 }
 
+/* The original game files are not part of the port.  Say plainly where they
+ * must be when they cannot be found, instead of the game's generic error. */
+static bool checking(int argc, char **argv)
+{
+   int i;
+   for (i = 1; i < argc; i++)
+      if (!SDL_strcasecmp(argv[i], "-check"))
+         return true;
+   return false;
+}
+
+static bool game_data_present(void)
+{
+   char path[2048];
+   char msg[3072];
+   /* (resolve_read falls back to the user folder, so check the file exists) */
+   if (plat_resolve_read("data/data.dat", path, sizeof(path)) && SDL_GetPathInfo(path, NULL) &&
+       plat_resolve_read("data/loading.dat", path, sizeof(path)) && SDL_GetPathInfo(path, NULL))
+      return true;
+#ifdef SDL_PLATFORM_ANDROID
+   SDL_snprintf(msg, sizeof(msg),
+                "The Icy Tower game data was not found.\n\n"
+                "Copy the folders \"data\" and \"characters\" from your Icy Tower 1.5 "
+                "installation into:\n%s\n\n"
+                "From a PC over USB: Internal storage > Android > data > "
+                "io.github.icytowerport > files",
+                SDL_GetAndroidExternalStoragePath() ? SDL_GetAndroidExternalStoragePath() : "?");
+#else
+   SDL_snprintf(msg, sizeof(msg),
+                "The Icy Tower game data was not found.\n\n"
+                "Put this program into your Icy Tower 1.5 folder (the one that contains "
+                "the \"data\" and \"characters\" folders), or start it with\n"
+                "  --data \"<your Icy Tower folder>\"");
+#endif
+   plat_message_box("Icy Tower", msg);
+   return false;
+}
+
 int main(int argc, char **argv)
 {
    int ret;
    attach_console_if_checking(argc, argv);
    if (!plat_init(argc, argv))
       return 1;
+   /* the headless replay checker (-check) never loads the game data */
+   if (!checking(argc, argv) && !game_data_present()) {
+      plat_shutdown();
+      return 1;
+   }
    port_config_load(argc, argv);
    capture_configure(argc, argv);
    {

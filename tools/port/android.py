@@ -69,6 +69,8 @@ def main():
     ap.add_argument('--release', action='store_true')
     ap.add_argument('--abis', default=None, help='comma list, e.g. x86_64 or arm64-v8a')
     ap.add_argument('--game-data', default=None)
+    ap.add_argument('--no-game-data', action='store_true',
+                    help='distributable APK without the original game files')
     ap.add_argument('--no-build', action='store_true')
     ap.add_argument('--install', action='store_true')
     ap.add_argument('--run', action='store_true')
@@ -91,6 +93,8 @@ def main():
             cmd.append(f'-Pabis={a.abis}')
         if a.game_data:
             cmd.append(f'-PgameData={Path(a.game_data).resolve()}')
+        if a.no_game_data:
+            cmd.append('-PnoGameData')
         subprocess.run(cmd, cwd=ANDROID, env=env, check=True)
     apk = ANDROID / 'app' / 'build' / 'outputs' / 'apk' / variant.lower() / f'app-{variant.lower()}.apk'
     print('apk:', apk)
