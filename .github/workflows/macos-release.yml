@@ -58,7 +58,12 @@ jobs:
       - name: Replay determinism (x86_64 under Rosetta)
         run: |
           if arch -x86_64 /usr/bin/true 2>/dev/null; then
-            arch -x86_64 ./build/mac/test_x87
+            # Rosetta 2 translates x87 instructions but not bit-exactly (some
+            # divisions round differently in the last bit), so test_x87 cannot
+            # use the "native" FPU as its reference here; it checks the
+            # emulator against the vectors recorded on real x87 hardware.
+            # The game itself never uses x87 hardware (port/sim/x87.h).
+            arch -x86_64 ./build/mac/test_x87 --no-native
             python3 tools/port/ci_replay_check.py build/mac/icytower --jobs 3 --prefix "arch -x86_64"
           else
             echo "Rosetta not available on this runner: x86_64 slice not executed"
